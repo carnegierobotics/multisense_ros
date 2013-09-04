@@ -39,24 +39,12 @@ class Channel {
 public:
 
     //
-    // Defines the default local(rx) and remote(tx) UDP ports.
-
-    static const int32_t DEFAULT_RX_PORT = 10000;
-    static const int32_t DEFAULT_TX_PORT = 9001;
-
-    //
     // Create an instance
-    //
-    // If communicating with multiple sensors, use a different local (rx)
-    // port for each one.  The sensor will automatically direct responses 
-    // to this port.
     //
     // 'sensorAddress' can be a dotted-quad, or any hostname 
     // resolvable by gethostbyname().
 
-    static Channel* Create(const std::string& sensorAddress,
-                           int32_t            rxUdpPort=DEFAULT_RX_PORT,
-                           int32_t            txUdpPort=DEFAULT_TX_PORT);
+    static Channel* Create(const std::string& sensorAddress);
 
     //
     // Destroy an instance
@@ -87,6 +75,10 @@ public:
     //
     //    Mutliple callbacks of differing types may be added in order 
     //    to isolate image processing by thread.
+    //
+    // For PPS events:
+    //
+    //    The queue depth is limited to 1 event. 
 
     virtual Status addIsolatedCallback(image::Callback callback, 
                                        DataSource      imageSourceMask,
@@ -95,11 +87,15 @@ public:
     virtual Status addIsolatedCallback(lidar::Callback callback,
                                        void           *userDataP=NULL) = 0;
 
+    virtual Status addIsolatedCallback(pps::Callback callback,
+                                       void         *userDataP=NULL) = 0;
+
     //
     // Callback deregistration
 
     virtual Status removeIsolatedCallback(image::Callback callback) = 0;
     virtual Status removeIsolatedCallback(lidar::Callback callback) = 0;
+    virtual Status removeIsolatedCallback(pps::Callback callback) = 0;
 
     //
     // Callback buffer reservation.
@@ -134,11 +130,29 @@ public:
     virtual Status      releaseHistogram(int64_t frameId) = 0;
 
     //
+    // Enable or disable local network-based time synchronization.
+    //
+    // Each Channel will keep a continuously updating and filtered offset between 
+    // the sensor's internal clock and the local system clock.
+    //
+    // If enabled, all sensor timestamps will be reported in the local system
+    // clock frame, after the offset has been applied.
+    //
+    // If disabled, all sensor timestamps will be reported in the frame of the
+    // sensor's clock, which is free-running from 0 seconds on power up.
+    //
+    // The network-based time synchronization is enabled by default.
+
+    virtual Status networkTimeSynchronization(bool enabled) = 0;
+
+    //
     // Control/query
 
     virtual Status startStreams        (DataSource mask)                    = 0;
     virtual Status stopStreams         (DataSource mask)                    = 0;
     virtual Status getEnabledStreams   (DataSource& mask)                   = 0;
+
+    virtual Status setTriggerSource    (TriggerSource s)                    = 0;
 
     virtual Status setMotorSpeed       (float rpm)                          = 0;
 

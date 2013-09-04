@@ -49,18 +49,18 @@ const DataSource allImageSources = (Source_Luma_Left            |
 //
 // Shims for C-style driver callbacks 
 
-void monoCB(const image::Header& header, const void* imageDataP, void* userDataP)
-{ reinterpret_cast<Camera*>(userDataP)->monoCallback(header, imageDataP); }
-void rectCB(const image::Header& header, const void* imageDataP, void* userDataP)
-{ reinterpret_cast<Camera*>(userDataP)->rectCallback(header, imageDataP); }
-void depthCB(const image::Header& header, const void* imageDataP, void* userDataP)
-{ reinterpret_cast<Camera*>(userDataP)->depthCallback(header, imageDataP); }
-void pointCB(const image::Header& header, const void* imageDataP, void* userDataP)
-{ reinterpret_cast<Camera*>(userDataP)->pointCloudCallback(header, imageDataP); }
-void rawCB(const image::Header& header, const void* imageDataP, void* userDataP)
-{ reinterpret_cast<Camera*>(userDataP)->rawCamDataCallback(header, imageDataP); }
-void colorCB(const image::Header& header, const void* imageDataP, void* userDataP)
-{ reinterpret_cast<Camera*>(userDataP)->colorImageCallback(header, imageDataP); }
+void monoCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->monoCallback(header); }
+void rectCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->rectCallback(header); }
+void depthCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->depthCallback(header); }
+void pointCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->pointCloudCallback(header); }
+void rawCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->rawCamDataCallback(header); }
+void colorCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->colorImageCallback(header); }
 
 bool isValidPoint(const cv::Vec3f& pt)
 {
@@ -258,6 +258,12 @@ Camera::Camera(Channel* driver) :
 Camera::~Camera()
 {
     stop();
+    driver_->removeIsolatedCallback(monoCB);
+    driver_->removeIsolatedCallback(rectCB);
+    driver_->removeIsolatedCallback(depthCB);
+    driver_->removeIsolatedCallback(pointCB);
+    driver_->removeIsolatedCallback(rawCB);
+    driver_->removeIsolatedCallback(colorCB);
 }
 
 //
@@ -266,8 +272,7 @@ Camera::~Camera()
 //       to avoid this copy?
 //
 
-void Camera::monoCallback(const image::Header& header,
-                          const void*          imageDataP)
+void Camera::monoCallback(const image::Header& header)
 {    
     if (Source_Luma_Left  != header.source &&
         Source_Luma_Right != header.source) {
@@ -285,7 +290,7 @@ void Camera::monoCallback(const image::Header& header,
     case Source_Luma_Left:
 
         left_mono_image_.data.resize(imageSize);
-        memcpy(&left_mono_image_.data[0], imageDataP, imageSize);
+        memcpy(&left_mono_image_.data[0], header.imageDataP, imageSize);
 
         left_mono_image_.header.frame_id = frame_id_;
         left_mono_image_.header.stamp    = t;
@@ -304,7 +309,7 @@ void Camera::monoCallback(const image::Header& header,
     case Source_Luma_Right:
 
         right_mono_image_.data.resize(imageSize);
-        memcpy(&right_mono_image_.data[0], imageDataP, imageSize);
+        memcpy(&right_mono_image_.data[0], header.imageDataP, imageSize);
 
         right_mono_image_.header.frame_id = frame_id_;
         right_mono_image_.header.stamp    = t;
@@ -323,8 +328,7 @@ void Camera::monoCallback(const image::Header& header,
     }
 }
 
-void Camera::rectCallback(const image::Header& header,
-                          const void*          imageDataP)
+    void Camera::rectCallback(const image::Header& header)
 {    
     if (Source_Luma_Rectified_Left  != header.source &&
         Source_Luma_Rectified_Right != header.source) {
@@ -342,7 +346,7 @@ void Camera::rectCallback(const image::Header& header,
     case Source_Luma_Rectified_Left:
 
         left_rect_image_.data.resize(imageSize);
-        memcpy(&left_rect_image_.data[0], imageDataP, imageSize);
+        memcpy(&left_rect_image_.data[0], header.imageDataP, imageSize);
 
         left_rect_image_.header.frame_id = frame_id_;
         left_rect_image_.header.stamp    = t;
@@ -365,7 +369,7 @@ void Camera::rectCallback(const image::Header& header,
     case Source_Luma_Rectified_Right:
 
         right_rect_image_.data.resize(imageSize);
-        memcpy(&right_rect_image_.data[0], imageDataP, imageSize);
+        memcpy(&right_rect_image_.data[0], header.imageDataP, imageSize);
 
         right_rect_image_.header.frame_id = frame_id_;
         right_rect_image_.header.stamp    = t;
@@ -386,8 +390,7 @@ void Camera::rectCallback(const image::Header& header,
     }
 }
 
-void Camera::depthCallback(const image::Header& header,
-                           const void*          imageDataP)
+void Camera::depthCallback(const image::Header& header)
 {
     if (Source_Disparity != header.source) {
      
@@ -426,7 +429,7 @@ void Camera::depthCallback(const image::Header& header,
     if (32 == header.bitsPerPixel) {
 
         cv::Mat_<float> disparity(header.height, header.width, 
-                                  const_cast<float*>(reinterpret_cast<const float*>(imageDataP)));
+                                  const_cast<float*>(reinterpret_cast<const float*>(header.imageDataP)));
         
         //
         // Depth = focal_length*baseline/disparity
@@ -437,7 +440,7 @@ void Camera::depthCallback(const image::Header& header,
         //
         // Mark all 0 disparity points as NaNs
 
-        const float *disparityImageP = reinterpret_cast<const float*>(imageDataP);
+        const float *disparityImageP = reinterpret_cast<const float*>(header.imageDataP);
 
         for(uint32_t i=0; i<imageSize; ++i)
             if (0.0 == disparityImageP[i])
@@ -449,7 +452,7 @@ void Camera::depthCallback(const image::Header& header,
     } else if (16 == header.bitsPerPixel) {
 
         cv::Mat_<uint16_t> disparity(header.height, header.width, 
-                                     const_cast<uint16_t*>(reinterpret_cast<const uint16_t*>(imageDataP)));
+                                     const_cast<uint16_t*>(reinterpret_cast<const uint16_t*>(header.imageDataP)));
         
         //
         // Depth = focal_length*baseline/disparity
@@ -460,7 +463,7 @@ void Camera::depthCallback(const image::Header& header,
         //
         // Mark all 0 disparity points as NaNs
 
-        const uint16_t *disparityImageP = reinterpret_cast<const uint16_t*>(imageDataP);
+        const uint16_t *disparityImageP = reinterpret_cast<const uint16_t*>(header.imageDataP);
 
         for(uint32_t i=0; i<imageSize; ++i)
             if (0 == disparityImageP[i])
@@ -474,8 +477,7 @@ void Camera::depthCallback(const image::Header& header,
     depth_cam_pub_.publish(depth_image_, left_rect_cam_info_);
 }
 
-void Camera::pointCloudCallback(const image::Header& header,
-                                const void*          imageDataP)
+void Camera::pointCloudCallback(const image::Header& header)
 {    
     if (Source_Disparity != header.source) {
      
@@ -524,7 +526,7 @@ void Camera::pointCloudCallback(const image::Header& header,
     if (32 == header.bitsPerPixel) {
 
         cv::Mat_<float> disparity(header.height, header.width, 
-                                  const_cast<float*>(reinterpret_cast<const float*>(imageDataP)));
+                                  const_cast<float*>(reinterpret_cast<const float*>(header.imageDataP)));
         
         cv::reprojectImageTo3D(disparity, points, model_.reprojectionMatrix(), 
                                handle_missing);
@@ -534,7 +536,7 @@ void Camera::pointCloudCallback(const image::Header& header,
     } else if (16 == header.bitsPerPixel) {
 
         cv::Mat_<uint16_t> disparityOrigP(header.height, header.width, 
-                                          const_cast<uint16_t*>(reinterpret_cast<const uint16_t*>(imageDataP)));
+                                          const_cast<uint16_t*>(reinterpret_cast<const uint16_t*>(header.imageDataP)));
         cv::Mat_<float>   disparity(header.height, header.width, &(disparity_buff_[0]));
         disparity = disparityOrigP / 16.0f;
 
@@ -607,8 +609,7 @@ void Camera::pointCloudCallback(const image::Header& header,
     point_cloud_pub_.publish(point_cloud_);
 }
 
-void Camera::rawCamDataCallback(const image::Header& header,
-                                const void*          imageDataP)
+void Camera::rawCamDataCallback(const image::Header& header)
 {
     if (0 == raw_cam_data_pub_.getNumSubscribers()) {
         got_raw_cam_left_ = false;
@@ -627,7 +628,7 @@ void Camera::rawCamDataCallback(const image::Header& header,
 
             raw_cam_data_.gray_scale_image.resize(imageSize);
             memcpy(&(raw_cam_data_.gray_scale_image[0]), 
-                   imageDataP,
+                   header.imageDataP,
                    imageSize * sizeof(uint8_t));
 
             raw_cam_data_.frames_per_second = header.framesPerSecond;
@@ -650,7 +651,7 @@ void Camera::rawCamDataCallback(const image::Header& header,
 
             raw_cam_data_.disparity_image.resize(imageSize);
             memcpy(&(raw_cam_data_.disparity_image[0]), 
-                   imageDataP, imageSize * sizeof(uint16_t));
+                   header.imageDataP, imageSize * sizeof(uint16_t));
 
             raw_cam_data_pub_.publish(raw_cam_data_);
         }
@@ -659,8 +660,7 @@ void Camera::rawCamDataCallback(const image::Header& header,
     }
 }
 
-void Camera::colorImageCallback(const image::Header& header,
-                                const void*          imageDataP)
+void Camera::colorImageCallback(const image::Header& header)
 {
     if (0 == left_rgb_cam_pub_.getNumSubscribers() &&
         0 == left_rgb_rect_cam_pub_.getNumSubscribers()) {
@@ -685,7 +685,7 @@ void Camera::colorImageCallback(const image::Header& header,
             const uint32_t imageSize = header.width * header.height;
 
             left_luma_image_.data.resize(imageSize);
-            memcpy(&left_luma_image_.data[0], imageDataP, imageSize);
+            memcpy(&left_luma_image_.data[0], header.imageDataP, imageSize);
 
             left_luma_image_.height = header.height;
             left_luma_image_.width  = header.width;
@@ -712,14 +712,14 @@ void Camera::colorImageCallback(const image::Header& header,
              
             left_rgb_image_.encoding        = "rgb8";
             left_rgb_image_.is_bigendian    = false;
-            left_rgb_image_.step            = width;
+            left_rgb_image_.step            = 3 * width;
 
             //
             // Convert YCbCr 4:2:0 to RGB
             // TODO: speed this up
 
             const uint8_t *lumaP     = reinterpret_cast<const uint8_t*>(&(left_luma_image_.data[0]));
-            const uint8_t *chromaP   = reinterpret_cast<const uint8_t*>(imageDataP);
+            const uint8_t *chromaP   = reinterpret_cast<const uint8_t*>(header.imageDataP);
             uint8_t       *rgbP      = reinterpret_cast<uint8_t*>(&(left_rgb_image_.data[0]));
             const uint32_t rgbStride = width * 3;
 
@@ -791,7 +791,7 @@ void Camera::colorImageCallback(const image::Header& header,
                     
                     left_rgb_rect_image_.encoding        = "rgb8";
                     left_rgb_rect_image_.is_bigendian    = false;
-                    left_rgb_rect_image_.step            = width;
+                    left_rgb_rect_image_.step            = 3 * width;
                     
                     left_rgb_rect_cam_info_.header = left_rgb_rect_image_.header;
                     
@@ -996,8 +996,9 @@ void Camera::disconnectStream(DataSource disableMask)
 
 //
 // The dynamic reconfigure callback
-// TODO: the lighting and motor-speed controls are lumped in here, move this 
-//       entire interface into its own module.
+//
+// TODO: the lighting, motor-speed, and time-sync controls are lumped in here, 
+//       move this entire interface into its own module.
 
 void Camera::configureCallback(multisense_ros::CameraConfig & config, uint32_t level)
 {
@@ -1138,6 +1139,20 @@ void Camera::configureCallback(multisense_ros::CameraConfig & config, uint32_t l
     status = driver_->setMotorSpeed(radiansPerSecondToRpm * config.motor_speed);
     if (Status_Ok != status)
         ROS_ERROR("Failed to set motor speed. Error code %d", status);
+
+    //
+    // Enable/disable network-based time synchronization.
+    // 
+    // If enabled, sensor timestamps will be reported in the local
+    // system clock's frame, using a continuously updated offset from
+    // the sensor's internal clock.
+    //
+    // If disabled, sensor timestamps will be reported in the sensor
+    // clock's frame, which is free-running from zero on power up.
+    //
+    // Enabled by default.
+
+    driver_->networkTimeSynchronization(config.network_time_sync);
 }
 
 } // namespace

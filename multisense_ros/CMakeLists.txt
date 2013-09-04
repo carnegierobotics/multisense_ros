@@ -28,7 +28,8 @@ rosbuild_gensrv()
 #common commands for building c++ executables and libraries
 rosbuild_add_library(${PROJECT_NAME} src/laser.cpp
 				     src/camera.cpp
-				     src/state_publisher.cpp)
+				     src/state_publisher.cpp
+                                     src/pps.cpp)
 
 rosbuild_add_boost_directories()
 #rosbuild_link_boost(${PROJECT_NAME} thread)

@@ -57,7 +57,82 @@ class impl : public Channel {
 public:
 
     //
-    // A handler prototype for custom/special UDP datagram reassembly
+    // Construction
+
+    impl(const std::string& address);
+    ~impl();
+
+    //
+    // Public API
+
+    virtual Status addIsolatedCallback   (image::Callback callback,
+                                          DataSource      imageSourceMask,
+                                          void           *userDataP);
+    virtual Status addIsolatedCallback   (lidar::Callback callback,
+                                          void           *userDataP);
+    virtual Status addIsolatedCallback   (pps::Callback   callback,
+                                          void           *userDataP);
+
+    virtual Status removeIsolatedCallback(image::Callback callback);
+    virtual Status removeIsolatedCallback(lidar::Callback callback);
+    virtual Status removeIsolatedCallback(pps::Callback   callback);
+
+    virtual Status networkTimeSynchronization(bool enabled);
+
+    virtual Status startStreams          (DataSource mask);
+    virtual Status stopStreams           (DataSource mask);
+    virtual Status getEnabledStreams     (DataSource& mask);
+
+    virtual Status setTriggerSource      (TriggerSource s);
+
+    virtual Status setMotorSpeed         (float rpm);
+
+    virtual Status getLightingConfig     (lighting::Config& c);
+    virtual Status setLightingConfig     (const lighting::Config& c);
+
+    virtual Status getSensorVersion      (VersionType& version);
+    virtual Status getApiVersion         (VersionType& version);
+    virtual Status getVersionInfo        (system::VersionInfo& v);
+
+    virtual Status getImageConfig        (image::Config& c);
+    virtual Status setImageConfig        (const image::Config& c);
+
+    virtual Status getImageCalibration   (image::Calibration& c);
+    virtual Status setImageCalibration   (const image::Calibration& c);
+
+    virtual Status getLidarCalibration   (lidar::Calibration& c);
+    virtual Status setLidarCalibration   (const lidar::Calibration& c);
+
+    virtual Status getDeviceModes        (std::vector<system::DeviceMode>& modes);
+
+    virtual Status getMtu                (int32_t& mtu);
+    virtual Status setMtu                (int32_t mtu);
+
+    virtual Status getNetworkConfig      (system::NetworkConfig& c);
+    virtual Status setNetworkConfig      (const system::NetworkConfig& c);
+
+    virtual Status getDeviceInfo         (system::DeviceInfo& info);
+    virtual Status setDeviceInfo         (const std::string& key,
+                                          const system::DeviceInfo& i);
+
+    virtual Status flashBitstream        (const std::string& file);
+    virtual Status flashFirmware         (const std::string& file);
+
+    virtual Status verifyBitstream       (const std::string& file);
+    virtual Status verifyFirmware        (const std::string& file);
+
+    virtual void*  reserveCallbackBuffer ();
+    virtual Status releaseCallbackBuffer (void *referenceP);
+
+    virtual const uint32_t *getHistogram (int64_t   frameId,
+                                          uint32_t& channels,
+                                          uint32_t& bins);
+    virtual Status     releaseHistogram  (int64_t frameId);
+
+private:
+
+    //
+    // A handler prototype for custom UDP datagram reassembly
 
     typedef void (*UdpAssembler)(utility::BufferStreamWriter& stream,
                                  const uint8_t               *dataP,
@@ -65,84 +140,15 @@ public:
                                  uint32_t                     length);
 
     //
-    // Public API
-
-    virtual Status addIsolatedCallback  (image::Callback callback,
-					 DataSource      imageSourceMask,
-					 void           *userDataP);
-    virtual Status addIsolatedCallback  (lidar::Callback callback,
-					 void           *userDataP);
-
-    virtual Status removeIsolatedCallback(image::Callback callback);
-    virtual Status removeIsolatedCallback(lidar::Callback callback);
-
-    virtual Status startStreams         (DataSource mask);
-    virtual Status stopStreams          (DataSource mask);
-    virtual Status getEnabledStreams    (DataSource& mask);
-
-    virtual Status setMotorSpeed        (float rpm);
-
-    virtual Status getLightingConfig    (lighting::Config& c);
-    virtual Status setLightingConfig    (const lighting::Config& c);
-
-    virtual Status getSensorVersion     (VersionType& version);
-    virtual Status getApiVersion        (VersionType& version);
-    virtual Status getVersionInfo       (system::VersionInfo& v);
-
-    virtual Status getImageConfig       (image::Config& c);
-    virtual Status setImageConfig       (const image::Config& c);
-
-    virtual Status getImageCalibration  (image::Calibration& c);
-    virtual Status setImageCalibration  (const image::Calibration& c);
-
-    virtual Status getLidarCalibration  (lidar::Calibration& c);
-    virtual Status setLidarCalibration  (const lidar::Calibration& c);
-
-    virtual Status getDeviceModes       (std::vector<system::DeviceMode>& modes);
-
-    virtual Status getMtu               (int32_t& mtu);
-    virtual Status setMtu               (int32_t mtu);
-
-    virtual Status getNetworkConfig     (system::NetworkConfig& c);
-    virtual Status setNetworkConfig     (const system::NetworkConfig& c);
-
-    virtual Status getDeviceInfo        (system::DeviceInfo& info);
-    virtual Status setDeviceInfo        (const std::string& key,
-                                         const system::DeviceInfo& i);
-
-    virtual Status flashBitstream       (const std::string& file);
-    virtual Status flashFirmware        (const std::string& file);
-
-    virtual Status verifyBitstream      (const std::string& file);
-    virtual Status verifyFirmware       (const std::string& file);
-
-    virtual void*  reserveCallbackBuffer();
-    virtual Status releaseCallbackBuffer(void *referenceP);
-
-    virtual const uint32_t *getHistogram(int64_t   frameId,
-                                         uint32_t& channels,
-                                         uint32_t& bins);
-    virtual Status     releaseHistogram  (int64_t frameId);
-
-    //
-    // Construction
-
-    impl(const std::string& address,
-         int32_t            rxUdpPort,
-         int32_t            txUdpPort);
-    ~impl();
-
-private:
-
-    //
     // The version of this API
 
-    static const VersionType API_VERSION = 0x0200; // 2.0
+    static const VersionType API_VERSION = 0x0201; // 2.1
 
     //
     // Misc. internal constants
 
     static const uint32_t MAX_MTU_SIZE               = 9000;
+    static const uint16_t DEFAULT_SENSOR_TX_PORT     = 9001;
     static const uint32_t RX_POOL_LARGE_BUFFER_SIZE  = (5 * (1024 * 1024));
     static const uint32_t RX_POOL_LARGE_BUFFER_COUNT = 50;
     static const uint32_t RX_POOL_SMALL_BUFFER_SIZE  = (10 * (1024));
@@ -163,6 +169,7 @@ private:
 
     static const uint32_t MAX_USER_IMAGE_QUEUE_SIZE = 5;
     static const uint32_t MAX_USER_LASER_QUEUE_SIZE = 10;
+    static const uint32_t MAX_USER_PPS_QUEUE_SIZE   = 1;
 
     //
     // A class for re-assembling UDP packets
@@ -189,11 +196,9 @@ private:
     int32_t m_serverSocket;
 
     //
-    // The address/port of the sensor
+    // The address of the sensor
 
     struct sockaddr_in m_sensorAddress;
-    int32_t            m_rxPort;
-    int32_t            m_txPort;
     
     //
     // The operating MTU of the sensor
@@ -267,6 +272,7 @@ private:
 
     std::list<ImageListener*> m_imageListeners;
     std::list<LidarListener*> m_lidarListeners;
+    std::list<PpsListener*>   m_ppsListeners;
 
     //
     // A message signal interface
@@ -289,66 +295,61 @@ private:
     utility::Mutex m_timeLock;
     bool           m_timeOffsetInit;
     double         m_timeOffset;
+    bool           m_networkTimeSyncEnabled;
 
     //
     // Private procedures
 
-    template<class T, class U> 
-    Status waitData(const T&      command,
-                    U&            data,
-                    const double& timeout=double(DEFAULT_ACK_TIMEOUT),
-                    int32_t       attempts=DEFAULT_ACK_ATTEMPTS);
-    template<class T> 
-    Status waitAck(const T&      msg,
-                   wire::IdType  id=MSG_ID(T::ID),
-                   const double& timeout=double(DEFAULT_ACK_TIMEOUT),
-                   int32_t       attempts=DEFAULT_ACK_ATTEMPTS);
-    template<class T> 
-    void publish(const T& message);
+    template<class T, class U> Status waitData(const T&      command,
+                                               U&            data,
+                                               const double& timeout=double(DEFAULT_ACK_TIMEOUT),
+                                               int32_t       attempts=DEFAULT_ACK_ATTEMPTS);
+    template<class T> Status          waitAck (const T&      msg,
+                                               wire::IdType  id=MSG_ID(T::ID),
+                                               const double& timeout=double(DEFAULT_ACK_TIMEOUT),
+                                               int32_t       attempts=DEFAULT_ACK_ATTEMPTS);
+    
+    template<class T> void       publish      (const T& message); 
+    void                         publish      (const utility::BufferStreamWriter& stream);
+    void                         dispatch     (utility::BufferStreamWriter& buffer);
+    void                         dispatchImage(utility::BufferStream& buffer,
+                                               image::Header&         header);
+    void                         dispatchLidar(utility::BufferStream& buffer,
+                                               lidar::Header&         header);
+    void                         dispatchPps  (utility::BufferStream& buffer,
+                                               pps::Header&           header);
 
-    void publish(const utility::BufferStreamWriter& stream);
-    void dispatch(utility::BufferStreamWriter& buffer);
-    void dispatchImage(utility::BufferStream& buffer,
-                       image::Header&         header,
-                       void                  *imageP);
-    void dispatchLaser(utility::BufferStream& buffer,
-                       lidar::Header&         header,
-                       lidar::RangeType      *rangesP,
-                       lidar::IntensityType  *intensitiesP);
-    void bind();
-    void handle();
 
-    utility::BufferStreamWriter& findFreeBuffer(uint32_t messageLength);
+    utility::BufferStreamWriter& findFreeBuffer  (uint32_t messageLength);
+    const int64_t&               unwrapSequenceId(uint16_t id);
+    UdpAssembler                 getUdpAssembler (const uint8_t *udpDatagramP,
+                                                  uint32_t       length);
 
-    const int64_t& unwrapSequenceId(uint16_t id);
+    void                         eraseFlashRegion          (uint32_t region);
+    void                         programOrVerifyFlashRegion(std::ifstream& file,
+                                                            uint32_t       operation,
+                                                            uint32_t       region);
+    Status                       doFlashOp                 (const std::string& filename,
+                                                            uint32_t           operation,
+                                                            uint32_t           region);
 
-    UdpAssembler getUdpAssembler(const uint8_t *udpDatagramP,
-                                 uint32_t       length);
+    void                         applySensorTimeOffset(const double& offset);
+    double                       sensorToLocalTime    (const double& sensorTime);
+    void                         sensorToLocalTime    (const double& sensorTime,
+                                                       uint32_t&     seconds,
+                                                       uint32_t&     microseconds);
 
-    void eraseFlashRegion(uint32_t region);
-    void programOrVerifyFlashRegion(std::ifstream& file,
-                                    uint32_t operation,
-                                    uint32_t region);
-    Status doFlashOp(const std::string& filename,
-                     uint32_t           operation,
-                     uint32_t           region);
-
-    void cleanup();
-
-    void applySensorTimeOffset(const double& offset);
-    double sensorToLocalTime(const double& sensorTime);
-    void sensorToLocalTime(const double& sensorTime,
-                           uint32_t& seconds,
-                           uint32_t& microseconds);
+    void                         cleanup();
+    void                         bind   ();
+    void                         handle ();
 
     //
     // Static members
 
-    static wire::SourceType sourceApiToWire(DataSource mask);
-    static DataSource       sourceWireToApi(wire::SourceType mask);
-    
-    static void *rxThread(void *userDataP);
-    static void *statusThread(void *userDataP);
+    static wire::SourceType      sourceApiToWire(DataSource mask);
+    static DataSource            sourceWireToApi(wire::SourceType mask);
+    static void                 *rxThread       (void *userDataP);
+    static void                 *statusThread   (void *userDataP);
 };
 
 

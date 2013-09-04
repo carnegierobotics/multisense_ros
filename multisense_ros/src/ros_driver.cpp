@@ -23,6 +23,7 @@
 
 #include <multisense_ros/laser.h>
 #include <multisense_ros/camera.h>
+#include <multisense_ros/pps.h>
 #include <ros/ros.h>
 
 int main(int    argc, 
@@ -57,8 +58,9 @@ int main(int    argc,
             if (Status_Ok != d->setMtu(sensor_mtu))
                 ROS_ERROR("failed to set sensor MTU to %d", sensor_mtu);
 
-            multisense_ros::Laser  l(d, robot_desc_string);
+            multisense_ros::Laser  laser(d, robot_desc_string);
             multisense_ros::Camera camera(d);
+            multisense_ros::Pps    pps(d);
             
             ros::spin();
         }

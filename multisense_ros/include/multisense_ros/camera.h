@@ -47,18 +47,12 @@ public:
     Camera(crl::multisense::Channel* driver);
     ~Camera();
 
-    void monoCallback(const crl::multisense::image::Header& header,
-                      const void *imageDataP);
-    void rectCallback(const crl::multisense::image::Header& header,
-                      const void *imageDataP);
-    void depthCallback(const crl::multisense::image::Header& header,
-                       const void *imageDataP);
-    void pointCloudCallback(const crl::multisense::image::Header& header,
-                            const void *imageDataP);
-    void rawCamDataCallback(const crl::multisense::image::Header& header,
-                            const void *imageDataP);
-    void colorImageCallback(const crl::multisense::image::Header& header,
-                            const void *imageDataP);
+    void monoCallback(const crl::multisense::image::Header& header);
+    void rectCallback(const crl::multisense::image::Header& header);
+    void depthCallback(const crl::multisense::image::Header& header);
+    void pointCloudCallback(const crl::multisense::image::Header& header);
+    void rawCamDataCallback(const crl::multisense::image::Header& header);
+    void colorImageCallback(const crl::multisense::image::Header& header);
 private:
 
     //

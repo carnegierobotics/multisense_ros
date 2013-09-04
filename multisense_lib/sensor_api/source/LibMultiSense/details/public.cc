@@ -41,6 +41,7 @@
 #include "details/wire/CamSetResolutionMessage.h"
 #include "details/wire/CamGetConfigMessage.h"
 #include "details/wire/CamConfigMessage.h"
+#include "details/wire/CamSetTriggerSourceMessage.h"
 
 #include "details/wire/LidarSetMotorMessage.h"
 
@@ -61,6 +62,7 @@
 #include "details/wire/SysLidarCalibrationMessage.h"
 #include "details/wire/SysGetDeviceModesMessage.h"
 #include "details/wire/SysDeviceModesMessage.h"
+
 
 namespace crl {
 namespace multisense {
@@ -110,8 +112,30 @@ Status impl::addIsolatedCallback(lidar::Callback callback,
 
         utility::ScopedLock lock(m_dispatchLock);
         m_lidarListeners.push_back(new LidarListener(callback, 
+                                                     0,
                                                      userDataP,
                                                      MAX_USER_LASER_QUEUE_SIZE));
+
+    } catch (const utility::Exception& e) {
+        CRL_DEBUG("exception: %s\n", e.what());
+        return Status_Error;
+    }
+    return Status_Ok;
+}
+
+//
+// Adds a new PPS listener
+
+Status impl::addIsolatedCallback(pps::Callback callback, 
+                                 void         *userDataP)
+{
+    try {
+
+        utility::ScopedLock lock(m_dispatchLock);
+        m_ppsListeners.push_back(new PpsListener(callback, 
+                                                 0,
+                                                 userDataP,
+                                                 MAX_USER_PPS_QUEUE_SIZE));
 
     } catch (const utility::Exception& e) {
         CRL_DEBUG("exception: %s\n", e.what());
@@ -148,7 +172,7 @@ Status impl::removeIsolatedCallback(image::Callback callback)
 }
 
 //
-// Removes an lidar listener
+// Removes a lidar listener
 
 Status impl::removeIsolatedCallback(lidar::Callback callback)
 {
@@ -174,6 +198,32 @@ Status impl::removeIsolatedCallback(lidar::Callback callback)
     return Status_Error;
 }
 
+//
+// Removes a PPS listener
+
+Status impl::removeIsolatedCallback(pps::Callback callback)
+{
+    try {
+        utility::ScopedLock lock(m_dispatchLock);
+
+        std::list<PpsListener*>::iterator it;
+        for(it  = m_ppsListeners.begin();
+            it != m_ppsListeners.end();
+            it ++) {
+        
+            if ((*it)->callback() == callback) {
+                delete *it;
+                m_ppsListeners.erase(it);
+                return Status_Ok;
+            }
+        }
+
+    } catch (const utility::Exception& e) {
+        CRL_DEBUG("exception: %s\n", e.what());
+    }
+
+    return Status_Error;
+}
 
 //
 // Reserve the current callback buffer being used in a dispatch thread
@@ -276,6 +326,14 @@ Status impl::releaseHistogram(int64_t frameId)
 }
 
 //
+// Enable/disable network-based time synchronization
+
+Status impl::networkTimeSynchronization(bool enabled)
+{
+    m_networkTimeSyncEnabled = enabled;
+}
+
+//
 // Stream control
 
 Status impl::startStreams(DataSource mask)
@@ -313,6 +371,32 @@ Status impl::getEnabledStreams(DataSource& mask)
     mask = m_streamsEnabled;
 
     return Status_Ok;
+}
+
+//
+// Set the trigger source
+
+Status impl::setTriggerSource(TriggerSource s)
+{
+    uint32_t wireSource;
+
+    switch(s) {
+    case Trigger_Internal: 
+
+        wireSource = wire::CamSetTriggerSource::SOURCE_INTERNAL;
+        break;
+
+    case Trigger_External:
+
+        wireSource = wire::CamSetTriggerSource::SOURCE_EXTERNAL;
+        break;
+
+    default:
+
+        return Status_Error;
+    }
+
+    return waitAck(wire::CamSetTriggerSource(wireSource));
 }
 
 //

@@ -50,6 +50,8 @@
 #include "details/wire/SysLidarCalibrationMessage.h"
 #include "details/wire/SysDeviceModesMessage.h"
 
+#include "details/wire/SysPpsMessage.h"
+
 #include <limits>
 
 namespace crl {
@@ -75,8 +77,7 @@ void defaultUdpAssembler(utility::BufferStreamWriter& stream,
 // Publish an image 
 
 void impl::dispatchImage(utility::BufferStream& buffer,
-                         image::Header&         header,
-                         void                  *imageP)
+                         image::Header&         header)
 {
     utility::ScopedLock lock(m_dispatchLock);
 
@@ -85,16 +86,14 @@ void impl::dispatchImage(utility::BufferStream& buffer,
     for(it  = m_imageListeners.begin();
         it != m_imageListeners.end();
         it ++)
-        (*it)->dispatch(buffer, header, imageP);
+        (*it)->dispatch(buffer, header);
 }
 
 //
 // Publish a laser scan
 
-void impl::dispatchLaser(utility::BufferStream& buffer,
-                         lidar::Header&         header,
-                         lidar::RangeType      *rangesP,
-                         lidar::IntensityType  *intensitiesP)
+void impl::dispatchLidar(utility::BufferStream& buffer,
+                         lidar::Header&         header)
 {
     utility::ScopedLock lock(m_dispatchLock);
 
@@ -103,7 +102,25 @@ void impl::dispatchLaser(utility::BufferStream& buffer,
     for(it  = m_lidarListeners.begin();
         it != m_lidarListeners.end();
         it ++)
-        (*it)->dispatch(buffer, header, rangesP, intensitiesP);
+        (*it)->dispatch(buffer, header);
+}
+
+//
+// Publish a PPS event (the buffer does not really have to
+// come along here, but doing so for the sake of simplicity
+// and code re-use.)
+
+void impl::dispatchPps(utility::BufferStream& buffer,
+                       pps::Header&           header)
+{
+    utility::ScopedLock lock(m_dispatchLock);
+
+    std::list<PpsListener*>::const_iterator it;
+
+    for(it  = m_ppsListeners.begin();
+        it != m_ppsListeners.end();
+        it ++)
+        (*it)->dispatch(buffer, header);
 }
 
 //
@@ -142,13 +159,23 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
 	const int32_t  scanArc  = utility::degreesToRadians(270.0) * 1e6; // microradians
 	const uint32_t maxRange = 30.0 * 1e3; // mm
 
-        sensorToLocalTime(static_cast<double>(scan.timeStartSeconds) + 
-                          1e-6 * static_cast<double>(scan.timeStartMicroSeconds),
-                          header.timeStartSeconds, header.timeStartMicroSeconds);
+        if (false == m_networkTimeSyncEnabled) {
 
-        sensorToLocalTime(static_cast<double>(scan.timeEndSeconds) + 
-                          1e-6 * static_cast<double>(scan.timeEndMicroSeconds),
-                          header.timeEndSeconds, header.timeEndMicroSeconds);
+            header.timeStartSeconds      = scan.timeStartSeconds;
+            header.timeStartMicroSeconds = scan.timeStartMicroSeconds;
+            header.timeEndSeconds        = scan.timeEndSeconds;
+            header.timeEndMicroSeconds   = scan.timeEndMicroSeconds;
+
+        } else {
+
+            sensorToLocalTime(static_cast<double>(scan.timeStartSeconds) + 
+                              1e-6 * static_cast<double>(scan.timeStartMicroSeconds),
+                              header.timeStartSeconds, header.timeStartMicroSeconds);
+
+            sensorToLocalTime(static_cast<double>(scan.timeEndSeconds) + 
+                              1e-6 * static_cast<double>(scan.timeEndMicroSeconds),
+                              header.timeEndSeconds, header.timeEndMicroSeconds);
+        }
 
         header.scanId            = scan.scanCount;
         header.spindleAngleStart = scan.angleStart;
@@ -156,8 +183,10 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
 	header.scanArc           = scanArc;
 	header.maxRange          = maxRange;
         header.pointCount        = scan.points;
+        header.rangesP           = scan.distanceP;
+        header.intensitiesP      = scan.intensityP;
 
-        dispatchLaser(buffer, header, scan.distanceP, scan.intensityP);
+        dispatchLidar(buffer, header);
 
         break;
     }
@@ -182,9 +211,15 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
 
         image::Header header;
 
-        sensorToLocalTime(static_cast<double>(metaP->timeSeconds) + 
-                          1e-6 * static_cast<double>(metaP->timeMicroSeconds),
-                          header.timeSeconds, header.timeMicroSeconds);
+        if (false == m_networkTimeSyncEnabled) {
+
+            header.timeSeconds      = metaP->timeSeconds;
+            header.timeMicroSeconds = metaP->timeMicroSeconds;
+
+        } else
+            sensorToLocalTime(static_cast<double>(metaP->timeSeconds) + 
+                              1e-6 * static_cast<double>(metaP->timeMicroSeconds),
+                              header.timeSeconds, header.timeMicroSeconds);
 
         header.source           = sourceWireToApi(image.source);
         header.bitsPerPixel     = image.bitsPerPixel;
@@ -194,8 +229,9 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
         header.exposure         = metaP->exposureTime;
         header.gain             = metaP->gain;
         header.framesPerSecond  = metaP->framesPerSecond;
+        header.imageDataP       = image.dataP;
         
-        dispatchImage(buffer, header, image.dataP);
+        dispatchImage(buffer, header);
 
         break;
     }
@@ -209,10 +245,16 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
         
         image::Header header;
 
-        sensorToLocalTime(static_cast<double>(metaP->timeSeconds) + 
-                          1e-6 * static_cast<double>(metaP->timeMicroSeconds),
-                          header.timeSeconds, header.timeMicroSeconds);
+        if (false == m_networkTimeSyncEnabled) {
 
+            header.timeSeconds      = metaP->timeSeconds;
+            header.timeMicroSeconds = metaP->timeMicroSeconds;
+
+        } else
+            sensorToLocalTime(static_cast<double>(metaP->timeSeconds) + 
+                              1e-6 * static_cast<double>(metaP->timeMicroSeconds),
+                              header.timeSeconds, header.timeMicroSeconds);
+        
         header.source           = Source_Disparity;
         header.bitsPerPixel     = wire::Disparity::API_BITS_PER_PIXEL;
         header.width            = image.width;
@@ -221,8 +263,21 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
         header.exposure         = metaP->exposureTime;
         header.gain             = metaP->gain;
         header.framesPerSecond  = metaP->framesPerSecond;
+        header.imageDataP       = image.dataP;
 
-        dispatchImage(buffer, header, image.dataP);
+        dispatchImage(buffer, header);
+
+        break;
+    }
+    case MSG_ID(wire::SysPps::ID):
+    {
+        wire::SysPps pps(stream, version);
+
+        pps::Header header;
+
+        header.sensorTime = pps.ppsNanoSeconds;
+
+        dispatchPps(buffer, header);
 
         break;
     }

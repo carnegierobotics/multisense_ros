@@ -46,13 +46,9 @@ namespace details {
 //
 // Implementation constructor
 
-impl::impl(const std::string& address,
-           int32_t            rxPort,
-           int32_t            txPort) :
+impl::impl(const std::string& address) :
     m_serverSocket(-1),
     m_sensorAddress(),
-    m_rxPort(rxPort),
-    m_txPort(txPort),
     m_sensorMtu(MAX_MTU_SIZE),
     m_incomingBuffer(MAX_MTU_SIZE),
     m_txSeqId(0),
@@ -69,10 +65,12 @@ impl::impl(const std::string& address,
     m_rxThreadP(NULL),
     m_imageListeners(),
     m_lidarListeners(),
+    m_ppsListeners(),
     m_streamsEnabled(0),
     m_timeLock(),
     m_timeOffsetInit(false),
-    m_timeOffset(0)
+    m_timeOffset(0),
+    m_networkTimeSyncEnabled(true)
 {
     //
     // Make sure the sensor address is sane
@@ -91,7 +89,7 @@ impl::impl(const std::string& address,
     memset(&m_sensorAddress, 0, sizeof(m_sensorAddress));
 
     m_sensorAddress.sin_family = AF_INET;
-    m_sensorAddress.sin_port   = htons(m_txPort);
+    m_sensorAddress.sin_port   = htons(DEFAULT_SENSOR_TX_PORT);
     m_sensorAddress.sin_addr   = addr;
 
     //
@@ -164,6 +162,12 @@ void impl::cleanup()
         itl != m_lidarListeners.end();
         itl ++)
         delete *itl;
+
+    std::list<PpsListener*>::const_iterator itp;
+    for(itp  = m_ppsListeners.begin();
+        itp != m_ppsListeners.end();
+        itp ++)
+        delete *itp;
 
     BufferPool::const_iterator it;
     for(it  = m_rxLargeBufferPool.begin();
@@ -238,12 +242,12 @@ void impl::bind()
     struct sockaddr_in address;
 
     address.sin_family      = AF_INET;
-    address.sin_port        = htons(m_rxPort);
+    address.sin_port        = htons(0); // system assigned
     address.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (0 != ::bind(m_serverSocket, (struct sockaddr*) &address, sizeof(address)))
-        CRL_EXCEPTION("failed to bind the server socket to port %d: %s", 
-                      m_rxPort, strerror(errno));
+        CRL_EXCEPTION("failed to bind the server socket to system-assigned port: %s", 
+                      strerror(errno));
 }
 
 //
@@ -432,13 +436,11 @@ void *impl::statusThread(void *userDataP)
 //
 // Factory methods
 
-Channel* Channel::Create(const std::string& address,
-                         int32_t            rxPort,
-                         int32_t            txPort)
+Channel* Channel::Create(const std::string& address)
 {
     try {
 
-        return new details::impl(address, rxPort, txPort);
+        return new details::impl(address);
 
     } catch (const details::utility::Exception& e) {
 

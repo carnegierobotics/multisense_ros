@@ -213,19 +213,15 @@ namespace { // anonymous
 // Shims for c-style driver callbacks
 
 void lCB(const lidar::Header&        header,
-	 const lidar::RangeType*     rangesP,
-	 const lidar::IntensityType* intensitiesP,
 	 void*                       userDataP)
 {
-    reinterpret_cast<Laser*>(userDataP)->scanCallback(header, rangesP, intensitiesP);
+    reinterpret_cast<Laser*>(userDataP)->scanCallback(header);
 }
 
 void pCB(const lidar::Header&        header,
-	 const lidar::RangeType*     rangesP,
-	 const lidar::IntensityType* intensitiesP,
 	 void*                       userDataP)
 {
-    reinterpret_cast<Laser*>(userDataP)->pointCloudCallback(header, rangesP, intensitiesP);
+    reinterpret_cast<Laser*>(userDataP)->pointCloudCallback(header);
 }
 
 }; // anonymous
@@ -354,11 +350,11 @@ Laser::~Laser()
 {
     boost::mutex::scoped_lock lock(sub_lock_);
     stop();
+    driver_->removeIsolatedCallback(lCB);
+    driver_->removeIsolatedCallback(pCB);
 }
 
-void Laser::pointCloudCallback(const lidar::Header&        header,
-                               const lidar::RangeType*     rangesP,
-                               const lidar::IntensityType* intensitiesP)
+void Laser::pointCloudCallback(const lidar::Header& header)
 {
     //
     // For diagnostics, only count here
@@ -443,7 +439,7 @@ void Laser::pointCloudCallback(const lidar::Header&        header,
         //
         // The coordinate in left optical frame
 
-        const double      rangeMeters = 1e-3 * static_cast<double>(rangesP[i]);  // from millimeters
+        const double      rangeMeters = 1e-3 * static_cast<double>(header.rangesP[i]);  // from millimeters
         const KDL::Vector pointMotor  = (pc_post_spindle_cal_ * 
                                          KDL::Vector(rangeMeters * -std::sin(mirrorTheta), 0.0,
                                                      rangeMeters *  std::cos(mirrorTheta)));
@@ -457,15 +453,13 @@ void Laser::pointCloudCallback(const lidar::Header&        header,
                               static_cast<float>(pointCamera.z())};
                         
         memcpy(cloudP, &(xyz[0]), pointSize);
-        memcpy((cloudP + pointSize), &(intensitiesP[i]), sizeof(uint32_t));
+        memcpy((cloudP + pointSize), &(header.intensitiesP[i]), sizeof(uint32_t));
     }
 
     point_cloud_pub_.publish(point_cloud_);
 }
 
-void Laser::scanCallback(const lidar::Header&        header,
-                         const lidar::RangeType*     rangesP,
-                         const lidar::IntensityType* intensitiesP)
+void Laser::scanCallback(const lidar::Header& header)
 {
     //
     // Get out if we have no work to do 
@@ -537,8 +531,8 @@ void Laser::scanCallback(const lidar::Header&        header,
         laser_msg_.intensities.resize(header.pointCount);
         
         for (size_t i=0; i<header.pointCount; i++) {
-            laser_msg_.ranges[i]      = 1e-3 * static_cast<float>(rangesP[i]); // from millimeters
-            laser_msg_.intensities[i] = static_cast<float>(intensitiesP[i]);   // in device units
+            laser_msg_.ranges[i]      = 1e-3 * static_cast<float>(header.rangesP[i]); // from millimeters
+            laser_msg_.intensities[i] = static_cast<float>(header.intensitiesP[i]);   // in device units
         }
 
         scan_pub_.publish(laser_msg_);
@@ -556,12 +550,12 @@ void Laser::scanCallback(const lidar::Header&        header,
 
         ros_msg->distance.resize(header.pointCount);
         memcpy(&(ros_msg->distance[0]), 
-               rangesP, 
+               header.rangesP, 
                header.pointCount * sizeof(uint32_t));
 
         ros_msg->intensity.resize(header.pointCount);
         memcpy(&(ros_msg->intensity[0]), 
-               intensitiesP, 
+               header.intensitiesP, 
                header.pointCount * sizeof(uint32_t));
 
         raw_lidar_data_pub_.publish(ros_msg);

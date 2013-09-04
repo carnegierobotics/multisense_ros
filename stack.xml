@@ -2,10 +2,8 @@
   <description brief="multisense">
 
   </description>
-  <author>Maintained by hiDOF</author>
-  <license>BSD</license>
-  <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/multisense</url>
+  <author>Maintained by Carnegie Robotics, LLC.</author>
+  <license>LGPL</license>
 
   <depend stack="ros" />
   <depend stack="ros_comm" />

@@ -44,13 +44,8 @@ public:
           const std::string& robot_desc);
     ~Laser();
 
-    void scanCallback(const crl::multisense::lidar::Header& header,
-                      const crl::multisense::lidar::RangeType *rangesP,
-                      const crl::multisense::lidar::IntensityType *intensitiesP);
-
-    void pointCloudCallback(const crl::multisense::lidar::Header& header,
-                            const crl::multisense::lidar::RangeType *rangesP,
-                            const crl::multisense::lidar::IntensityType *intensitiesP);
+    void scanCallback(const crl::multisense::lidar::Header& header);
+    void pointCloudCallback(const crl::multisense::lidar::Header& header);
 
     static const float EXPECTED_RATE;
     

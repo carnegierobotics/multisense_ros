@@ -31,6 +31,8 @@
 #include <string>
 #include <fstream>
 
+#include <arpa/inet.h> // htons
+
 #include <LibMultiSense/MultiSenseChannel.hh>
 
 using namespace crl::multisense;
@@ -62,21 +64,23 @@ bool savePgm(const std::string& fileName,
              const void        *dataP)
 {
     std::ofstream outputStream(fileName.c_str(), std::ios::binary | std::ios::out);
+    
+    if (false == outputStream.good()) {
+        fprintf(stderr, "failed to open \"%s\"\n", fileName.c_str());
+        return false;
+    }
+
+    const uint32_t imageSize = height * width;
 
     switch(bitsPerPixel) {
-    case 8:
-    {   
+    case 8: 
+    {
+
         outputStream << "P5\n"
                      << width << " " << height << "\n"
                      << 0xFF << "\n";
         
-        const uint8_t *imageP = (const uint8_t *) dataP;
-
-        for (int i=0; i<height; i++)
-            for (int j=0; j<width; j++) {
-                uint8_t o = imageP[(i * width) + j];
-                outputStream.write((const char *)&o, sizeof(o));
-            }
+        outputStream.write(reinterpret_cast<const char*>(dataP), imageSize);
 
         break;
     }
@@ -86,15 +90,12 @@ bool savePgm(const std::string& fileName,
                      << width << " " << height << "\n"
                      << 0xFFFF << "\n";
 
-#define swapshort(x) (((x & 0xFF) << 8) | (x >> 8))
-
-        const uint16_t *imageP = (const uint16_t *) dataP;
-
-        for (int i=0; i<height; i++)
-            for (int j=0; j<width; j++) {
-                uint16_t o = swapshort(imageP[(i * width) + j]);
-                outputStream.write((const char *) &o, sizeof(o));
-            }
+        const uint16_t *imageP = reinterpret_cast<const uint16_t*>(dataP);
+        
+        for (uint32_t i=0; i<imageSize; ++i) {
+            uint16_t o = htons(imageP[i]);
+            outputStream.write(reinterpret_cast<const char*>(&o), sizeof(uint16_t));
+        }
 
         break;
     }
@@ -104,36 +105,55 @@ bool savePgm(const std::string& fileName,
     return true;
 }
 
-void laserCallback(const lidar::Header&        header,
-                   const lidar::RangeType     *rangesP,
-                   const lidar::IntensityType *intensitiesP,
-                   void                       *userP)
+void ppsCallback(const pps::Header& header,
+                 void              *userDataP)
+{
+    fprintf(stderr, "PPS: %lld ns\n", header.sensorTime);
+}                
+
+void laserCallback(const lidar::Header& header,
+                   void                *userDataP)
 {
 //    fprintf(stderr, "lidar: %d\n", header.pointCount);
 }
 
 void imageCallback(const image::Header& header,
-                   const void          *dataP,
-                   void                *userP)
+                   void                *userDataP)
 {
-    Channel *channelP = reinterpret_cast<Channel*>(userP);
+    static double lastTimeStamp  = 0.0;
+    static double avgFrameRate   = 0.0;
+    static int64_t lastFrameId   = -1;
+    static int64_t droppedFrames = 0;
 
-    /*
-    fprintf(stderr, "image: type=0x%x, bpp=%d, w=%d, h=%d frame=%d\n", 
+    Channel *channelP = reinterpret_cast<Channel*>(userDataP);
+    
+    double timeStamp = header.timeSeconds + 1e-6 * header.timeMicroSeconds;
+    
+    if (-1 != lastFrameId &&
+        (header.frameId != (lastFrameId + 1)))
+        droppedFrames ++;
+
+    
+    fprintf(stdout, "image_type 0x%x, time %.6f, delta-t %.6f, rate %.3f, bpp %d, w %d, h %d frame %lld, dropped %lld\n", 
             header.source,
+            timeStamp,
+            timeStamp - lastTimeStamp,
+            1.0 / (timeStamp - lastTimeStamp),
             header.bitsPerPixel,
             header.width,
             header.height,
-            header.frameId);
-    */
+            header.frameId,
+            droppedFrames);
 
-    /*
-    savePgm("test.pgm",
-            header.width,
-            header.height,
-            header.bitsPerPixel,
-            dataP);
-    */
+    if (-1 == lastFrameId)
+        savePgm("test.pgm",
+                header.width,
+                header.height,
+                header.bitsPerPixel,
+                header.imageDataP);
+
+    lastTimeStamp = timeStamp;
+    lastFrameId   = header.frameId;
 
     uint32_t channels, bins;
 
@@ -146,8 +166,6 @@ void imageCallback(const image::Header& header,
 }
 
 }; // anonymous
-
-using namespace crl::multisense;
 
 int main(int    argc, 
          char **argvPP)
@@ -203,40 +221,45 @@ int main(int    argc,
     {
         image::Config cfg;
 
-        const float FPS = 10.0;
-
         status = channelP->getImageConfig(cfg);
         if (Status_Ok == status) {
 
-            cfg.setResolution(2048, 1088);
-
-            fprintf(stderr, "Setting framerate to %f FPS (from %f)\n",
-                    FPS, cfg.fps());
-            cfg.setFps(FPS);
+            cfg.setResolution(1024, 544);
+            cfg.setFps(30.0);
+        
             status = channelP->setImageConfig(cfg);
+            if (Status_Ok != status)
+                fprintf(stderr, "failed to configure sensor\n");
         }
     }
 
     //
     // Change MTU
 
-    if (Status_Ok != channelP->setMtu(9000))
-        fprintf(stderr, "failed to set MTU to 9000\n");
+    if (Status_Ok != channelP->setMtu(7200))
+        fprintf(stderr, "failed to set MTU to 7200\n");
 
     //
-    // Add image callback
+    // Change trigger source
+
+//    status = channelP->setTriggerSource(Trigger_External);
+    status = channelP->setTriggerSource(Trigger_Internal);
+    if (Status_Ok != status)
+        fprintf(stderr, "Failed to set trigger source, Error %d\n",
+                status);
+
+    //
+    // Add callbacks
 
     channelP->addIsolatedCallback(imageCallback, Source_All, channelP);
-
     channelP->addIsolatedCallback(laserCallback, channelP);
+    channelP->addIsolatedCallback(ppsCallback, channelP);
 
     //
     // Start streaming
 
 //    channelP->startStreams(Source_Disparity);
-//    channelP->startStreams(Source_Luma_Left);
-//    channelP->startStreams(Source_Chroma_Left);
-    channelP->startStreams(Source_All);
+    channelP->startStreams(Source_Luma_Rectified_Left | Source_Lidar_Scan);
 
     while(!doneG)
         usleep(100000);

@@ -69,6 +69,14 @@ static const DataSource Source_Chroma_Right           = (1<<7);
 static const DataSource Source_Disparity              = (1<<10);
 static const DataSource Source_Lidar_Scan             = (1<<24);
 
+//
+// Trigger sources
+
+typedef uint32_t TriggerSource;
+
+static const TriggerSource Trigger_Internal    = 0; // default, image::config.setFps()
+static const TriggerSource Trigger_External    = 1; // OPTO_RX input
+
 namespace image {
 
 //
@@ -77,20 +85,24 @@ namespace image {
 class Header {
 public:
 
-    DataSource source;
-    uint32_t   bitsPerPixel;
-    uint32_t   width;
-    uint32_t   height;
-    int64_t    frameId;
-    uint32_t   timeSeconds;        // relative, from device
-    uint32_t   timeMicroSeconds;
+    DataSource  source;
+    uint32_t    bitsPerPixel;
+    uint32_t    width;
+    uint32_t    height;
+    int64_t     frameId;
+    uint32_t    timeSeconds;
+    uint32_t    timeMicroSeconds;
     
-    uint32_t   exposure;  // microseconds
-    float      gain;
-    float      framesPerSecond;
+    uint32_t    exposure;  // microseconds
+    float       gain;
+    float       framesPerSecond;
+
+    const void *imageDataP;
 
     Header() 
         : source(Source_Unknown) {};
+
+    bool inMask(DataSource mask) { return (mask & source);};
 };
 
 //
@@ -98,7 +110,6 @@ public:
 // to data are no longer valid after the callback returns.
 
 typedef void (*Callback)(const Header& header,
-                         const void   *imageDataP,
                          void         *userDataP);
 
 //
@@ -117,7 +128,7 @@ public:
     void setFps               (float f)    { m_fps       = f;      };
 
     void setGain              (float g)    { m_gain      = g; };
-    void setExposure          (uint32_t e) { m_exposure  = e; }; // microseconds, [10, 5000000]
+    void setExposure          (uint32_t e) { m_exposure  = e; }; // microseconds, [10, 500000]
     void setAutoExposure      (bool e)     { m_aeEnabled = e; };
     void setAutoExposureMax   (uint32_t m) { m_aeMax     = m; }; // microseconds
     void setAutoExposureDecay (uint32_t d) { m_aeDecay   = d; }; // [0, ]
@@ -169,7 +180,7 @@ public:
                m_width(1024), m_height(544), 
                m_fx(0), m_fy(0), m_cx(0), m_cy(0),
                m_tx(0), m_ty(0), m_tz(0), m_roll(0), m_pitch(0), m_yaw(0) {};
-protected:
+private:
 
     float    m_fps, m_gain;
     uint32_t m_exposure;
@@ -183,6 +194,9 @@ protected:
     uint32_t m_wbDecay;
     float    m_wbThresh;
     uint32_t m_width, m_height;
+
+protected:
+
     float    m_fx, m_fy, m_cx, m_cy;
     float    m_tx, m_ty, m_tz;
     float    m_roll, m_pitch, m_yaw;
@@ -231,18 +245,21 @@ public:
     uint32_t maxRange;          // millimeters
     uint32_t pointCount;
 
+    const RangeType     *rangesP;       // millimeters
+    const IntensityType *intensitiesP;  // device units
+
     Header()
         : pointCount(0) {};
+
+    bool inMask(DataSource mask) { return true; };
 };
 
 //
 // Function pointer for receiving callbacks of lidar data. Pointers
 // to data are no longer valid after the callback returns.
 
-typedef void (*Callback)(const Header&        header,
-                         const RangeType     *rangesP,
-                         const IntensityType *intensitiesP,
-                         void                *userDataP);
+typedef void (*Callback)(const Header& header,
+                         void         *userDataP);
 
 class Calibration {
 public:
@@ -312,6 +329,28 @@ private:
 };    
 
 }; // namespace lighting
+
+namespace pps {
+
+//
+// Header information for a PPS event. A network PPS event is sent from the 
+// sensor immediately after the pulse on the OPTO-TX line.
+
+class Header {
+public:
+
+    int64_t sensorTime; // nanoseconds
+
+    bool inMask(DataSource s) { return true; };
+};
+
+//
+// Function pointer for receiving callbacks for PPS events
+
+typedef void (*Callback)(const Header& header,
+                         void         *userDataP);
+
+}; // namespace pps
 
 namespace system {
 

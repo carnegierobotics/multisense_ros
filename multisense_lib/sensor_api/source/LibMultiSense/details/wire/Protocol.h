@@ -152,6 +152,8 @@ static const IdType ID_CMD_STREAM_CONTROL         = 0x001c;
 
 static const IdType ID_CMD_SYS_GET_DEVICE_MODES   = 0x001d;
 
+static const IdType ID_CMD_CAM_SET_TRIGGER_SOURCE = 0x001e;
+
 //
 // Data 
 
@@ -176,6 +178,8 @@ static const IdType ID_DATA_IMAGE                 = 0x0110;
 static const IdType ID_DATA_DISPARITY             = 0x0111;
 
 static const IdType ID_DATA_SYS_DEVICE_MODES      = 0x0112;
+
+static const IdType ID_DATA_SYS_PPS               = 0x0113;
 
 //
 // Data sources
