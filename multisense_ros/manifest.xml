@@ -6,6 +6,7 @@
   </description>
 
   <depend package="multisense_lib"/>
+  <depend package="rosbag"/>
   <depend package="sensor_msgs"/>
   <depend package="laser_assembler"/>
   <depend package="image_transport"/>
