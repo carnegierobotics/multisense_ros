@@ -46,14 +46,22 @@ Pps::Pps(Channel* driver) :
     subscribers_(0)
 {
     system::VersionInfo v;
-    if (Status_Ok == driver_->getVersionInfo(v) && v.sensorFirmwareVersion < 0x0201)
-        ROS_ERROR("PPS support requires sensor firmware v2.1 or greater (sensor is running v%d.%d)\n",
+    if (Status_Ok == driver_->getVersionInfo(v) && v.sensorFirmwareVersion < 0x0202)
+        ROS_ERROR("PPS support requires sensor firmware v2.2 or greater (sensor is running v%d.%d)\n",
                   v.sensorFirmwareVersion >> 8, v.sensorFirmwareVersion & 0xF);
+    else {
 
-    driver_->addIsolatedCallback(ppsCB, this);
-    pps_pub_ = device_nh_.advertise<std_msgs::Time>("pps", 5,
-                                                    boost::bind(&Pps::connect, this),
-                                                    boost::bind(&Pps::disconnect, this));
+        //
+        // Only publish PPS if we know firmware 2.2 or greater is running.
+        //
+        // 2.1 firmware had a bug where PPS events could (rarely) be published with
+        // the previous event's timecode.
+
+        driver_->addIsolatedCallback(ppsCB, this);
+        pps_pub_ = device_nh_.advertise<std_msgs::Time>("pps", 5,
+                                                        boost::bind(&Pps::connect, this),
+                                                        boost::bind(&Pps::disconnect, this));
+    }
 }
 
 Pps::~Pps()
