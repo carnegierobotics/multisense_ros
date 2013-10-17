@@ -142,7 +142,7 @@ private:
     //
     // The version of this API
 
-    static const VersionType API_VERSION = 0x0201; // 2.1
+    static const VersionType API_VERSION = 0x0202; // 2.2
 
     //
     // Misc. internal constants
