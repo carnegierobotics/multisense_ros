@@ -44,12 +44,12 @@ bool computePostSpindleCal(const KDL::Tree&  tree,
 {
     KDL::Chain chain;
     if (!tree.getChain("hokuyo_link", "head_hokuyo_frame", chain)) {
-        ROS_ERROR("Error extracting post-spindle chain from KDL tree");
+        ROS_ERROR("Laser: error extracting post-spindle chain from KDL tree");
         return false;
     }
 
     if (chain.getNrOfJoints() != 0) {
-        ROS_ERROR("Expected 0 joints in chain. Got %u\n", 
+        ROS_ERROR("Laser: expected 0 joints in chain. Got %u\n", 
                   chain.getNrOfJoints());
         return false;
     }
@@ -59,7 +59,7 @@ bool computePostSpindleCal(const KDL::Tree&  tree,
 
     KDL::Frame scan_post_spindle_cal_T_hokuyo_head;
     if(fksolver.JntToCart(joint_pos, scan_post_spindle_cal_T_hokuyo_head) < 0) {
-        ROS_ERROR("Error in FK for post-spindle calcs");
+        ROS_ERROR("Laser: error in FK for post-spindle calcs");
         return false;
     }
 
@@ -79,24 +79,24 @@ bool computePreSpindleCal(const KDL::Tree&  tree,
 {
     KDL::Chain head_spindle_chain;
     if (!tree.getChain("head", "pre_spindle", head_spindle_chain)) {
-        ROS_ERROR("Error extracting head-spindle chain from KDL tree");
+        ROS_ERROR("Laser: error extracting head-spindle chain from KDL tree");
         return false;
     }
 
     KDL::Chain head_cam_chain;
     if (!tree.getChain("head", "left_camera_optical_frame", head_cam_chain)) {
-        ROS_ERROR("Error extracting head-camera chain from KDL tree");
+        ROS_ERROR("Laser: error extracting head-camera chain from KDL tree");
         return false;
     }
 
     if (head_cam_chain.getNrOfJoints() != 0) {
-        ROS_ERROR("Expected 0 joints in head-camera chain. Got %u\n", 
+        ROS_ERROR("Laser: expected 0 joints in head-camera chain. Got %u\n", 
                   head_cam_chain.getNrOfJoints());
         return false;
     }
 
     if (head_spindle_chain.getNrOfJoints() != 0) {
-        ROS_ERROR("Expected 0 joints in head-spindle chain. Got %u\n", 
+        ROS_ERROR("Laser: expected 0 joints in head-spindle chain. Got %u\n", 
                   head_spindle_chain.getNrOfJoints());
         return false;
     }
@@ -107,12 +107,12 @@ bool computePreSpindleCal(const KDL::Tree&  tree,
     KDL::Frame head_T_pre_spindle;
     KDL::Frame head_T_cam_optical;
     if(head_spindle_solver.JntToCart(joint_pos, head_T_pre_spindle) < 0) {
-        ROS_ERROR("Error in FK for head_spindle calcs");
+        ROS_ERROR("Laser: error in FK for head_spindle calcs");
         return false;
     }
 
     if(head_cam_solver.JntToCart(joint_pos, head_T_cam_optical) < 0) {
-        ROS_ERROR("Error in FK for head_cam calcs");
+        ROS_ERROR("Laser: error in FK for head_cam calcs");
         return false;
     }
 
@@ -139,20 +139,20 @@ bool computeCal(const std::string& robot_desc_string,
 {
     KDL::Tree tree;
     if (!kdl_parser::treeFromString(robot_desc_string, tree)) {
-        ROS_ERROR("Error parsing robot description using kdl_parser");
+        ROS_ERROR("Laser: error parsing robot description using kdl_parser");
         return false;
     }
 
     bool success;
     success = computePostSpindleCal(tree, spindle_T_laser, post_spindle_cal);
     if (!success) {
-        ROS_ERROR("Error calculating post spindle calibration");
+        ROS_ERROR("Laser: error calculating post spindle calibration");
         return false;
     }
 
     success = computePreSpindleCal(tree, camera_T_spindle_fixed, pre_spindle_cal);
     if (!success) {
-        ROS_ERROR("Error calculating pre spindle calibration");
+        ROS_ERROR("Laser: error calculating pre spindle calibration");
         return false;
     }
 
@@ -188,7 +188,7 @@ void getLaserCal(lidar::Calibration& c,
                          spindle_T_laser, camera_T_spindle_fixed,
                          pre_spindle_cal, post_spindle_cal);
     if (!success)
-        ROS_ERROR("Error computing lidar calibration.");
+        ROS_ERROR("Laser: error computing lidar calibration.");
 }
 
 void pushCal(sensor_msgs::JointState& msg, 
@@ -229,10 +229,33 @@ void pCB(const lidar::Header&        header,
 Laser::Laser(Channel* driver,
              const std::string& robot_desc)
     : driver_(driver),
-      laser_diagnostics_(ros::NodeHandle(), "laser/diagnostics", EXPECTED_RATE),
       subscribers_(0)
 {
     ros::NodeHandle nh("laser");
+
+    //
+    // Get device info
+
+    system::DeviceInfo  deviceInfo;
+
+    Status status = driver_->getDeviceInfo(deviceInfo);
+    if (Status_Ok != status) {
+        ROS_ERROR("Laser: failed to query device info: %s",
+                  Channel::statusString(status));
+        return;
+    }
+
+    switch(deviceInfo.hardwareRevision) {
+    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL:
+
+        ; // ok, this one has a laser
+
+        break;
+    default:
+
+        ROS_INFO("hardware does not support a laser");
+        return;
+    }
 
     //
     // Get frame_id
@@ -247,8 +270,10 @@ Laser::Laser(Channel* driver,
     //
     // Query calibration from sensor
 
-    if (Status_Ok != driver->getLidarCalibration(lidar_cal_))
-        ROS_WARN("could not query lidar calibration, using URDF defaults");
+    status = driver_->getLidarCalibration(lidar_cal_);
+    if (Status_Ok != status)
+        ROS_WARN("could not query lidar calibration (%s), using URDF defaults",
+                 Channel::statusString(status));
     else {
 
         //
@@ -293,13 +318,6 @@ Laser::Laser(Channel* driver,
 
     ros::NodeHandle nh_js("laser_joint");
     js_pub_ = nh_js.advertise<sensor_msgs::JointState>("/joint_states", 40);
-
-    //
-    // Latched publisher for diagnostics
-
-    js_diagnostics_pub_         = nh_js.advertise<JointDiagnostics>("diagnostics", 40, true);
-    js_diagnostics_.joint_state = js_msg_;
-    js_diagnostics_pub_.publish(js_diagnostics_);
 
     //
     // Create scan publisher
@@ -356,11 +374,6 @@ Laser::~Laser()
 
 void Laser::pointCloudCallback(const lidar::Header& header)
 {
-    //
-    // For diagnostics, only count here
-
-    laser_diagnostics_.countStream();
-
     //
     // Get out if we have no work to do
 
@@ -503,16 +516,6 @@ void Laser::scanCallback(const lidar::Header& header)
     js_msg_.velocity[0]     = velocity;
     js_pub_.publish(js_msg_);
 
-    //
-    // Downsample diagnostics to 1 Hz
-
-    if (header.scanId % 40 == 0) {
-        js_diagnostics_.stamp        = start_absolute_time;
-        js_diagnostics_.joint_state  = js_msg_;
-        js_diagnostics_.current_rate = velocity;
-        js_diagnostics_pub_.publish(js_diagnostics_);
-    }
-
     if (scan_pub_.getNumSubscribers() > 0) {
         
         const double arcRadians = 1e-6 * static_cast<double>(header.scanArc);
@@ -566,13 +569,10 @@ void Laser::stop()
 {
     subscribers_ = 0;
 
-    laser_diagnostics_.publish(SensorStatus::STOPPING);
-
     Status status = driver_->stopStreams(Source_Lidar_Scan);
     if (Status_Ok != status)
-        ROS_ERROR("Failed to stop laser stream. Error code %d", status);
-    else
-        laser_diagnostics_.publish(SensorStatus::STOPPED);
+        ROS_ERROR("Laser: failed to stop laser stream: %s", 
+                  Channel::statusString(status));
 }
 
 void Laser::unsubscribe()
@@ -591,13 +591,10 @@ void Laser::subscribe()
 
     if (0 == subscribers_++) {
 
-        laser_diagnostics_.publish(SensorStatus::STARTING);
-
         Status status = driver_->startStreams(Source_Lidar_Scan);
-        if (Status_Ok == status)
-            laser_diagnostics_.publish(SensorStatus::RUNNING);
-        else
-            ROS_ERROR("Failed to start laser. Error code %d", status);
+        if (Status_Ok != status)
+            ROS_ERROR("Laser: failed to start laser stream: %s", 
+                      Channel::statusString(status));
     }
 }
 }

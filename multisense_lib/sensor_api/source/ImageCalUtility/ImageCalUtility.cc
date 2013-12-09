@@ -24,11 +24,11 @@
  *   2013-05-23, ekratzer@carnegierobotics.com, PR1044, Created file.
  **/
 
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include <opencv/cv.h>
 
@@ -135,7 +135,8 @@ int main(int    argc,
 
     status = channelP->getSensorVersion(version);
     if (Status_Ok != status) {
-        fprintf(stderr, "failed to query sensor version: %d\n", status);
+        fprintf(stderr, "failed to query sensor version: %s\n", 
+                Channel::statusString(status));
         goto clean_out;
     }
     
@@ -148,7 +149,8 @@ int main(int    argc,
 
         status = channelP->getImageCalibration(c);
         if (Status_Ok != status) {
-            fprintf(stderr, "failed to query image calibration: %d\n", status);
+            fprintf(stderr, "failed to query image calibration: %s\n", 
+                    Channel::statusString(status));
             goto clean_out;
         }
 
@@ -312,7 +314,8 @@ int main(int    argc,
                
         status = channelP->setImageCalibration(c);
         if (Status_Ok != status) {
-            fprintf(stderr, "failed to set image calibration: %d\n", status);
+            fprintf(stderr, "failed to set image calibration: %s\n", 
+                    Channel::statusString(status));
             goto clean_out;
         }
 

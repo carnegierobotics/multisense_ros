@@ -45,7 +45,7 @@ imagerWidth: 2048
 imagerHeight: 1088
 
 # string
-lensName: Unknwown
+lensName: Unknown
 
 # integer
 lensType: 1

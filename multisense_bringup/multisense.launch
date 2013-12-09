@@ -14,13 +14,11 @@
 
   <!-- ROS Driver -->
   <param name="laser/frame_id" value="/head_hokuyo_frame" />
-  <param name="multisense_sl/frame_id" value="/left_camera_optical_frame" />
+  <param name="multisense_sl/frame_id_left" value="/left_camera_optical_frame" />
+  <param name="multisense_sl/frame_id_right" value="/right_camera_optical_frame" />
    <node pkg="multisense_ros" type="ros_driver" name="multisense_driver" output="screen">
      <param name="sensor_ip"  value="$(arg ip_address)" />
      <param name="sensor_mtu" value="$(arg mtu)" />
   </node>
-
-  <!-- Diagnostics -->
-  <include file="$(find multisense_diagnostics)/diagnostics.launch" />
 
 </launch>

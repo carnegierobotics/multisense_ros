@@ -50,6 +50,7 @@ static const Status Status_Error       = -2;
 static const Status Status_Failed      = -3;
 static const Status Status_Unsupported = -4;
 static const Status Status_Unknown     = -5;
+static const Status Status_Exception   = -6;
 
 //
 // Data sources
@@ -67,7 +68,11 @@ static const DataSource Source_Luma_Rectified_Right   = (1<<5);
 static const DataSource Source_Chroma_Left            = (1<<6);
 static const DataSource Source_Chroma_Right           = (1<<7);
 static const DataSource Source_Disparity              = (1<<10);
+static const DataSource Source_Disparity_Left         = (1<<10); // same as Source_Disparity
+static const DataSource Source_Disparity_Right        = (1<<11);
+static const DataSource Source_Disparity_Cost         = (1<<12);
 static const DataSource Source_Lidar_Scan             = (1<<24);
+static const DataSource Source_Imu                    = (1<<25);
 
 //
 // Trigger sources
@@ -77,12 +82,21 @@ typedef uint32_t TriggerSource;
 static const TriggerSource Trigger_Internal    = 0; // default, image::config.setFps()
 static const TriggerSource Trigger_External    = 1; // OPTO_RX input
 
+//
+// Base class for callbacks
+
+class HeaderBase {
+public:
+    virtual bool inMask(DataSource mask) { return true; };
+    virtual ~HeaderBase() {};
+};
+
 namespace image {
 
 //
 // Header information common to all image types
 
-class Header {
+class Header : public HeaderBase {
 public:
 
     DataSource  source;
@@ -102,7 +116,7 @@ public:
     Header() 
         : source(Source_Unknown) {};
 
-    bool inMask(DataSource mask) { return (mask & source);};
+    virtual bool inMask(DataSource mask) { return (mask & source);};
 };
 
 //
@@ -123,6 +137,7 @@ public:
 
     void setResolution        (uint32_t w,
                                uint32_t h) { m_width=w;m_height=h; };
+    void setDisparities       (uint32_t d) { m_disparities=d;      };
     void setWidth             (uint32_t w) { m_width     = w;      };
     void setHeight            (uint32_t h) { m_height    = h;      };
     void setFps               (float f)    { m_fps       = f;      };
@@ -143,9 +158,10 @@ public:
     //
     // Query
 
-    uint32_t width () const { return m_width;  };
-    uint32_t height() const { return m_height; };
-    float    fps   () const { return m_fps;    };
+    uint32_t width       () const { return m_width;       };
+    uint32_t height      () const { return m_height;      };
+    uint32_t disparities () const { return m_disparities; };
+    float    fps         () const { return m_fps;         };
         
     float    gain              () const { return m_gain;      };
     uint32_t exposure          () const { return m_exposure;  };
@@ -162,6 +178,8 @@ public:
 
     //
     // Query camera calibration (read-only)
+    //
+    // These parameters are adjusted for the current operating resolution of the device.
     
     float fx()    const { return m_fx;    }; 
     float fy()    const { return m_fy;    };
@@ -177,7 +195,7 @@ public:
     Config() : m_fps(5.0f), m_gain(1.0f),
                m_exposure(10000), m_aeEnabled(true), m_aeMax(5000000), m_aeDecay(7), m_aeThresh(0.75f),
                m_wbBlue(1.0f), m_wbRed(1.0f), m_wbEnabled(true), m_wbDecay(3), m_wbThresh(0.5f),
-               m_width(1024), m_height(544), 
+               m_width(1024), m_height(544), m_disparities(128),
                m_fx(0), m_fy(0), m_cx(0), m_cy(0),
                m_tx(0), m_ty(0), m_tz(0), m_roll(0), m_pitch(0), m_yaw(0) {};
 private:
@@ -194,6 +212,7 @@ private:
     uint32_t m_wbDecay;
     float    m_wbThresh;
     uint32_t m_width, m_height;
+    uint32_t m_disparities;
 
 protected:
 
@@ -203,7 +222,11 @@ protected:
 };
 
 //
-// For querying/setting camera calibration
+// For querying/setting camera calibration.
+//
+// Parameters are for the maximum operating resolution of the device:
+//     CMV2000: 2048x1088
+//     CVM4000: 2048x2048
 
 class Calibration {
 public:
@@ -221,6 +244,17 @@ public:
     Data right;
 };
 
+class Histogram {
+public:
+
+    Histogram() : channels(0),
+                  bins(0),
+                  data() {};
+    uint32_t              channels;
+    uint32_t              bins;
+    std::vector<uint32_t> data;
+};
+
 }; // namespace image
 
 namespace lidar {
@@ -231,8 +265,11 @@ typedef uint32_t IntensityType;
 //
 // Header information for a lidar scan
 
-class Header {
+class Header : public HeaderBase {
 public:
+
+    Header()
+        : pointCount(0) {};
     
     uint32_t scanId;
     uint32_t timeStartSeconds;
@@ -247,11 +284,6 @@ public:
 
     const RangeType     *rangesP;       // millimeters
     const IntensityType *intensitiesP;  // device units
-
-    Header()
-        : pointCount(0) {};
-
-    bool inMask(DataSource mask) { return true; };
 };
 
 //
@@ -336,12 +368,10 @@ namespace pps {
 // Header information for a PPS event. A network PPS event is sent from the 
 // sensor immediately after the pulse on the OPTO-TX line.
 
-class Header {
+class Header : public HeaderBase {
 public:
 
     int64_t sensorTime; // nanoseconds
-
-    bool inMask(DataSource s) { return true; };
 };
 
 //
@@ -351,6 +381,84 @@ typedef void (*Callback)(const Header& header,
                          void         *userDataP);
 
 }; // namespace pps
+
+namespace imu {
+
+//
+// An IMU sample
+
+class Sample {
+public:
+
+    typedef uint16_t Type;
+
+    static const Type Type_Accelerometer = 1;
+    static const Type Type_Gyroscope     = 2;
+    static const Type Type_Magnetometer  = 3;
+
+    Type       type;
+    uint32_t   timeSeconds;
+    uint32_t   timeMicroSeconds;
+
+    //
+    // The units vary by source and can be
+    // queried with getImuDetails()
+
+    float x, y, z;
+};
+
+//
+// Header information for an IMU callback
+
+class Header : public HeaderBase {
+public:
+
+    uint32_t            sequence;
+    std::vector<Sample> samples;
+};
+
+//
+// Function pointer for receiving callbacks for IMU data
+
+typedef void (*Callback)(const Header& header,
+                         void         *userDataP);
+
+//
+// IMU detailed information
+
+class Info {
+public:
+
+    typedef struct {
+        float sampleRate;      // Hz
+        float bandwidthCutoff; // Hz
+    } RateEntry;
+
+    typedef struct {
+        float range;      // +/- units
+        float resolution; // units per LSB
+    } RangeEntry;
+
+    std::string             name;
+    std::string             device;
+    std::string             units;
+    std::vector<RateEntry>  rates;
+    std::vector<RangeEntry> ranges;
+};
+
+//
+// IMU configuration
+
+class Config {
+public:
+    
+    std::string name;            // from Info::name
+    bool        enabled;
+    uint32_t    rateTableIndex;  // into Info::rates[]
+    uint32_t    rangeTableIndex; // into Info::ranges[]
+};
+
+}; // namespace imu
 
 namespace system {
 
@@ -363,16 +471,16 @@ public:
     uint32_t   width;
     uint32_t   height;
     DataSource supportedDataSources;
-    uint32_t   flags; //TBD
+    int32_t    disparities;
 
     DeviceMode(uint32_t   w=0, 
                uint32_t   h=0, 
                DataSource d=0, 
-               uint32_t   f=0) :
+               int32_t    s=-1) :
         width(w),
         height(h),
         supportedDataSources(d),
-        flags(f) {};
+        disparities(s) {};
 };
 
 class VersionInfo {
@@ -408,7 +516,16 @@ public:
 class DeviceInfo {
 public:
 
-    static const uint32_t MAX_PCBS = 8;
+    static const uint32_t MAX_PCBS                   = 8;
+
+    static const uint32_t HARDWARE_REV_MULTISENSE_SL = 1;
+    static const uint32_t HARDWARE_REV_MULTISENSE_S  = 2;
+    static const uint32_t HARDWARE_REV_MULTISENSE_M  = 3;
+
+    static const uint32_t IMAGER_TYPE_CMV2000_GREY   = 1;
+    static const uint32_t IMAGER_TYPE_CMV2000_COLOR  = 2;
+    static const uint32_t IMAGER_TYPE_CMV4000_GREY   = 3;
+    static const uint32_t IMAGER_TYPE_CMV4000_COLOR  = 4;
 
     std::string name;
     std::string buildDate;

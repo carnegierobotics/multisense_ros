@@ -36,9 +36,11 @@
 #include "details/storage.hh"
 #include "details/wire/Protocol.h"
 #include "details/wire/ImageMetaMessage.h"
+#include "details/wire/VersionResponseMessage.h"
 
 #include <netinet/ip.h>
 
+#include <unistd.h>
 #include <vector>
 #include <list>
 #include <set>
@@ -72,10 +74,16 @@ public:
                                           void           *userDataP);
     virtual Status addIsolatedCallback   (pps::Callback   callback,
                                           void           *userDataP);
+    virtual Status addIsolatedCallback   (imu::Callback   callback,
+                                          void           *userDataP);
 
     virtual Status removeIsolatedCallback(image::Callback callback);
     virtual Status removeIsolatedCallback(lidar::Callback callback);
     virtual Status removeIsolatedCallback(pps::Callback   callback);
+    virtual Status removeIsolatedCallback(imu::Callback   callback);
+
+    virtual void*  reserveCallbackBuffer ();
+    virtual Status releaseCallbackBuffer (void *referenceP);
 
     virtual Status networkTimeSynchronization(bool enabled);
 
@@ -103,6 +111,8 @@ public:
     virtual Status getLidarCalibration   (lidar::Calibration& c);
     virtual Status setLidarCalibration   (const lidar::Calibration& c);
 
+    virtual Status getImageHistogram     (int64_t frameId, image::Histogram& histogram);
+
     virtual Status getDeviceModes        (std::vector<system::DeviceMode>& modes);
 
     virtual Status getMtu                (int32_t& mtu);
@@ -121,13 +131,18 @@ public:
     virtual Status verifyBitstream       (const std::string& file);
     virtual Status verifyFirmware        (const std::string& file);
 
-    virtual void*  reserveCallbackBuffer ();
-    virtual Status releaseCallbackBuffer (void *referenceP);
+    virtual Status getImuInfo            (uint32_t& maxSamplesPerMessage,
+                                          std::vector<imu::Info>& info);
+    virtual Status getImuConfig          (uint32_t& samplesPerMessage,
+                                          std::vector<imu::Config>& c);
+    virtual Status setImuConfig          (bool storeSettingsInFlash,
+                                          uint32_t samplesPerMessage,
+                                          const std::vector<imu::Config>& c);
 
-    virtual const uint32_t *getHistogram (int64_t   frameId,
-                                          uint32_t& channels,
-                                          uint32_t& bins);
-    virtual Status     releaseHistogram  (int64_t frameId);
+    virtual Status getLargeBufferDetails (uint32_t& bufferCount,
+                                          uint32_t& bufferSize);
+    virtual Status setLargeBuffers       (const std::vector<uint8_t*>& buffers,
+                                          uint32_t                     bufferSize);
 
 private:
 
@@ -142,7 +157,7 @@ private:
     //
     // The version of this API
 
-    static const VersionType API_VERSION = 0x0202; // 2.2
+    static const VersionType API_VERSION = 0x0300; // 3.0
 
     //
     // Misc. internal constants
@@ -157,7 +172,7 @@ private:
     static const double   DEFAULT_ACK_TIMEOUT        = 0.2; // seconds
     static const uint32_t DEFAULT_ACK_ATTEMPTS       = 5;
     static const uint32_t IMAGE_META_CACHE_DEPTH     = 20;
-    static const uint32_t UDP_TRACKER_CACHE_DEPTH    = 5;
+    static const uint32_t UDP_TRACKER_CACHE_DEPTH    = 10;
     static const uint32_t TIME_SYNC_OFFSET_DECAY     = 8;
 
     //
@@ -168,26 +183,60 @@ private:
     // queue up in a user dispatch thread.
 
     static const uint32_t MAX_USER_IMAGE_QUEUE_SIZE = 5;
-    static const uint32_t MAX_USER_LASER_QUEUE_SIZE = 10;
-    static const uint32_t MAX_USER_PPS_QUEUE_SIZE   = 1;
+    static const uint32_t MAX_USER_LASER_QUEUE_SIZE = 20;
 
     //
-    // A class for re-assembling UDP packets
+    // PPS and IMU callbacks do not reserve an RX buffer, so queue
+    // depths are limited by RAM (via heap.)
+
+    static const uint32_t MAX_USER_PPS_QUEUE_SIZE = 2;
+    static const uint32_t MAX_USER_IMU_QUEUE_SIZE = 50;
+
+    //
+    // A re-assembler for multi-packet messages
 
     class UdpTracker {
     public:
-
-        uint32_t                    bytesAssembled;
-        int64_t                     lastByteOffset; 
-        UdpAssembler                assembler;
-        utility::BufferStreamWriter stream;
-
-        UdpTracker(UdpAssembler                 a,
+        
+        UdpTracker(uint32_t                     t,
+                   UdpAssembler                 a,
                    utility::BufferStreamWriter& s) :
-            bytesAssembled(0), 
-            lastByteOffset(-1),
-            assembler(a),
-            stream(s) {};
+            m_totalBytesInMessage(t),
+            m_bytesAssembled(0), 
+            m_packetsAssembled(0),
+            m_lastByteOffset(-1),
+            m_assembler(a),
+            m_stream(s) {};
+
+        utility::BufferStreamWriter& stream() { return m_stream;           };
+        uint32_t packets()                    { return m_packetsAssembled; };
+        
+        bool assemble(uint32_t       bytes,
+                      uint32_t       offset,
+                      const uint8_t *dataP) {
+
+            if (offset <= m_lastByteOffset)
+                CRL_EXCEPTION("out-of-order or duplicate packet");
+
+            m_assembler(m_stream, dataP, offset, bytes);
+
+            m_bytesAssembled   += bytes;
+            m_lastByteOffset    = offset;
+            m_packetsAssembled ++;
+
+            if (m_bytesAssembled == m_totalBytesInMessage)
+                return true;
+            return false;
+        }
+
+    private:
+
+        uint32_t                    m_totalBytesInMessage;
+        uint32_t                    m_bytesAssembled;
+        uint32_t                    m_packetsAssembled;
+        int64_t                     m_lastByteOffset; 
+        UdpAssembler                m_assembler;
+        utility::BufferStreamWriter m_stream;
     };
 
     //
@@ -261,6 +310,7 @@ private:
     // Internal UDP reception thread
 
     utility::Thread *m_rxThreadP;
+    utility::Mutex   m_rxLock;
 
     //
     // Internal status thread
@@ -273,6 +323,7 @@ private:
     std::list<ImageListener*> m_imageListeners;
     std::list<LidarListener*> m_lidarListeners;
     std::list<PpsListener*>   m_ppsListeners;
+    std::list<ImuListener*>   m_imuListeners;
 
     //
     // A message signal interface
@@ -298,6 +349,11 @@ private:
     bool           m_networkTimeSyncEnabled;
 
     //
+    // Cached version info from the device
+
+    wire::VersionResponse m_sensorVersion;
+
+    //
     // Private procedures
 
     template<class T, class U> Status waitData(const T&      command,
@@ -316,8 +372,8 @@ private:
                                                image::Header&         header);
     void                         dispatchLidar(utility::BufferStream& buffer,
                                                lidar::Header&         header);
-    void                         dispatchPps  (utility::BufferStream& buffer,
-                                               pps::Header&           header);
+    void                         dispatchPps  (pps::Header& header);
+    void                         dispatchImu  (imu::Header& header);
 
 
     utility::BufferStreamWriter& findFreeBuffer  (uint32_t messageLength);
@@ -348,6 +404,10 @@ private:
 
     static wire::SourceType      sourceApiToWire(DataSource mask);
     static DataSource            sourceWireToApi(wire::SourceType mask);
+    static uint32_t              hardwareApiToWire(uint32_t h);
+    static uint32_t              hardwareWireToApi(uint32_t h);
+    static uint32_t              imagerApiToWire(uint32_t h);
+    static uint32_t              imagerWireToApi(uint32_t h);
     static void                 *rxThread       (void *userDataP);
     static void                 *statusThread   (void *userDataP);
 };

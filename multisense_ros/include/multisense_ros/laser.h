@@ -27,11 +27,9 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <ros/ros.h>
-#include <multisense_ros/state_publisher.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/JointState.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <multisense_ros/JointDiagnostics.h>
 #include <kdl/frames.hpp>
 
 #include <MultiSenseChannel.hh>
@@ -70,17 +68,14 @@ private:
     //
     // Scan publishing
 
-    crl::multisense::Channel*      driver_;
-    ros::Publisher                 scan_pub_;
-    std::string                    frame_id_;
-    multisense_ros::StatePublisher laser_diagnostics_;
+    crl::multisense::Channel *driver_;
+    ros::Publisher            scan_pub_;
+    std::string               frame_id_;
 
     //
     // Joint state publishing
 
     ros::Publisher          js_pub_;
-    ros::Publisher          js_diagnostics_pub_;
-    JointDiagnostics        js_diagnostics_;
     sensor_msgs::JointState js_msg_;    
 
     //

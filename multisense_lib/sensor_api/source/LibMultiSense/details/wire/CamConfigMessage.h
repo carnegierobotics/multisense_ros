@@ -38,7 +38,7 @@ namespace wire {
 class CamConfig {
 public:
     static const IdType      ID      = ID_DATA_CAM_CONFIG;
-    static const VersionType VERSION = 1;
+    static const VersionType VERSION = 2;
 
     //
     // Parameters representing the current camera configuration
@@ -64,6 +64,11 @@ public:
     float cx, cy;
     float tx, ty, tz;
     float roll, pitch, yaw;
+
+    //
+    // Version 2 additions
+
+    int32_t disparities;
 
     //
     // Constructors
@@ -108,6 +113,11 @@ public:
         message & roll;
         message & pitch;
         message & yaw;
+
+        if (version >= 2)
+            message & disparities;
+        else
+            disparities = -1;
     }
 };
 

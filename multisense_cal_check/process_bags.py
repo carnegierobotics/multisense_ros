@@ -42,6 +42,7 @@ class _BagProcessor():
             for topic, msg, t in bag.read_messages(
                                  topics=['/laser/calibration/raw_lidar_data']):
                 #Unbundle message
+                scan_count = msg.scan_count
                 time_start = float(msg.time_start.secs +
                                         msg.time_start.nsecs * 1e-9)
                 time_end = float(msg.time_end.secs + msg.time_end.nsecs * 1e-9)
@@ -50,9 +51,9 @@ class _BagProcessor():
                 dist = msg.distance
                 reflect = msg.intensity
 
-                #Expected Format: Unix time, time_start, time_end, angle_start,
+                #Expected Format: scan_count, time_start, time_end, angle_start,
                 #angle_end, , range, , intensity, ,len(range)
-                row = [time.time(), time_start, time_end,
+                row = [scan_count, time_start, time_end,
                        angle_start, angle_end, " "] + list(dist) + [" "] \
                        + list(reflect) + [" "] + [len(list(dist))]
 

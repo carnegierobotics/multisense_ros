@@ -13,7 +13,6 @@
   <depend stack="diagnostics" />
   <depend stack="dynamic_reconfigure" />
   <depend stack="vision_opencv"/>
-  <depend stack="diagnostics_monitors"/>
   <depend stack="geometry"/>
   <depend stack="robot_model"/>
 

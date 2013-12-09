@@ -24,12 +24,15 @@
  *   2013-06-14, ekratzer@carnegierobotics.com, PR1044, Created file.
  **/
 
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
 #include <string>
 #include <fstream>
+#include <unistd.h>
+#include <getopt.h>
 
 #include <arpa/inet.h> // htons
 
@@ -108,7 +111,7 @@ bool savePgm(const std::string& fileName,
 void ppsCallback(const pps::Header& header,
                  void              *userDataP)
 {
-    fprintf(stderr, "PPS: %lld ns\n", header.sensorTime);
+    fprintf(stderr, "PPS: %ld ns\n", header.sensorTime);
 }                
 
 void laserCallback(const lidar::Header& header,
@@ -120,30 +123,11 @@ void laserCallback(const lidar::Header& header,
 void imageCallback(const image::Header& header,
                    void                *userDataP)
 {
-    static double lastTimeStamp  = 0.0;
-    static double avgFrameRate   = 0.0;
-    static int64_t lastFrameId   = -1;
-    static int64_t droppedFrames = 0;
-
     Channel *channelP = reinterpret_cast<Channel*>(userDataP);
     
     double timeStamp = header.timeSeconds + 1e-6 * header.timeMicroSeconds;
     
-    if (-1 != lastFrameId &&
-        (header.frameId != (lastFrameId + 1)))
-        droppedFrames ++;
-
-    
-    fprintf(stdout, "image_type 0x%x, time %.6f, delta-t %.6f, rate %.3f, bpp %d, w %d, h %d frame %lld, dropped %lld\n", 
-            header.source,
-            timeStamp,
-            timeStamp - lastTimeStamp,
-            1.0 / (timeStamp - lastTimeStamp),
-            header.bitsPerPixel,
-            header.width,
-            header.height,
-            header.frameId,
-            droppedFrames);
+    static int64_t lastFrameId = -1;
 
     if (-1 == lastFrameId)
         savePgm("test.pgm",
@@ -152,17 +136,13 @@ void imageCallback(const image::Header& header,
                 header.bitsPerPixel,
                 header.imageDataP);
 
-    lastTimeStamp = timeStamp;
-    lastFrameId   = header.frameId;
+    lastFrameId = header.frameId;
 
-    uint32_t channels, bins;
+    image::Histogram histogram;
 
-    const uint32_t *histogramP = channelP->getHistogram(header.frameId, channels, bins);
-    if (NULL == histogramP)
-        fprintf(stderr, "failed to get histogram for frame %lld\n",
+    if (Status_Ok != channelP->getImageHistogram(header.frameId, histogram))
+        fprintf(stderr, "failed to get histogram for frame %ld\n",
                 header.frameId);
-    else
-        channelP->releaseHistogram(header.frameId);
 }
 
 }; // anonymous
@@ -171,6 +151,7 @@ int main(int    argc,
          char **argvPP)
 {
     std::string currentAddress = "10.66.171.21";
+    int32_t mtu = 7200;
 
     signal(SIGINT, signalHandler);
 
@@ -179,9 +160,10 @@ int main(int    argc,
 
     int c;
 
-    while(-1 != (c = getopt(argc, argvPP, "a:")))
+    while(-1 != (c = getopt(argc, argvPP, "a:m:")))
         switch(c) {
         case 'a': currentAddress = std::string(optarg);    break;
+        case 'm': mtu            = atoi(optarg);           break;
         default: usage(*argvPP);                           break;
         }
 
@@ -203,7 +185,8 @@ int main(int    argc,
 
     status = channelP->getVersionInfo(v);
     if (Status_Ok != status) {
-        fprintf(stderr, "failed to query sensor version: %d\n", status);
+        fprintf(stderr, "failed to query sensor version: %s\n", 
+                Channel::statusString(status));
         goto clean_out;
     }
 
@@ -211,9 +194,9 @@ int main(int    argc,
     fprintf(stdout, "API version         :  0x%04x\n", v.apiVersion);
     fprintf(stdout, "Firmware build date :  %s\n", v.sensorFirmwareBuildDate.c_str());
     fprintf(stdout, "Firmware version    :  0x%04x\n", v.sensorFirmwareVersion);
-    fprintf(stdout, "Hardware version    :  0x%llx\n", v.sensorHardwareVersion);
-    fprintf(stdout, "Hardware magic      :  0x%llx\n", v.sensorHardwareMagic);
-    fprintf(stdout, "FPGA DNA            :  0x%llx\n", v.sensorFpgaDna);
+    fprintf(stdout, "Hardware version    :  0x%lx\n", v.sensorHardwareVersion);
+    fprintf(stdout, "Hardware magic      :  0x%lx\n", v.sensorHardwareMagic);
+    fprintf(stdout, "FPGA DNA            :  0x%lx\n", v.sensorFpgaDna);
 
     //
     // Change framerate
@@ -222,31 +205,43 @@ int main(int    argc,
         image::Config cfg;
 
         status = channelP->getImageConfig(cfg);
-        if (Status_Ok == status) {
+        if (Status_Ok != status) {
+            fprintf(stderr, "failed to get image config: %s\n",
+                    Channel::statusString(status));
+            goto clean_out;
+        } else {
 
             cfg.setResolution(1024, 544);
             cfg.setFps(30.0);
         
             status = channelP->setImageConfig(cfg);
-            if (Status_Ok != status)
-                fprintf(stderr, "failed to configure sensor\n");
+            if (Status_Ok != status) {
+                fprintf(stderr, "failed to configure sensor: %s\n",
+                        Channel::statusString(status));
+                goto clean_out;
+            }
         }
     }
 
     //
     // Change MTU
 
-    if (Status_Ok != channelP->setMtu(7200))
-        fprintf(stderr, "failed to set MTU to 7200\n");
+    status = channelP->setMtu(mtu);
+    if (Status_Ok != status) {
+        fprintf(stderr, "failed to set MTU to %d: %s\n",
+                mtu, Channel::statusString(status));
+        goto clean_out;
+    }
 
     //
     // Change trigger source
 
-//    status = channelP->setTriggerSource(Trigger_External);
     status = channelP->setTriggerSource(Trigger_Internal);
-    if (Status_Ok != status)
-        fprintf(stderr, "Failed to set trigger source, Error %d\n",
-                status);
+    if (Status_Ok != status) {
+        fprintf(stderr, "Failed to set trigger source: %s\n",
+                Channel::statusString(status));
+        goto clean_out;
+    }
 
     //
     // Add callbacks
@@ -258,13 +253,21 @@ int main(int    argc,
     //
     // Start streaming
 
-//    channelP->startStreams(Source_Disparity);
-    channelP->startStreams(Source_Luma_Rectified_Left | Source_Lidar_Scan);
+    status = channelP->startStreams(Source_Luma_Rectified_Left | Source_Lidar_Scan);
+    if (Status_Ok != status) {
+        fprintf(stderr, "failed to start streams: %s\n", 
+                Channel::statusString(status));
+        goto clean_out;
+    }
 
     while(!doneG)
         usleep(100000);
 
-    channelP->stopStreams(Source_All);
+    status = channelP->stopStreams(Source_All);
+    if (Status_Ok != status) {
+        fprintf(stderr, "failed to stop streams: %s\n", 
+                Channel::statusString(status));
+    }
 
 clean_out:
 

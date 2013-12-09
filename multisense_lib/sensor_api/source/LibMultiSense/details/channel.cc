@@ -32,6 +32,8 @@
 #include "details/wire/SysGetMtuMessage.h"
 #include "details/wire/StatusRequestMessage.h"
 #include "details/wire/StatusResponseMessage.h"
+#include "details/wire/VersionRequestMessage.h"
+#include "details/wire/SysDeviceInfoMessage.h"
 
 #include "details/utility/Functional.hh"
 
@@ -63,14 +65,20 @@ impl::impl(const std::string& address) :
     m_streamLock(),
     m_threadsRunning(false),
     m_rxThreadP(NULL),
+    m_rxLock(),
+    m_statusThreadP(NULL),
     m_imageListeners(),
     m_lidarListeners(),
     m_ppsListeners(),
+    m_imuListeners(),
+    m_watch(),
+    m_messages(),
     m_streamsEnabled(0),
     m_timeLock(),
     m_timeOffsetInit(false),
     m_timeOffset(0),
-    m_networkTimeSyncEnabled(true)
+    m_networkTimeSyncEnabled(true),
+    m_sensorVersion()
 {
     //
     // Make sure the sensor address is sane
@@ -126,17 +134,28 @@ impl::impl(const std::string& address) :
         cleanup();
         CRL_EXCEPTION("failed to establish comms with the sensor at \"%s\"",
                       address.c_str());
+    } else {
+
+        //
+        // Use the same MTU for TX 
+
+        m_sensorMtu = mtu.mtu;
+    }
+
+    //
+    // Request version info from the device
+    
+    status = waitData(wire::VersionRequest(), m_sensorVersion);
+    if (Status_Ok != status) {
+        cleanup();
+        CRL_EXCEPTION("failed to request version info from sensor at \"%s\"",
+                      address.c_str());
     }
 
     //
     // Create status thread
 
     m_statusThreadP = new utility::Thread(statusThread, this);
-
-    //
-    // Use the same MTU for TX 
-
-    m_sensorMtu = mtu.mtu;
 }
 
 //
@@ -156,18 +175,21 @@ void impl::cleanup()
         iti != m_imageListeners.end();
         iti ++)
         delete *iti;
-
     std::list<LidarListener*>::const_iterator itl;
     for(itl  = m_lidarListeners.begin();
         itl != m_lidarListeners.end();
         itl ++)
         delete *itl;
-
     std::list<PpsListener*>::const_iterator itp;
     for(itp  = m_ppsListeners.begin();
         itp != m_ppsListeners.end();
         itp ++)
         delete *itp;
+    std::list<ImuListener*>::const_iterator itm;
+    for(itm  = m_imuListeners.begin();
+        itm != m_imuListeners.end();
+        itm ++)
+        delete *itm;
 
     BufferPool::const_iterator it;
     for(it  = m_rxLargeBufferPool.begin();
@@ -297,7 +319,10 @@ wire::SourceType impl::sourceApiToWire(DataSource mask)
     if (mask & Source_Chroma_Left)            wire_mask |= wire::SOURCE_CHROMA_LEFT;
     if (mask & Source_Chroma_Right)           wire_mask |= wire::SOURCE_CHROMA_RIGHT;
     if (mask & Source_Disparity)              wire_mask |= wire::SOURCE_DISPARITY;
+    if (mask & Source_Disparity_Right)        wire_mask |= wire::SOURCE_DISPARITY_RIGHT;
+    if (mask & Source_Disparity_Cost)         wire_mask |= wire::SOURCE_DISPARITY_COST;
     if (mask & Source_Lidar_Scan)             wire_mask |= wire::SOURCE_LIDAR_SCAN;
+    if (mask & Source_Imu)                    wire_mask |= wire::SOURCE_IMU;
 
     return wire_mask;
 };
@@ -306,19 +331,69 @@ DataSource impl::sourceWireToApi(wire::SourceType mask)
 {
     DataSource api_mask = 0;
 
-    if (mask & wire::SOURCE_RAW_LEFT)         api_mask |= Source_Raw_Left;
-    if (mask & wire::SOURCE_RAW_RIGHT)        api_mask |= Source_Raw_Right;
-    if (mask & wire::SOURCE_LUMA_LEFT)        api_mask |= Source_Luma_Left;
-    if (mask & wire::SOURCE_LUMA_RIGHT)       api_mask |= Source_Luma_Right;
-    if (mask & wire::SOURCE_LUMA_RECT_LEFT)   api_mask |= Source_Luma_Rectified_Left;
-    if (mask & wire::SOURCE_LUMA_RECT_RIGHT)  api_mask |= Source_Luma_Rectified_Right;
-    if (mask & wire::SOURCE_CHROMA_LEFT)      api_mask |= Source_Chroma_Left;
-    if (mask & wire::SOURCE_CHROMA_RIGHT)     api_mask |= Source_Chroma_Right;
-    if (mask & wire::SOURCE_DISPARITY)        api_mask |= Source_Disparity;
-    if (mask & wire::SOURCE_LIDAR_SCAN)       api_mask |= Source_Lidar_Scan;
+    if (mask & wire::SOURCE_RAW_LEFT)          api_mask |= Source_Raw_Left;
+    if (mask & wire::SOURCE_RAW_RIGHT)         api_mask |= Source_Raw_Right;
+    if (mask & wire::SOURCE_LUMA_LEFT)         api_mask |= Source_Luma_Left;
+    if (mask & wire::SOURCE_LUMA_RIGHT)        api_mask |= Source_Luma_Right;
+    if (mask & wire::SOURCE_LUMA_RECT_LEFT)    api_mask |= Source_Luma_Rectified_Left;
+    if (mask & wire::SOURCE_LUMA_RECT_RIGHT)   api_mask |= Source_Luma_Rectified_Right;
+    if (mask & wire::SOURCE_CHROMA_LEFT)       api_mask |= Source_Chroma_Left;
+    if (mask & wire::SOURCE_CHROMA_RIGHT)      api_mask |= Source_Chroma_Right;
+    if (mask & wire::SOURCE_DISPARITY)         api_mask |= Source_Disparity;
+    if (mask & wire::SOURCE_DISPARITY_RIGHT)   api_mask |= Source_Disparity_Right;
+    if (mask & wire::SOURCE_DISPARITY_COST)    api_mask |= Source_Disparity_Cost;
+    if (mask & wire::SOURCE_LIDAR_SCAN)        api_mask |= Source_Lidar_Scan;
+    if (mask & wire::SOURCE_IMU)               api_mask |= Source_Imu; 
 
     return api_mask;
 };
+
+uint32_t impl::hardwareApiToWire(uint32_t a) 
+{
+    switch(a) {
+    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL: return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_SL;
+    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_S:  return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S;
+    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_M:  return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_M;
+    default:
+        CRL_DEBUG("unknown API hardware type \"%d\"\n", a);
+        return a; // pass through
+    }
+}
+uint32_t impl::hardwareWireToApi(uint32_t w) 
+{
+    switch(w) {
+    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_SL: return system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL;
+    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S:  return system::DeviceInfo::HARDWARE_REV_MULTISENSE_S;
+    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_M:  return system::DeviceInfo::HARDWARE_REV_MULTISENSE_M;
+    default:
+        CRL_DEBUG("unknown WIRE hardware type \"%d\"\n", w);
+        return w; // pass through
+    }
+}
+uint32_t impl::imagerApiToWire(uint32_t a) 
+{
+    switch(a) {
+    case system::DeviceInfo::IMAGER_TYPE_CMV2000_GREY:  return wire::SysDeviceInfo::IMAGER_TYPE_CMV2000_GREY;
+    case system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR: return wire::SysDeviceInfo::IMAGER_TYPE_CMV2000_COLOR;
+    case system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY:  return wire::SysDeviceInfo::IMAGER_TYPE_CMV4000_GREY;
+    case system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR: return wire::SysDeviceInfo::IMAGER_TYPE_CMV4000_COLOR;
+    default:
+        CRL_DEBUG("unknown API imager type \"%d\"\n", a);
+        return a; // pass through
+    }
+}
+uint32_t impl::imagerWireToApi(uint32_t w) 
+{
+    switch(w) {
+    case wire::SysDeviceInfo::IMAGER_TYPE_CMV2000_GREY:  return system::DeviceInfo::IMAGER_TYPE_CMV2000_GREY;
+    case wire::SysDeviceInfo::IMAGER_TYPE_CMV2000_COLOR: return system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR;
+    case wire::SysDeviceInfo::IMAGER_TYPE_CMV4000_GREY:  return system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY;
+    case wire::SysDeviceInfo::IMAGER_TYPE_CMV4000_COLOR: return system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR;
+    default:
+        CRL_DEBUG("unknown WIRE imager type \"%d\"\n", w);
+        return w; // pass through
+    }
+}
 
 //
 // Apply a time offset correction
@@ -388,7 +463,7 @@ void *impl::statusThread(void *userDataP)
             // Wait for the response
 
             Status status;
-            if (ack.wait(status, 0.2)) {
+            if (ack.wait(status, 0.010)) {
 
                 //
                 // Record (approx) time of response
@@ -413,7 +488,7 @@ void *impl::statusThread(void *userDataP)
                 selfP->applySensorTimeOffset(offset);
             }
         
-        } catch (const utility::Exception& e) {
+        } catch (const std::exception& e) {
 
             CRL_DEBUG("exception: %s\n", e.what());
 
@@ -433,16 +508,13 @@ void *impl::statusThread(void *userDataP)
 
 }; // namespace details
 
-//
-// Factory methods
-
 Channel* Channel::Create(const std::string& address)
 {
     try {
 
         return new details::impl(address);
 
-    } catch (const details::utility::Exception& e) {
+    } catch (const std::exception& e) {
 
         CRL_DEBUG("exception: %s\n", e.what());
         return NULL;
@@ -456,10 +528,25 @@ void Channel::Destroy(Channel *instanceP)
         if (instanceP)
             delete static_cast<details::impl*>(instanceP);
 
-    } catch (const details::utility::Exception& e) {
+    } catch (const std::exception& e) {
         
         CRL_DEBUG("exception: %s\n", e.what());
     }
+}
+
+const char *Channel::statusString(Status status)
+{
+    switch(status) {
+    case Status_Ok:          return "Ok";
+    case Status_TimedOut:    return "Timed out";
+    case Status_Error:       return "Error";
+    case Status_Failed:      return "Failed";
+    case Status_Unsupported: return "Unsupported";
+    case Status_Unknown:     return "Unknown command";
+    case Status_Exception:   return "Exception";
+    }
+
+    return "Unknown Error";
 }
 
 }; // namespace multisense

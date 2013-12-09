@@ -216,7 +216,7 @@ int main(int    argc,
 
     std::string outfile(argvPP[1]);
 
-    setResolution("1024x544");
+    setResolution("1024x544x128");
     ros::Duration(1.0).sleep();
 
     printf("Capturing device information... "); fflush(stdout);

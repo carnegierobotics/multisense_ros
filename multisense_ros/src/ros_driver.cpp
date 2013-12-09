@@ -24,12 +24,14 @@
 #include <multisense_ros/laser.h>
 #include <multisense_ros/camera.h>
 #include <multisense_ros/pps.h>
+#include <multisense_ros/imu.h>
+#include <multisense_ros/reconfigure.h>
 #include <ros/ros.h>
 
 int main(int    argc, 
-         char** argv)
+         char** argvPP)
 {
-    ros::init(argc, argv, "multisense_driver");
+    ros::init(argc, argvPP, "multisense_driver");
     ros::NodeHandle nh;
     ros::NodeHandle nh_private_("~");
 
@@ -41,7 +43,7 @@ int main(int    argc,
     int         sensor_mtu;
 
     if (!nh.getParam("robot_description", robot_desc_string)) {
-        ROS_ERROR("Could not find URDF at [robot_description]. Exiting\n");
+        ROS_ERROR("Driver: could not find URDF at [robot_description]. Exiting\n");
         return -1;
     }
 
@@ -53,19 +55,27 @@ int main(int    argc,
 
         Channel *d = Channel::Create(sensor_ip);
     
-	if (d) {
+	if (NULL == d)
+            return -2;
+        else {
 
-            if (Status_Ok != d->setMtu(sensor_mtu))
-                ROS_ERROR("failed to set sensor MTU to %d", sensor_mtu);
+            Status status = d->setMtu(sensor_mtu);
+            if (Status_Ok != status)
+                ROS_ERROR("Driver: failed to set sensor MTU to %d: %s", 
+                          sensor_mtu, Channel::statusString(status));
+            else {
 
-            multisense_ros::Laser  laser(d, robot_desc_string);
-            multisense_ros::Camera camera(d);
-            multisense_ros::Pps    pps(d);
-            
-            ros::spin();
+                multisense_ros::Laser        laser(d, robot_desc_string);
+                multisense_ros::Camera       camera(d);
+                multisense_ros::Pps          pps(d);
+                multisense_ros::Imu          imu(d);
+                multisense_ros::Reconfigure  reconfigure(d, 
+                                                         boost::bind(&multisense_ros::Camera::resolutionChanged, &camera));
+                ros::spin();
+            }
+
+            Channel::Destroy(d);
         }
-
-        Channel::Destroy(d);
     }
 
     return 0;

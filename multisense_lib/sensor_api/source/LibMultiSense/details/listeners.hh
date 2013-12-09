@@ -80,6 +80,14 @@ public:
         }
     };
 
+    void dispatch(HEADER& header) {
+
+        if (header.inMask(m_sourceMask))
+            m_queue.post(Dispatch(m_callback,
+                                  header,
+                                  m_userDataP));
+    };
+
     void dispatch(utility::BufferStream& buffer,
                   HEADER&                header) {
 
@@ -100,25 +108,36 @@ private:
     class Dispatch {
     public:
 
+        Dispatch(CALLBACK  c,
+                 HEADER&   h,
+                 void     *d) :
+            m_callback(c),
+            m_exposeBuffer(false),
+            m_header(h),
+            m_userDataP(d) {};
+
         Dispatch(CALLBACK               c,
                  utility::BufferStream& b,
                  HEADER&                h,
                  void                  *d) :
             m_callback(c),
             m_buffer(b),
+            m_exposeBuffer(true),
             m_header(h),
             m_userDataP(d) {};
 
         Dispatch() :
             m_callback(NULL),
             m_buffer(),
+            m_exposeBuffer(false),
             m_header(),
             m_userDataP(NULL) {};
 
         void operator() (void) {
 
             if (m_callback) {
-                dispatchBufferReferenceTP = &m_buffer;
+                if (m_exposeBuffer)
+                    dispatchBufferReferenceTP = &m_buffer;
                 m_callback(m_header, m_userDataP);
             }
         };
@@ -127,6 +146,7 @@ private:
 
         CALLBACK              m_callback;
         utility::BufferStream m_buffer;
+        bool                  m_exposeBuffer;
         HEADER                m_header;
         void                 *m_userDataP;
     };
@@ -135,7 +155,7 @@ private:
     // The dispatch thread
     //
     // We are penalized with two memory copies of
-    // HEADER by std::deque, but the sensor data
+    // HEADER by std::deque, but the image/lidar data
     // is zero-copy (reference-counted by BufferStream)
 
     static void *dispatchThread(void *argumentP) {
@@ -148,7 +168,7 @@ private:
                 if (false == selfP->m_queue.wait(d))
                     break;
                 d();
-            } catch (const utility::Exception& e) {
+            } catch (const std::exception& e) {
                 CRL_DEBUG("exception invoking image callback: %s\n",
                           e.what());
             } catch ( ... ) {
@@ -177,6 +197,7 @@ private:
 typedef Listener<image::Header, image::Callback> ImageListener;
 typedef Listener<lidar::Header, lidar::Callback> LidarListener;
 typedef Listener<pps::Header,   pps::Callback>   PpsListener;
+typedef Listener<imu::Header,   imu::Callback>   ImuListener;
 
 }; // namespace details
 }; // namespace multisense

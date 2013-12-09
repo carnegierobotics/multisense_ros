@@ -45,7 +45,9 @@ const DataSource allImageSources = (Source_Luma_Left            |
                                     Source_Luma_Rectified_Left  |
                                     Source_Luma_Rectified_Right |
                                     Source_Chroma_Left          |
-                                    Source_Disparity);
+                                    Source_Disparity            |
+                                    Source_Disparity_Right      |
+                                    Source_Disparity_Cost);
 //
 // Shims for C-style driver callbacks 
 
@@ -61,6 +63,8 @@ void rawCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->rawCamDataCallback(header); }
 void colorCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->colorImageCallback(header); }
+void dispCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->disparityImageCallback(header); }
 
 bool isValidPoint(const cv::Vec3f& pt)
 {
@@ -77,7 +81,6 @@ bool isValidPoint(const cv::Vec3f& pt)
 Camera::Camera(Channel* driver) :
     driver_(driver),
     device_nh_("multisense_sl"),
-    diagnostics_nh_(device_nh_, "diagnostics"),
     left_nh_(device_nh_, "left"),
     right_nh_(device_nh_, "right"),
     left_mono_transport_(left_nh_),
@@ -87,18 +90,77 @@ Camera::Camera(Channel* driver) :
     left_rgb_transport_(left_nh_),
     left_rgb_rect_transport_(left_nh_),
     depth_transport_(device_nh_),
-    depth_diagnostics_(ros::NodeHandle(), "multisense_sl/depth_diagnostics", 0.0),
-    camera_diagnostics_(ros::NodeHandle(), "multisense_sl/camera_diagnostics", 0.0),
-    reconfigure_server_(device_nh_),
+    disparity_left_transport_(left_nh_),
+    disparity_right_transport_(right_nh_),
+    disparity_cost_transport_(left_nh_),
+    left_rect_cam_info_(),
+    right_rect_cam_info_(),
+    left_rgb_rect_cam_info_(),
+    left_mono_cam_pub_(),
+    right_mono_cam_pub_(),
+    left_rect_cam_pub_(),
+    right_rect_cam_pub_(),
+    depth_cam_pub_(),
+    left_rgb_cam_pub_(),
+    left_rgb_rect_cam_pub_(),
+    point_cloud_pub_(),
+    left_disparity_pub_(),
+    right_disparity_pub_(),
+    left_disparity_cost_pub_(),
+    raw_cam_data_pub_(),
+    raw_cam_config_pub_(),
+    raw_cam_cal_pub_(),
+    device_info_pub_(),
+    left_mono_image_(),
+    right_mono_image_(),
+    left_rect_image_(),
+    right_rect_image_(),
+    depth_image_(),
+    point_cloud_(),
+    left_luma_image_(),
+    left_rgb_image_(),
+    left_rgb_rect_image_(),
+    left_disparity_image_(),
+    left_disparity_cost_image_(),
+    right_disparity_image_(),
     got_raw_cam_left_(false),
     got_left_luma_(false),
     left_luma_frame_id_(0),
     left_rect_frame_id_(0),
+    raw_cam_data_(),
+    version_info_(),
+    device_info_(),
+    image_config_(),
+    image_calibration_(),
+    cal_lock_(),
     calibration_map_left_1_(NULL),
     calibration_map_left_2_(NULL),
-    capture_fps_(0.0f)
+    frame_id_left_(),
+    frame_id_right_(),
+    disparity_buff_(),
+    points_buff_(),
+    q_matrix_(4, 4, 0.0),
+    stream_lock_(),
+    stream_map_()
 {
-    device_nh_.param("frame_id", frame_id_, std::string("/left_camera_optical_frame"));
+    //
+    // Query device and version information from sensor
+
+    Status status = driver_->getVersionInfo(version_info_);
+    if (Status_Ok != status) {
+        ROS_ERROR("Camera: failed to query version info: %s",
+                  Channel::statusString(status));
+        return;
+    }
+    status = driver_->getDeviceInfo(device_info_);
+    if (Status_Ok != status) {
+        ROS_ERROR("Camera: failed to query device info: %s",
+                  Channel::statusString(status));
+        return;
+    }
+
+    device_nh_.param("frame_id_left", frame_id_left_, std::string("/left_camera_optical_frame"));
+    device_nh_.param("frame_id_right", frame_id_right_, std::string("/right_camera_optical_frame"));
 
     //
     // Create topic publishers
@@ -136,6 +198,20 @@ Camera::Camera(Channel* driver) :
                           boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
                           boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
 
+    left_disparity_pub_ = disparity_left_transport_.advertise("disparity", 5,
+                          boost::bind(&Camera::connectStream, this, Source_Disparity),
+                          boost::bind(&Camera::disconnectStream, this, Source_Disparity));
+
+    if (version_info_.sensorFirmwareVersion >= 0x0300) {
+
+        right_disparity_pub_ = disparity_right_transport_.advertise("disparity", 5,
+                          boost::bind(&Camera::connectStream, this, Source_Disparity_Right),
+                          boost::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
+        left_disparity_cost_pub_ = disparity_cost_transport_.advertise("cost", 5,
+                          boost::bind(&Camera::connectStream, this, Source_Disparity_Cost),
+                          boost::bind(&Camera::disconnectStream, this, Source_Disparity_Cost));
+    }
+
     //
     // All image streams off
 
@@ -144,66 +220,58 @@ Camera::Camera(Channel* driver) :
     //
     // Publish device info
 
-    system::DeviceInfo  deviceInfo;
-    system::VersionInfo versionInfo;
-
-    if (Status_Ok != driver_->getDeviceInfo(deviceInfo))
-        ROS_WARN("Failed to query device info");
-    else if (Status_Ok != driver_->getVersionInfo(versionInfo))
-        ROS_WARN("Failed to query version info");
-    else {
-
-        multisense_ros::DeviceInfo msg;
+    multisense_ros::DeviceInfo msg;
         
-        msg.deviceName     = deviceInfo.name;
-        msg.buildDate      = deviceInfo.buildDate;
-        msg.serialNumber   = deviceInfo.serialNumber;
-        msg.deviceRevision = deviceInfo.hardwareRevision;
-
-        msg.numberOfPcbs = deviceInfo.pcbs.size();
-        std::vector<system::PcbInfo>::const_iterator it = deviceInfo.pcbs.begin();
-        for(; it != deviceInfo.pcbs.end(); ++it) {
-            msg.pcbSerialNumbers.push_back((*it).revision);
-            msg.pcbNames.push_back((*it).name);
-        }
-
-        msg.imagerName              = deviceInfo.imagerName;
-        msg.imagerType              = deviceInfo.imagerType;
-        msg.imagerWidth             = deviceInfo.imagerWidth;
-        msg.imagerHeight            = deviceInfo.imagerHeight;
-
-        msg.lensName                = deviceInfo.lensName;
-        msg.lensType                = deviceInfo.lensType;
-        msg.nominalBaseline         = deviceInfo.nominalBaseline;
-        msg.nominalFocalLength      = deviceInfo.nominalFocalLength;
-        msg.nominalRelativeAperture = deviceInfo.nominalRelativeAperture;
-
-        msg.lightingType            = deviceInfo.lightingType;
-        msg.numberOfLights          = deviceInfo.numberOfLights;
-
-        msg.laserName               = deviceInfo.laserName;
-        msg.laserType               = deviceInfo.laserType;
-
-        msg.motorName               = deviceInfo.motorName;
-        msg.motorType               = deviceInfo.motorType;
-        msg.motorGearReduction      = deviceInfo.motorGearReduction;
-
-        msg.apiBuildDate            = versionInfo.apiBuildDate;
-        msg.apiVersion              = versionInfo.apiVersion;
-        msg.firmwareBuildDate       = versionInfo.sensorFirmwareBuildDate;
-        msg.firmwareVersion         = versionInfo.sensorFirmwareVersion;
-        msg.bitstreamVersion        = versionInfo.sensorHardwareVersion;
-        msg.bitstreamMagic          = versionInfo.sensorHardwareMagic;
-        msg.fpgaDna                 = versionInfo.sensorFpgaDna;
-
-        device_info_pub_.publish(msg);
+    msg.deviceName     = device_info_.name;
+    msg.buildDate      = device_info_.buildDate;
+    msg.serialNumber   = device_info_.serialNumber;
+    msg.deviceRevision = device_info_.hardwareRevision;
+    
+    msg.numberOfPcbs = device_info_.pcbs.size();
+    std::vector<system::PcbInfo>::const_iterator it = device_info_.pcbs.begin();
+    for(; it != device_info_.pcbs.end(); ++it) {
+        msg.pcbSerialNumbers.push_back((*it).revision);
+        msg.pcbNames.push_back((*it).name);
     }
+    
+    msg.imagerName              = device_info_.imagerName;
+    msg.imagerType              = device_info_.imagerType;
+    msg.imagerWidth             = device_info_.imagerWidth;
+    msg.imagerHeight            = device_info_.imagerHeight;
+    
+    msg.lensName                = device_info_.lensName;
+    msg.lensType                = device_info_.lensType;
+    msg.nominalBaseline         = device_info_.nominalBaseline;
+    msg.nominalFocalLength      = device_info_.nominalFocalLength;
+    msg.nominalRelativeAperture = device_info_.nominalRelativeAperture;
+    
+    msg.lightingType            = device_info_.lightingType;
+    msg.numberOfLights          = device_info_.numberOfLights;
+    
+    msg.laserName               = device_info_.laserName;
+    msg.laserType               = device_info_.laserType;
+    
+    msg.motorName               = device_info_.motorName;
+    msg.motorType               = device_info_.motorType;
+    msg.motorGearReduction      = device_info_.motorGearReduction;
+    
+    msg.apiBuildDate            = version_info_.apiBuildDate;
+    msg.apiVersion              = version_info_.apiVersion;
+    msg.firmwareBuildDate       = version_info_.sensorFirmwareBuildDate;
+    msg.firmwareVersion         = version_info_.sensorFirmwareVersion;
+    msg.bitstreamVersion        = version_info_.sensorHardwareVersion;
+    msg.bitstreamMagic          = version_info_.sensorHardwareMagic;
+    msg.fpgaDna                 = version_info_.sensorFpgaDna;
+    
+    device_info_pub_.publish(msg);
 
     //
     // Publish image calibration
 
-    if (Status_Ok != driver_->getImageCalibration(image_calibration_))
-        ROS_ERROR("Failed to query image calibration");
+    status = driver_->getImageCalibration(image_calibration_);
+    if (Status_Ok != status)
+        ROS_ERROR("Camera: failed to query image calibration: %s",
+                  Channel::statusString(status));
     else {
         
         multisense_ros::RawCamCal cal;
@@ -233,12 +301,8 @@ Camera::Camera(Channel* driver) :
     //
     // Get current sensor configuration
 
+    q_matrix_(0,0) = q_matrix_(1,1) = 1.0;
     queryConfig();
-
-    //
-    // Set up dynamic reconfigure
-
-    reconfigure_server_.setCallback(boost::bind(&Camera::configureCallback, this, _1, _2));
 
     //
     // Add driver-level callbacks.
@@ -253,6 +317,7 @@ Camera::Camera(Channel* driver) :
     driver_->addIsolatedCallback(pointCB, Source_Disparity, this);
     driver_->addIsolatedCallback(rawCB,   Source_Disparity | Source_Luma_Rectified_Left, this);
     driver_->addIsolatedCallback(colorCB, Source_Luma_Left | Source_Chroma_Left, this);
+    driver_->addIsolatedCallback(dispCB,  Source_Disparity | Source_Disparity_Right | Source_Disparity_Cost, this);
 }
 
 Camera::~Camera()
@@ -264,20 +329,85 @@ Camera::~Camera()
     driver_->removeIsolatedCallback(pointCB);
     driver_->removeIsolatedCallback(rawCB);
     driver_->removeIsolatedCallback(colorCB);
+    driver_->removeIsolatedCallback(dispCB);
 }
 
-//
-// Note: ROS uses std::vector<> to back images. We copy each
-//       and every image below in order to publish it. Is there a way
-//       to avoid this copy?
-//
+void Camera::disparityImageCallback(const image::Header& header)
+{
+    if (!((Source_Disparity == header.source &&
+           left_disparity_pub_.getNumSubscribers() > 0) ||
+          (Source_Disparity_Right == header.source &&
+           right_disparity_pub_.getNumSubscribers() > 0) ||
+          (Source_Disparity_Cost == header.source &&
+           left_disparity_cost_pub_.getNumSubscribers() > 0)))
+        return;
+
+    const uint32_t imageSize = (header.width * header.height * header.bitsPerPixel) / 8;
+
+    ros::Time t = ros::Time(header.timeSeconds,
+                            1000 * header.timeMicroSeconds);
+
+    switch(header.source) {
+    case Source_Disparity:
+    case Source_Disparity_Right:
+    {
+        sensor_msgs::Image         *imageP=NULL;
+        image_transport::Publisher *pubP  =NULL;
+
+        if (Source_Disparity == header.source) {
+            pubP                    = &left_disparity_pub_;
+            imageP                  = &left_disparity_image_;
+            imageP->header.frame_id = frame_id_left_;
+        } else {
+            pubP                    = &right_disparity_pub_;
+            imageP                  = &right_disparity_image_;
+            imageP->header.frame_id = frame_id_right_;
+        }
+
+        imageP->data.resize(imageSize);
+        memcpy(&imageP->data[0], header.imageDataP, imageSize);
+
+        imageP->header.stamp    = t;
+        imageP->height          = header.height;
+        imageP->width           = header.width;
+        imageP->is_bigendian    = false;
+        imageP->step            = header.width;
+
+        switch(header.bitsPerPixel) {
+        case 8:  imageP->encoding = "mono8";  break;
+        case 16: imageP->encoding = "mono16"; break;
+        }
+
+        pubP->publish(*imageP);
+
+        break;
+    }
+    case Source_Disparity_Cost:
+
+        left_disparity_cost_image_.data.resize(imageSize);
+        memcpy(&left_disparity_cost_image_.data[0], header.imageDataP, imageSize);
+
+        left_disparity_cost_image_.header.frame_id = frame_id_left_;
+        left_disparity_cost_image_.header.stamp    = t;
+        left_disparity_cost_image_.height          = header.height;
+        left_disparity_cost_image_.width           = header.width;
+        
+        left_disparity_cost_image_.encoding        = "mono8";
+        left_disparity_cost_image_.is_bigendian    = false;
+        left_disparity_cost_image_.step            = header.width;
+
+        left_disparity_cost_pub_.publish(left_disparity_cost_image_);
+
+        break;
+    }
+}
 
 void Camera::monoCallback(const image::Header& header)
 {    
     if (Source_Luma_Left  != header.source &&
         Source_Luma_Right != header.source) {
      
-        ROS_ERROR("Unexpected image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected image source: 0x%x", header.source);
         return;
     }
 
@@ -292,7 +422,7 @@ void Camera::monoCallback(const image::Header& header)
         left_mono_image_.data.resize(imageSize);
         memcpy(&left_mono_image_.data[0], header.imageDataP, imageSize);
 
-        left_mono_image_.header.frame_id = frame_id_;
+        left_mono_image_.header.frame_id = frame_id_left_;
         left_mono_image_.header.stamp    = t;
         left_mono_image_.height          = header.height;
         left_mono_image_.width           = header.width;
@@ -303,15 +433,13 @@ void Camera::monoCallback(const image::Header& header)
 
         left_mono_cam_pub_.publish(left_mono_image_);
 
-        camera_diagnostics_.countStream();
-
         break;
     case Source_Luma_Right:
 
         right_mono_image_.data.resize(imageSize);
         memcpy(&right_mono_image_.data[0], header.imageDataP, imageSize);
 
-        right_mono_image_.header.frame_id = frame_id_;
+        right_mono_image_.header.frame_id = frame_id_right_;
         right_mono_image_.header.stamp    = t;
         right_mono_image_.height          = header.height;
         right_mono_image_.width           = header.width;
@@ -322,18 +450,16 @@ void Camera::monoCallback(const image::Header& header)
         
         right_mono_cam_pub_.publish(right_mono_image_);
 
-        camera_diagnostics_.countStream();
-
         break;
     }
 }
 
-    void Camera::rectCallback(const image::Header& header)
+void Camera::rectCallback(const image::Header& header)
 {    
     if (Source_Luma_Rectified_Left  != header.source &&
         Source_Luma_Rectified_Right != header.source) {
      
-        ROS_ERROR("Unexpected image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected image source: 0x%x", header.source);
         return;
     }
 
@@ -348,7 +474,7 @@ void Camera::monoCallback(const image::Header& header)
         left_rect_image_.data.resize(imageSize);
         memcpy(&left_rect_image_.data[0], header.imageDataP, imageSize);
 
-        left_rect_image_.header.frame_id = frame_id_;
+        left_rect_image_.header.frame_id = frame_id_left_;
         left_rect_image_.header.stamp    = t;
         left_rect_image_.height          = header.height;
         left_rect_image_.width           = header.width;
@@ -363,15 +489,13 @@ void Camera::monoCallback(const image::Header& header)
 
         left_rect_cam_pub_.publish(left_rect_image_, left_rect_cam_info_);
 
-        camera_diagnostics_.countStream();
-
         break;
     case Source_Luma_Rectified_Right:
 
         right_rect_image_.data.resize(imageSize);
         memcpy(&right_rect_image_.data[0], header.imageDataP, imageSize);
 
-        right_rect_image_.header.frame_id = frame_id_;
+        right_rect_image_.header.frame_id = frame_id_left_;
         right_rect_image_.header.stamp    = t;
         right_rect_image_.height          = header.height;
         right_rect_image_.width           = header.width;
@@ -384,8 +508,6 @@ void Camera::monoCallback(const image::Header& header)
         
         right_rect_cam_pub_.publish(right_rect_image_, right_rect_cam_info_);
 
-        camera_diagnostics_.countStream();
-
         break;
     }
 }
@@ -394,11 +516,9 @@ void Camera::depthCallback(const image::Header& header)
 {
     if (Source_Disparity != header.source) {
      
-        ROS_ERROR("Unexpected image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected image source: 0x%x", header.source);
         return;
     }
-
-    depth_diagnostics_.countStream();
 
     if (0 == depth_cam_pub_.getNumSubscribers())
         return;
@@ -409,7 +529,7 @@ void Camera::depthCallback(const image::Header& header)
 
     depth_image_.header.stamp    = ros::Time(header.timeSeconds,
                                              1000 * header.timeMicroSeconds);
-    depth_image_.header.frame_id = frame_id_;
+    depth_image_.header.frame_id = frame_id_left_;
     depth_image_.height          = header.height;
     depth_image_.width           = header.width;
     depth_image_.encoding        = "32FC1";
@@ -470,7 +590,7 @@ void Camera::depthCallback(const image::Header& header)
                 depthImageP[i] = bad_point;
 
     } else {
-        ROS_ERROR("unsupported disparity bpp: %d", header.bitsPerPixel);
+        ROS_ERROR("Camera: unsupported disparity bpp: %d", header.bitsPerPixel);
         return;
     }
 
@@ -481,7 +601,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 {    
     if (Source_Disparity != header.source) {
      
-        ROS_ERROR("Unexpected image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected image source: 0x%x", header.source);
         return;
     }
 
@@ -513,14 +633,6 @@ void Camera::pointCloudCallback(const image::Header& header)
                                &(points_buff_[0]));
 
     //
-    // Create projection model
-
-    right_rect_cam_info_.header.frame_id = frame_id_;
-    left_rect_cam_info_.header.frame_id  = frame_id_;
-    model_.fromCameraInfo(left_rect_cam_info_,
-                          right_rect_cam_info_);
-
-    //
     // Image is already 32-bit floating point
 
     if (32 == header.bitsPerPixel) {
@@ -528,8 +640,8 @@ void Camera::pointCloudCallback(const image::Header& header)
         cv::Mat_<float> disparity(header.height, header.width, 
                                   const_cast<float*>(reinterpret_cast<const float*>(header.imageDataP)));
         
-        cv::reprojectImageTo3D(disparity, points, model_.reprojectionMatrix(), 
-                               handle_missing);
+        cv::reprojectImageTo3D(disparity, points, q_matrix_, handle_missing);
+
     //
     // Convert CRL 1/16th pixel disparity to floating point
 
@@ -540,10 +652,10 @@ void Camera::pointCloudCallback(const image::Header& header)
         cv::Mat_<float>   disparity(header.height, header.width, &(disparity_buff_[0]));
         disparity = disparityOrigP / 16.0f;
 
-        cv::reprojectImageTo3D(disparity, points, model_.reprojectionMatrix(), 
-                               handle_missing);
+        cv::reprojectImageTo3D(disparity, points, q_matrix_, handle_missing);
+
     } else {
-        ROS_ERROR("unsupported disparity bpp: %d", header.bitsPerPixel);
+        ROS_ERROR("Camera: unsupported disparity bpp: %d", header.bitsPerPixel);
         return;
     }
 
@@ -560,7 +672,7 @@ void Camera::pointCloudCallback(const image::Header& header)
         point_cloud_.is_dense        = true;
         point_cloud_.point_step      = cloud_step;
         point_cloud_.height          = 1;
-        point_cloud_.header.frame_id = frame_id_;
+        point_cloud_.header.frame_id = frame_id_left_;
 
         point_cloud_.fields.resize(4);
         point_cloud_.fields[0].name     = "x";
@@ -575,7 +687,7 @@ void Camera::pointCloudCallback(const image::Header& header)
         point_cloud_.fields[2].offset   = 8;
         point_cloud_.fields[2].count    = 1;
         point_cloud_.fields[2].datatype = sensor_msgs::PointField::FLOAT32;
-        point_cloud_.fields[3].name     = "lumanince";
+        point_cloud_.fields[3].name     = "luminance";
         point_cloud_.fields[3].offset   = 12;
         point_cloud_.fields[3].count    = 1;
         point_cloud_.fields[3].datatype = sensor_msgs::PointField::UINT8;
@@ -669,12 +781,6 @@ void Camera::colorImageCallback(const image::Header& header)
     }
 
     //
-    // Just count the chroma.. the luma image is counted in monoCallback
-
-    if (Source_Chroma_Left == header.source)
-        camera_diagnostics_.countStream();
-
-    //
     // The left-luma image is currently published before
     // the matching chroma image. 
 
@@ -704,7 +810,7 @@ void Camera::colorImageCallback(const image::Header& header)
             
             left_rgb_image_.data.resize(imageSize);
 
-            left_rgb_image_.header.frame_id = frame_id_;
+            left_rgb_image_.header.frame_id = frame_id_left_;
             left_rgb_image_.header.stamp    = ros::Time(header.timeSeconds,
                                                         1000 * header.timeMicroSeconds);
             left_rgb_image_.height          = height;
@@ -760,10 +866,11 @@ void Camera::colorImageCallback(const image::Header& header)
 
                 if (width  != image_config_.width() ||
                     height != image_config_.height())
-                    ROS_ERROR("calibration/image size mismatch: image=%dx%d, calibration=%dx%d",
-                              width, height, image_config_.width(), image_config_.height());
+                    //ROS_ERROR("calibration/image size mismatch: image=%dx%d, calibration=%dx%d",
+                    //width, height, image_config_.width(), image_config_.height());
+                    ;
                 else if (NULL == calibration_map_left_1_ || NULL == calibration_map_left_2_)
-                    ROS_ERROR("undistort maps not initialized");
+                    ROS_ERROR("Camera: undistort maps not initialized");
                 else {
 
                     const CvScalar outlierColor = {{0.0}};
@@ -783,7 +890,7 @@ void Camera::colorImageCallback(const image::Header& header)
                     cvReleaseImageHeader(&sourceImageP);
                     cvReleaseImageHeader(&destImageP);
 
-                    left_rgb_rect_image_.header.frame_id = frame_id_;
+                    left_rgb_rect_image_.header.frame_id = frame_id_left_;
                     left_rgb_rect_image_.header.stamp    = ros::Time(header.timeSeconds,
                                                                      1000 * header.timeMicroSeconds);
                     left_rgb_rect_image_.height          = height;
@@ -808,149 +915,135 @@ void Camera::queryConfig()
 {
     boost::mutex::scoped_lock lock(cal_lock_);
 
-    camera_diagnostics_.publish(SensorStatus::STARTING);
-    depth_diagnostics_.publish(SensorStatus::STARTING);
-
     //
-    // Get the camera config (TODO: clean this up to better handle multiple resolutions)
+    // Get the camera config
 
-    if (Status_Ok != driver_->getImageConfig(image_config_)) {
-        ROS_ERROR("failed to query sensor configuration");
+    Status status = driver_->getImageConfig(image_config_);
+    if (Status_Ok != status) {
+        ROS_ERROR("Camera: failed to query sensor configuration: %s",
+                  Channel::statusString(status));
         return;
     }
 
     //
-    // Cache internally
+    // For convenience
 
-    left_rect_cam_info_.width  = image_config_.width();
-    left_rect_cam_info_.height = image_config_.height();
+    const image::Config& c = image_config_;
 
-    left_rect_cam_info_.P[0]   = image_config_.fx();       left_rect_cam_info_.P[1]   = 0.0;   
-    left_rect_cam_info_.P[4]   = 0.0;                      left_rect_cam_info_.P[5]   = image_config_.fy();  
-    left_rect_cam_info_.P[8]   = 0.0;                      left_rect_cam_info_.P[9]   = 0.0;   
-    left_rect_cam_info_.P[2]   = image_config_.cx();       left_rect_cam_info_.P[3]   = 0.0;
-    left_rect_cam_info_.P[6]   = image_config_.cy();       left_rect_cam_info_.P[7]   = 0.0;
-    left_rect_cam_info_.P[10]  = 1.0;                      left_rect_cam_info_.P[11]  = 0.0;
+    //
+    // Frame IDs must match for the rectified images
+
+    left_rect_cam_info_.header.frame_id  = frame_id_left_;
+    right_rect_cam_info_.header.frame_id = left_rect_cam_info_.header.frame_id;
+
+    left_rect_cam_info_.width  = c.width();
+    left_rect_cam_info_.height = c.height();
+    left_rect_cam_info_.P[0]   = c.fx();       left_rect_cam_info_.P[1]   = 0.0;   
+    left_rect_cam_info_.P[4]   = 0.0;          left_rect_cam_info_.P[5]   = c.fy();  
+    left_rect_cam_info_.P[8]   = 0.0;          left_rect_cam_info_.P[9]   = 0.0;   
+    left_rect_cam_info_.P[2]   = c.cx();       left_rect_cam_info_.P[3]   = 0.0;
+    left_rect_cam_info_.P[6]   = c.cy();       left_rect_cam_info_.P[7]   = 0.0;
+    left_rect_cam_info_.P[10]  = 1.0;          left_rect_cam_info_.P[11]  = 0.0;
     
-    right_rect_cam_info_.width  = image_config_.width();
-    right_rect_cam_info_.height = image_config_.height();
+    right_rect_cam_info_.width  = c.width();
+    right_rect_cam_info_.height = c.height();
+    right_rect_cam_info_.P[0]   = c.fx();      right_rect_cam_info_.P[1]  = 0.0;  
+    right_rect_cam_info_.P[4]   = 0.0;         right_rect_cam_info_.P[5]  = c.fy();  
+    right_rect_cam_info_.P[8]   = 0.0;         right_rect_cam_info_.P[9]  = 0.0;  
+    right_rect_cam_info_.P[2]   = c.cx();      right_rect_cam_info_.P[3]  = c.tx() * c.fx();
+    right_rect_cam_info_.P[6]   = c.cy();      right_rect_cam_info_.P[7]  = 0.0;
+    right_rect_cam_info_.P[10]  = 1.0;         right_rect_cam_info_.P[11] = 0.0;
     
-    right_rect_cam_info_.P[0]  = image_config_.fx();       right_rect_cam_info_.P[1]  = 0.0;  
-    right_rect_cam_info_.P[4]  = 0.0;                      right_rect_cam_info_.P[5]  = image_config_.fy();  
-    right_rect_cam_info_.P[8]  = 0.0;                      right_rect_cam_info_.P[9]  = 0.0;  
-    right_rect_cam_info_.P[2]  = image_config_.cx();       right_rect_cam_info_.P[3]  = image_config_.tx() * image_config_.fx();
-    right_rect_cam_info_.P[6]  = image_config_.cy();       right_rect_cam_info_.P[7]  = 0.0;
-    right_rect_cam_info_.P[10] = 1.0;                      right_rect_cam_info_.P[11] = 0.0;
+    //
+    // Compute the Q matrix here, as image_geometery::StereoCameraModel does
+    // not allow for non-square pixels.
+    //
+    //  FyTx    0     0    -FyCxTx
+    //   0     FxTx   0    -FxCyTx
+    //   0      0     0     FxFyTx
+    //   0      0    -Fy    Fy(Cx - Cx')
     
-    left_rgb_rect_cam_info_ = left_rect_cam_info_;
+    q_matrix_(0,0) =  c.fy() * c.tx();
+    q_matrix_(1,1) =  c.fx() * c.tx();
+    q_matrix_(0,3) = -c.fy() * c.cx() * c.tx();
+    q_matrix_(1,3) = -c.fx() * c.cy() * c.tx();
+    q_matrix_(2,3) =  c.fx() * c.fy() * c.tx();
+    q_matrix_(3,2) = -c.fy();
+    q_matrix_(3,3) =  c.fy() * (right_rect_cam_info_.P[2] - left_rect_cam_info_.P[2]);
 
     //
     // For local rectification of color images
+
+    left_rgb_rect_cam_info_ = left_rect_cam_info_;
     
     if (calibration_map_left_1_)
         cvReleaseMat(&calibration_map_left_1_);
     if (calibration_map_left_2_)
         cvReleaseMat(&calibration_map_left_2_);
 
-    calibration_map_left_1_ = cvCreateMat(image_config_.height(), image_config_.width(), CV_32F);
-    calibration_map_left_2_ = cvCreateMat(image_config_.height(), image_config_.width(), CV_32F);
+    calibration_map_left_1_ = cvCreateMat(c.height(), c.width(), CV_32F);
+    calibration_map_left_2_ = cvCreateMat(c.height(), c.width(), CV_32F);
 
     //
-    // Calibration from sensor is for 2 Mpix, must adjust here (TODO: fix on firmware side, this
-    // will get messy when we support arbitrary resolutions.)
+    // Calibration from sensor is for native resolution
     
     image::Calibration cal = image_calibration_;
 
-    if (1024 == image_config_.width()) {
-        cal.left.M[0][0] /= 2.0;
-        cal.left.M[0][2] /= 2.0;
-        cal.left.M[1][1] /= 2.0;
-        cal.left.M[1][2] /= 2.0;
-        cal.left.P[0][0] /= 2.0;
-        cal.left.P[0][2] /= 2.0;
-        cal.left.P[0][3] /= 2.0;
-        cal.left.P[1][1] /= 2.0;
-        cal.left.P[1][2] /= 2.0;
-    }
+    const float x_scale = 1.0f / ((static_cast<float>(device_info_.imagerWidth) / 
+                                   static_cast<float>(c.width())));
+    const float y_scale = 1.0f / ((static_cast<float>(device_info_.imagerHeight) / 
+                                   static_cast<float>(c.height())));
+
+    cal.left.M[0][0] *= x_scale;  cal.left.M[1][1] *= y_scale;
+    cal.left.M[0][2] *= x_scale;  cal.left.M[1][2] *= y_scale;
+    cal.left.P[0][0] *= x_scale;  cal.left.P[1][1] *= y_scale;
+    cal.left.P[0][2] *= x_scale;  cal.left.P[1][2] *= y_scale;
+    cal.left.P[0][3] *= x_scale;  cal.left.P[1][3] *= y_scale;
 
     CvMat M1 = cvMat(3, 3, CV_32F, &cal.left.M);
     CvMat D1 = cvMat(1, 8, CV_32F, &cal.left.D);
     CvMat R1 = cvMat(3, 3, CV_32F, &cal.left.R);
     CvMat P1 = cvMat(3, 4, CV_32F, &cal.left.P);
     
-    cvInitUndistortRectifyMap(&M1, &D1, &R1, &P1, calibration_map_left_1_, calibration_map_left_2_);
+    cvInitUndistortRectifyMap(&M1, &D1, &R1, &P1, 
+                              calibration_map_left_1_, 
+                              calibration_map_left_2_);
     
     //
     // Publish the "raw" config message
     
     multisense_ros::RawCamConfig cfg;
     
-    cfg.width             = image_config_.width();
-    cfg.height            = image_config_.height();
-    cfg.frames_per_second = image_config_.fps();
-    cfg.gain              = image_config_.gain();
-    cfg.exposure_time     = image_config_.exposure();
+    cfg.width             = c.width();
+    cfg.height            = c.height();
+    cfg.frames_per_second = c.fps();
+    cfg.gain              = c.gain();
+    cfg.exposure_time     = c.exposure();
     
-    cfg.fx    = image_config_.fx();
-    cfg.fy    = image_config_.fy();
-    cfg.cx    = image_config_.cx();
-    cfg.cy    = image_config_.cy();
-    cfg.tx    = image_config_.tx();
-    cfg.ty    = image_config_.ty();
-    cfg.tz    = image_config_.tx();
-    cfg.roll  = image_config_.roll();
-    cfg.pitch = image_config_.pitch();
-    cfg.yaw   = image_config_.yaw();
+    cfg.fx    = c.fx();
+    cfg.fy    = c.fy();
+    cfg.cx    = c.cx();
+    cfg.cy    = c.cy();
+    cfg.tx    = c.tx();
+    cfg.ty    = c.ty();
+    cfg.tz    = c.tx();
+    cfg.roll  = c.roll();
+    cfg.pitch = c.pitch();
+    cfg.yaw   = c.yaw();
 
     raw_cam_config_pub_.publish(cfg);
-
-    camera_diagnostics_.publish(SensorStatus::RUNNING);
-    depth_diagnostics_.publish(SensorStatus::RUNNING);
 }
 
 void Camera::stop()
 {
     boost::mutex::scoped_lock lock(stream_lock_);
 
-    camera_diagnostics_.publish(SensorStatus::STOPPING);
-    depth_diagnostics_.publish(SensorStatus::STOPPING);
-
     stream_map_.clear();
 
     Status status = driver_->stopStreams(allImageSources);
     if (Status_Ok != status)
-        ROS_ERROR("Failed to stop all streams: Error code %d",
-                  status);
-    else {
-        camera_diagnostics_.publish(SensorStatus::STOPPED);
-        depth_diagnostics_.publish(SensorStatus::STOPPED);
-    }
-}
-
-void Camera::updateDiagnostics()
-{
-    DataSource streamsEnabled = 0;
-
-    if (Status_Ok != driver_->getEnabledStreams(streamsEnabled)) {
-        ROS_ERROR("failed to query enabled streams");
-        return;
-    }
-
-    streamsEnabled &= allImageSources;
-
-    if (Source_Disparity & streamsEnabled) {
-        depth_diagnostics_.setExpectedRate(capture_fps_);
-        streamsEnabled &= ~Source_Disparity;
-    } else
-        depth_diagnostics_.setExpectedRate(0.0);
-
-    float aggregateImageRate = 0;
-
-    for(uint32_t i=0; i<32; i++) 
-        if ((1<<i) & streamsEnabled)
-            aggregateImageRate += capture_fps_;
-    
-    camera_diagnostics_.setExpectedRate(aggregateImageRate);
+        ROS_ERROR("Camera: failed to stop all streams: %s",
+                  Channel::statusString(status));
 }
 
 void Camera::connectStream(DataSource enableMask)
@@ -967,11 +1060,9 @@ void Camera::connectStream(DataSource enableMask)
 
         Status status = driver_->startStreams(notStarted);
         if (Status_Ok != status)
-            ROS_ERROR("Failed to start streams 0x%x. Error code %d", 
-                      notStarted, status);
+            ROS_ERROR("Camera: failed to start streams 0x%x: %s", 
+                      notStarted, Channel::statusString(status));
     }
-
-    updateDiagnostics();
 }
 
 void Camera::disconnectStream(DataSource disableMask)
@@ -987,172 +1078,11 @@ void Camera::disconnectStream(DataSource disableMask)
     if (0 != notStopped) {
         Status status = driver_->stopStreams(notStopped);
         if (Status_Ok != status)
-            ROS_ERROR("Failed to stop streams 0x%x. Error code %d\n", 
-                      notStopped, status);
+            ROS_ERROR("Camera: failed to stop streams 0x%x: %s\n", 
+                      notStopped, Channel::statusString(status));
     }
-
-    updateDiagnostics();
 }
 
-//
-// The dynamic reconfigure callback
-//
-// TODO: the lighting, motor-speed, and time-sync controls are lumped in here, 
-//       move this entire interface into its own module.
 
-void Camera::configureCallback(multisense_ros::CameraConfig & config, uint32_t level)
-{
-    boost::mutex::scoped_lock lock(stream_lock_);
-
-    image::Config cfg;
-
-    DataSource streamsEnabled = 0;
-    uint32_t   width, height;
-
-    bool resolutionChanged=false;
-
-    //
-    // Query the current configuration of the sensor
-
-    Status status = driver_->getImageConfig(cfg);
-    if (Status_Ok != status) {
-        ROS_ERROR("Failed to query image config. Error code %d", status);
-        return;
-    }
-
-    //
-    // Decode the resolution string
-
-    if (2 != sscanf(config.resolution.c_str(), "%dx%d", &width, &height))
-        ROS_ERROR("Malformed resolution string: \"%s\"", config.resolution.c_str());
-
-    //
-    // If a resolution change is desired
-    
-    else if (width != cfg.width() || height != cfg.height()) {
-        
-        //
-        // Query all supported resolutions from the sensor
-        
-        std::vector<system::DeviceMode> modes;
-        if (Status_Ok != driver_->getDeviceModes(modes))
-            ROS_ERROR("Failed to query sensor modes");
-        else {
-
-            //
-            // Verify that this resolution is supported
-
-            bool supported = false;
-            std::vector<system::DeviceMode>::const_iterator it = modes.begin();
-            for(; it != modes.end(); ++it)
-                if (width == (*it).width && height == (*it).height) {
-                    supported = true;
-                    break;
-                }
-            
-            if (false == supported)
-                ROS_ERROR("Sensor does not support a resolution of: %dx%d", width, height);
-            else {
-                
-                //
-                // Halt streams during the resolution change
-                
-                if (Status_Ok != driver_->getEnabledStreams(streamsEnabled) ||
-                    Status_Ok != driver_->stopStreams(streamsEnabled & allImageSources))
-                    ROS_ERROR("Failed to stop streams for a resolution change");
-                else {
-
-                    ROS_WARN("Changing sensor resolution to %dx%d (from %dx%d): reconfiguration may take up to 30 seconds",
-                             width, height, cfg.width(), cfg.height());
-
-                    cfg.setResolution(width, height);
-                    resolutionChanged = true;
-                }
-            }
-        }
-    }
-
-    //
-    // Set all image config from dynamic reconfigure
-
-    cfg.setFps(config.fps);
-    cfg.setGain(config.gain);
-    cfg.setExposure(config.exposure_time * 1e6);    
-    cfg.setAutoExposure(config.auto_exposure);
-    cfg.setAutoExposureMax(config.auto_exposure_max_time * 1e6);
-    cfg.setAutoExposureDecay(config.auto_exposure_decay);
-    cfg.setAutoExposureThresh(config.auto_exposure_thresh);
-    cfg.setWhiteBalance(config.white_balance_red,
-                        config.white_balance_blue);
-    cfg.setAutoWhiteBalance(config.auto_white_balance);
-    cfg.setAutoWhiteBalanceDecay(config.auto_white_balance_decay);
-    cfg.setAutoWhiteBalanceThresh(config.auto_white_balance_thresh);
-
-    //
-    // Apply, sensor enforces limits per setting.
-
-    status = driver_->setImageConfig(cfg);
-    if (Status_Ok != status)
-        ROS_ERROR("Failed to set image config. Error code %d", status);
-    else {
-        
-        //
-        // Store the desired framerate, and update expected streaming
-        // rates via diagnostics.
-
-        capture_fps_ = config.fps;
-        updateDiagnostics();
-    }
-
-    //
-    // If we are changing the resolution, we need to re-query calibration and
-    // restart all subscribed streams
-
-    if (resolutionChanged) {
-        queryConfig();
-        if (Status_Ok != driver_->startStreams(streamsEnabled & allImageSources))
-            ROS_ERROR("Failed to restart streams after a resolution change");
-    }
-
-    //
-    // Send the desired lighting configuration
-
-    lighting::Config leds;
-
-    if (false == config.lighting) {
-        leds.setFlash(false);
-        leds.setDutyCycle(0.0);
-    } else {
-        leds.setFlash(config.flash);
-        leds.setDutyCycle(config.led_duty_cycle * 100.0);
-    }
-
-    status = driver_->setLightingConfig(leds);
-    if (Status_Ok != status)
-        ROS_ERROR("Failed to set lighting config. Error code %d", status);
-
-    //
-    // Send the desired motor speed
-
-    const float radiansPerSecondToRpm = 9.54929659643;
-
-    status = driver_->setMotorSpeed(radiansPerSecondToRpm * config.motor_speed);
-    if (Status_Ok != status)
-        ROS_ERROR("Failed to set motor speed. Error code %d", status);
-
-    //
-    // Enable/disable network-based time synchronization.
-    // 
-    // If enabled, sensor timestamps will be reported in the local
-    // system clock's frame, using a continuously updated offset from
-    // the sensor's internal clock.
-    //
-    // If disabled, sensor timestamps will be reported in the sensor
-    // clock's frame, which is free-running from zero on power up.
-    //
-    // Enabled by default.
-
-    driver_->networkTimeSynchronization(config.network_time_sync);
-}
 
 } // namespace

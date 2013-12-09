@@ -416,28 +416,29 @@
     </inertial>
   </link>
 
-  <gazebo reference="r_foot">
-    <!-- contact sensor -->
-    <sensor type="contact" name="r_foot_contact_sensor">
-      <update_rate>1000.0</update_rate>
-      <always_on>1</always_on>
-      <contact>
-        <collision>r_foot_collision</collision>
-        <topic>/r_foot_contact</topic>
-      </contact>
-    </sensor>
-  </gazebo>
-  <gazebo reference="l_foot">
-    <!-- contact sensor -->
-    <sensor type="contact" name="l_foot_contact_sensor">
-      <update_rate>1000.0</update_rate>
-      <always_on>1</always_on>
-      <contact>
-        <collision>l_foot_collision</collision>
-        <topic>/l_foot_contact</topic>
-      </contact>
-    </sensor>
-  </gazebo>
+  <!-- IMU Frames, Mag/Accel and Gyro -->
+  <!-- Include transfrom to the left_camera_frame (shift in -.035mm in X and -.002mm in Z) -->
+
+  <link name="accel"/>
+  <joint name="accel_joint" type="fixed">
+    <origin xyz="-.0475 .0302 -.00275" rpy="0 1.5707 0"/>
+    <parent link="head_root"/>
+    <child link="accel"/>
+  </joint>
+
+  <link name="mag"/>
+  <joint name="mag_joint" type="fixed">
+    <origin xyz="-.0475 .0302 -.00275" rpy="0 1.5707 0"/>
+    <parent link="head_root"/>
+    <child link="mag"/>
+  </joint>
+
+  <link name="gyro"/>
+  <joint name="gyro_joint" type="fixed">
+    <origin xyz="-.0476 .0388 -.00075" rpy="1.5707 3.14159 1.5707 "/>
+    <parent link="head_root"/>
+    <child link="gyro"/>
+  </joint>
 
 </robot>
 

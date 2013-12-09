@@ -27,16 +27,11 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <ros/ros.h>
-#include <multisense_ros/state_publisher.h>
 #include <multisense_ros/RawCamData.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <image_geometry/stereo_camera_model.h>
 #include <image_transport/image_transport.h>
 #include <image_transport/camera_publisher.h>
-
-// Dynamic reconfigure
-#include <dynamic_reconfigure/server.h>
-#include <multisense_ros/CameraConfig.h>
 
 #include <MultiSenseChannel.hh>
 
@@ -47,12 +42,16 @@ public:
     Camera(crl::multisense::Channel* driver);
     ~Camera();
 
+    void resolutionChanged() { queryConfig(); };
+
     void monoCallback(const crl::multisense::image::Header& header);
     void rectCallback(const crl::multisense::image::Header& header);
     void depthCallback(const crl::multisense::image::Header& header);
     void pointCloudCallback(const crl::multisense::image::Header& header);
     void rawCamDataCallback(const crl::multisense::image::Header& header);
     void colorImageCallback(const crl::multisense::image::Header& header);
+    void disparityImageCallback(const crl::multisense::image::Header& header);
+
 private:
 
     //
@@ -68,16 +67,6 @@ private:
     void queryConfig();
 
     //
-    // Update diagnostics
-
-    void updateDiagnostics();
-
-    //
-    // Dynamic reconfigure callback
-
-    void configureCallback(multisense_ros::CameraConfig & config, uint32_t level);
-
-    //
     // CRL sensor API
 
     crl::multisense::Channel* driver_;
@@ -86,7 +75,6 @@ private:
     // Driver nodes
 
     ros::NodeHandle device_nh_;
-    ros::NodeHandle diagnostics_nh_;
     ros::NodeHandle left_nh_;
     ros::NodeHandle right_nh_;
 
@@ -100,17 +88,9 @@ private:
     image_transport::ImageTransport  left_rgb_transport_;
     image_transport::ImageTransport  left_rgb_rect_transport_;
     image_transport::ImageTransport  depth_transport_;
-
-    //
-    // Diagnostics
-
-    multisense_ros::StatePublisher depth_diagnostics_; 
-    multisense_ros::StatePublisher camera_diagnostics_; 
-
-    //
-    // Dynamic reconfigure server
-
-    dynamic_reconfigure::Server<multisense_ros::CameraConfig> reconfigure_server_;
+    image_transport::ImageTransport  disparity_left_transport_;
+    image_transport::ImageTransport  disparity_right_transport_;
+    image_transport::ImageTransport  disparity_cost_transport_;
 
     //
     // Data publishers
@@ -128,6 +108,10 @@ private:
     image_transport::CameraPublisher left_rgb_rect_cam_pub_;
 
     ros::Publisher                   point_cloud_pub_;
+
+    image_transport::Publisher       left_disparity_pub_;
+    image_transport::Publisher       right_disparity_pub_;
+    image_transport::Publisher       left_disparity_cost_pub_;
 
     //
     // Raw data publishers
@@ -151,6 +135,10 @@ private:
     sensor_msgs::Image         left_rgb_image_;
     sensor_msgs::Image         left_rgb_rect_image_;
 
+    sensor_msgs::Image         left_disparity_image_;
+    sensor_msgs::Image         left_disparity_cost_image_;
+    sensor_msgs::Image         right_disparity_image_;
+
     bool                       got_raw_cam_left_;
     bool                       got_left_luma_;
     int64_t                    left_luma_frame_id_;
@@ -160,8 +148,10 @@ private:
     //
     // Calibration from sensor
 
-    crl::multisense::image::Config      image_config_;
-    crl::multisense::image::Calibration image_calibration_;
+    crl::multisense::system::VersionInfo version_info_;
+    crl::multisense::system::DeviceInfo  device_info_;
+    crl::multisense::image::Config       image_config_;
+    crl::multisense::image::Calibration  image_calibration_;
 
     //
     // For local rectification of color images
@@ -171,16 +161,17 @@ private:
     CvMat *calibration_map_left_2_;
 
     //
-    // The frame ID
+    // The frame IDs
     
-    std::string frame_id_;
+    std::string frame_id_left_;
+    std::string frame_id_right_;
     
     //
     // For pointcloud generation
 
-    std::vector<float>                disparity_buff_;
-    std::vector<cv::Vec3f>            points_buff_;
-    image_geometry::StereoCameraModel model_;
+    std::vector<float>      disparity_buff_;
+    std::vector<cv::Vec3f>  points_buff_;
+    cv::Mat_<double>        q_matrix_;
 
     //
     // Stream subscriptions
@@ -188,11 +179,6 @@ private:
     typedef std::map<crl::multisense::DataSource, int32_t> StreamMapType;
     boost::mutex stream_lock_;
     StreamMapType stream_map_;
-
-    //
-    // The current capture rate of the sensor
-
-    float capture_fps_;
 };
 
 }
