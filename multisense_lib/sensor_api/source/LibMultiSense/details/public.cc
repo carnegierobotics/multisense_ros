@@ -580,6 +580,7 @@ Status impl::getImageConfig(image::Config& config)
     a.setAutoWhiteBalance(d.autoWhiteBalance != 0);
     a.setAutoWhiteBalanceDecay(d.autoWhiteBalanceDecay);
     a.setAutoWhiteBalanceThresh(d.autoWhiteBalanceThresh);
+    a.setStereoPostFilterStrength(d.stereoPostFilterStrength);
 
     a.setCal(d.fx, d.fy, d.cx, d.cy, 
              d.tx, d.ty, d.tz,
@@ -615,11 +616,12 @@ Status impl::setImageConfig(const image::Config& c)
     cmd.autoExposureDecay  = c.autoExposureDecay();
     cmd.autoExposureThresh = c.autoExposureThresh();
 
-    cmd.whiteBalanceRed        = c.whiteBalanceRed();
-    cmd.whiteBalanceBlue       = c.whiteBalanceBlue();
-    cmd.autoWhiteBalance       = c.autoWhiteBalance() ? 1 : 0;
-    cmd.autoWhiteBalanceDecay  = c.autoWhiteBalanceDecay();
-    cmd.autoWhiteBalanceThresh = c.autoWhiteBalanceThresh();
+    cmd.whiteBalanceRed          = c.whiteBalanceRed();
+    cmd.whiteBalanceBlue         = c.whiteBalanceBlue();
+    cmd.autoWhiteBalance         = c.autoWhiteBalance() ? 1 : 0;
+    cmd.autoWhiteBalanceDecay    = c.autoWhiteBalanceDecay();
+    cmd.autoWhiteBalanceThresh   = c.autoWhiteBalanceThresh();
+    cmd.stereoPostFilterStrength = c.stereoPostFilterStrength();
 
     return waitAck(cmd);
 }

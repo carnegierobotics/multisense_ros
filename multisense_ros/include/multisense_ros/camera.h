@@ -107,7 +107,8 @@ private:
     image_transport::Publisher       left_rgb_cam_pub_;
     image_transport::CameraPublisher left_rgb_rect_cam_pub_;
 
-    ros::Publisher                   point_cloud_pub_;
+    ros::Publisher                   luma_point_cloud_pub_;
+    ros::Publisher                   color_point_cloud_pub_;
 
     image_transport::Publisher       left_disparity_pub_;
     image_transport::Publisher       right_disparity_pub_;
@@ -129,7 +130,8 @@ private:
     sensor_msgs::Image         left_rect_image_;
     sensor_msgs::Image         right_rect_image_;
     sensor_msgs::Image         depth_image_;
-    sensor_msgs::PointCloud2   point_cloud_;
+    sensor_msgs::PointCloud2   luma_point_cloud_;
+    sensor_msgs::PointCloud2   color_point_cloud_;
 
     sensor_msgs::Image         left_luma_image_;
     sensor_msgs::Image         left_rgb_image_;
@@ -143,6 +145,7 @@ private:
     bool                       got_left_luma_;
     int64_t                    left_luma_frame_id_;
     int64_t                    left_rect_frame_id_;
+    int64_t                    left_rgb_rect_frame_id_;
     multisense_ros::RawCamData raw_cam_data_;
 
     //
@@ -169,9 +172,12 @@ private:
     //
     // For pointcloud generation
 
-    std::vector<float>      disparity_buff_;
-    std::vector<cv::Vec3f>  points_buff_;
-    cv::Mat_<double>        q_matrix_;
+    std::vector<float>            disparity_buff_;
+    std::vector<cv::Vec3f>        points_buff_;
+    cv::Mat_<double>              q_matrix_;
+    uint32_t                      pc_border_clip_;
+    float                         pc_max_range_;
+    bool                          pc_color_frame_sync_;
 
     //
     // Stream subscriptions

@@ -164,7 +164,7 @@ private:
 
     static const uint32_t MAX_MTU_SIZE               = 9000;
     static const uint16_t DEFAULT_SENSOR_TX_PORT     = 9001;
-    static const uint32_t RX_POOL_LARGE_BUFFER_SIZE  = (5 * (1024 * 1024));
+    static const uint32_t RX_POOL_LARGE_BUFFER_SIZE  = (10 * (1024 * 1024));
     static const uint32_t RX_POOL_LARGE_BUFFER_COUNT = 50;
     static const uint32_t RX_POOL_SMALL_BUFFER_SIZE  = (10 * (1024));
     static const uint32_t RX_POOL_SMALL_BUFFER_COUNT = 100;

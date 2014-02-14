@@ -149,11 +149,12 @@ public:
     void setAutoExposureDecay (uint32_t d) { m_aeDecay   = d; }; // [0, ]
     void setAutoExposureThresh(float t)    { m_aeThresh  = t; }; // [0.0, 1.0]
 
-    void setWhiteBalance          (float r,
-                                   float b)    { m_wbRed=r;m_wbBlue=b; }; // [0.25, 4.0]
-    void setAutoWhiteBalance      (bool e)     { m_wbEnabled = e;      };
-    void setAutoWhiteBalanceDecay (uint32_t d) { m_wbDecay   = d;      }; // [0, ]
-    void setAutoWhiteBalanceThresh(float t)    { m_wbThresh  = t;      }; // [0.0, 1.0]
+    void setWhiteBalance            (float r,
+                                     float b)    { m_wbRed=r;m_wbBlue=b; }; // [0.25, 4.0]
+    void setAutoWhiteBalance        (bool e)     { m_wbEnabled   = e;    };
+    void setAutoWhiteBalanceDecay   (uint32_t d) { m_wbDecay     = d;    }; // [0, ]
+    void setAutoWhiteBalanceThresh  (float t)    { m_wbThresh    = t;    }; // [0.0, 1.0]
+    void setStereoPostFilterStrength(float s)    { m_spfStrength = s;    }; // SGM only (3.0+), [0.0, 1.0]
 
     //
     // Query
@@ -170,11 +171,12 @@ public:
     uint32_t autoExposureDecay () const { return m_aeDecay;   };
     float    autoExposureThresh() const { return m_aeThresh;  };
 
-    float    whiteBalanceRed       () const { return m_wbRed;     };
-    float    whiteBalanceBlue      () const { return m_wbBlue;    };
-    bool     autoWhiteBalance      () const { return m_wbEnabled; };
-    uint32_t autoWhiteBalanceDecay () const { return m_wbDecay;   };
-    float    autoWhiteBalanceThresh() const { return m_wbThresh;  };
+    float    whiteBalanceRed         () const { return m_wbRed;       };
+    float    whiteBalanceBlue        () const { return m_wbBlue;      };
+    bool     autoWhiteBalance        () const { return m_wbEnabled;   };
+    uint32_t autoWhiteBalanceDecay   () const { return m_wbDecay;     };
+    float    autoWhiteBalanceThresh  () const { return m_wbThresh;    };
+    float    stereoPostFilterStrength() const { return m_spfStrength; };
 
     //
     // Query camera calibration (read-only)
@@ -195,11 +197,11 @@ public:
     Config() : m_fps(5.0f), m_gain(1.0f),
                m_exposure(10000), m_aeEnabled(true), m_aeMax(5000000), m_aeDecay(7), m_aeThresh(0.75f),
                m_wbBlue(1.0f), m_wbRed(1.0f), m_wbEnabled(true), m_wbDecay(3), m_wbThresh(0.5f),
-               m_width(1024), m_height(544), m_disparities(128),
+               m_width(1024), m_height(544), m_disparities(128), m_spfStrength(0.5f),
                m_fx(0), m_fy(0), m_cx(0), m_cy(0),
                m_tx(0), m_ty(0), m_tz(0), m_roll(0), m_pitch(0), m_yaw(0) {};
 private:
-
+    
     float    m_fps, m_gain;
     uint32_t m_exposure;
     bool     m_aeEnabled;
@@ -213,6 +215,7 @@ private:
     float    m_wbThresh;
     uint32_t m_width, m_height;
     uint32_t m_disparities;
+    float    m_spfStrength;
 
 protected:
 
@@ -405,6 +408,14 @@ public:
     // queried with getImuDetails()
 
     float x, y, z;
+
+    //
+    // A convenience funtion for time
+
+    double time() const {
+        return (static_cast<double>(timeSeconds) + 
+                1e-6 * static_cast<double>(timeMicroSeconds));
+    };
 };
 
 //

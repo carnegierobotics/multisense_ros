@@ -225,7 +225,8 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
 
         const wire::ImageMeta *metaP = m_imageMetaCache.find(image.frameId);
         if (NULL == metaP)
-            CRL_EXCEPTION("no meta cached for frameId %d", image.frameId);
+            break;
+            //CRL_EXCEPTION("no meta cached for frameId %d", image.frameId);
 
         image::Header header;
 
@@ -259,7 +260,8 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
 
         const wire::ImageMeta *metaP = m_imageMetaCache.find(image.frameId);
         if (NULL == metaP)
-            CRL_EXCEPTION("no meta cached for frameId %d", image.frameId);
+            break;
+            //CRL_EXCEPTION("no meta cached for frameId %d", image.frameId);
         
         image::Header header;
 

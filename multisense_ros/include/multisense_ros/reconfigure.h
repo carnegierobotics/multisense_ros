@@ -66,8 +66,9 @@ private:
 
     bool changeResolution(crl::multisense::image::Config& cfg,
                           int32_t width, int32_t height, int32_t disparities);
-    template<class T> void configureCamera(const T& config);
-    template<class T> void configureImu(const T& config);
+    template<class T> void configureSgm(crl::multisense::image::Config& cfg, const T& dyn);
+    template<class T> void configureCamera(crl::multisense::image::Config& cfg, const T& dyn);
+    template<class T> void configureImu(const T& dyn);
 
     //
     // CRL sensor API

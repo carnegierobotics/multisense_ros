@@ -49,6 +49,12 @@ const DataSource allImageSources = (Source_Luma_Left            |
                                     Source_Disparity_Right      |
                                     Source_Disparity_Cost);
 //
+// Packed size of point cloud structures
+
+const uint32_t luma_cloud_step  = 13;
+const uint32_t color_cloud_step = 16;
+
+//
 // Shims for C-style driver callbacks 
 
 void monoCB(const image::Header& header, void* userDataP)
@@ -66,14 +72,88 @@ void colorCB(const image::Header& header, void* userDataP)
 void dispCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->disparityImageCallback(header); }
 
-bool isValidPoint(const cv::Vec3f& pt)
+//
+// Check for valid range points coming out of OpenCV
+
+bool isValidPoint(const cv::Vec3f& pt,
+                  const float&     maxRange)
 {
     //
     // Check both for disparities explicitly marked as invalid (where 
     // OpenCV maps pt.z to MISSING_Z) and zero disparities (point 
     // mapped to infinity).
 
-    return pt[2] != image_geometry::StereoCameraModel::MISSING_Z && std::isfinite(pt[2]);
+    if (image_geometry::StereoCameraModel::MISSING_Z != pt[2] && std::isfinite(pt[2])) {
+
+        //
+        // Also filter on reasonable ranges
+
+        const float mag = std::sqrt((pt[0]*pt[0])+(pt[1]*pt[1])+(pt[2]*pt[2]));
+        
+        if (mag < maxRange)
+            return true;
+    }
+
+    return false;
+}
+
+//
+// Publish a point cloud, using the given storage, filtering the points,
+// and colorizing the cloud with all available color channels.
+
+void publishPointCloud(ros::Publisher&               pub,
+                       sensor_msgs::PointCloud2&     cloud,
+                       const image::Header&          header,
+                       const uint32_t                cloudStep,
+                       const std::vector<cv::Vec3f>& points,
+                       const uint8_t*                imageP,
+                       const uint32_t                colorChannels,
+                       const uint32_t                borderClip,
+                       const float                   maxRange)
+{
+    if (0 == pub.getNumSubscribers())
+        return;
+
+    const uint32_t imageSize = header.height * header.width;
+
+    if (points.size() != imageSize)
+        return;
+
+    cloud.data.reserve(imageSize * cloudStep);
+    
+    uint8_t       *cloudP      = reinterpret_cast<uint8_t*>(&cloud.data[0]);
+    const uint32_t pointSize   = 3 * sizeof(float); // x, y, z
+    uint32_t       validPoints = 0;
+
+    for(uint32_t i=borderClip; i<(header.height - borderClip); ++i)
+        for(uint32_t j=borderClip; j<(header.width - borderClip); ++j) {
+
+            const uint32_t index = i*header.width + j;
+
+            if (false == isValidPoint(points[index], maxRange))
+                continue;
+
+            memcpy(cloudP, &(points[index]), pointSize);
+                
+            const uint8_t *sourceColorP = &(imageP[colorChannels * index]);
+            uint8_t       *cloudColorP  = (cloudP + pointSize);
+
+            //
+            // For color: image stored as BGR, index image RGB.
+                
+            for(uint32_t k=0; k<colorChannels; k++)
+                cloudColorP[k] = sourceColorP[colorChannels - k - 1];
+            
+            cloudP += cloudStep;
+            validPoints ++;
+        }
+
+    cloud.row_step     = validPoints;
+    cloud.width        = validPoints;
+    cloud.header.stamp = ros::Time(header.timeSeconds,
+                                   1000 * header.timeMicroSeconds);
+    cloud.data.resize(validPoints * cloudStep);
+    pub.publish(cloud);
 }
 
 }; // anonymous
@@ -103,7 +183,8 @@ Camera::Camera(Channel* driver) :
     depth_cam_pub_(),
     left_rgb_cam_pub_(),
     left_rgb_rect_cam_pub_(),
-    point_cloud_pub_(),
+    luma_point_cloud_pub_(),
+    color_point_cloud_pub_(),
     left_disparity_pub_(),
     right_disparity_pub_(),
     left_disparity_cost_pub_(),
@@ -116,7 +197,8 @@ Camera::Camera(Channel* driver) :
     left_rect_image_(),
     right_rect_image_(),
     depth_image_(),
-    point_cloud_(),
+    luma_point_cloud_(),
+    color_point_cloud_(),
     left_luma_image_(),
     left_rgb_image_(),
     left_rgb_rect_image_(),
@@ -127,6 +209,7 @@ Camera::Camera(Channel* driver) :
     got_left_luma_(false),
     left_luma_frame_id_(0),
     left_rect_frame_id_(0),
+    left_rgb_rect_frame_id_(0),
     raw_cam_data_(),
     version_info_(),
     device_info_(),
@@ -140,6 +223,9 @@ Camera::Camera(Channel* driver) :
     disparity_buff_(),
     points_buff_(),
     q_matrix_(4, 4, 0.0),
+    pc_border_clip_(10),
+    pc_max_range_(15.0f),
+    pc_color_frame_sync_(true),
     stream_lock_(),
     stream_map_()
 {
@@ -163,7 +249,7 @@ Camera::Camera(Channel* driver) :
     device_nh_.param("frame_id_right", frame_id_right_, std::string("/right_camera_optical_frame"));
 
     //
-    // Create topic publishers
+    // Create topic publishers (TODO: color topics should not be advertised if the device can't support it)
 
     left_mono_cam_pub_  = left_mono_transport_.advertise("image_mono", 5, 
                           boost::bind(&Camera::connectStream, this, Source_Luma_Left),
@@ -186,9 +272,14 @@ Camera::Camera(Channel* driver) :
     left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera("image_rect_color", 5,
                           boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
                           boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
-    point_cloud_pub_    = device_nh_.advertise<sensor_msgs::PointCloud2>("points2", 5,
+    luma_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>("points2", 5,
                           boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
                           boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
+    color_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>("points2_color", 5,
+                          boost::bind(&Camera::connectStream, this, 
+                          Source_Disparity | Source_Luma_Left | Source_Chroma_Left),
+                          boost::bind(&Camera::disconnectStream, this, 
+                          Source_Disparity | Source_Luma_Left | Source_Chroma_Left));
 
     ros::NodeHandle calibration_nh(device_nh_, "calibration");
     device_info_pub_    = calibration_nh.advertise<multisense_ros::DeviceInfo>("device_info", 1, true);
@@ -305,6 +396,55 @@ Camera::Camera(Channel* driver) :
     queryConfig();
 
     //
+    // Initialze point cloud data structures
+
+    luma_point_cloud_.is_bigendian    = (htonl(1) == 1);
+    luma_point_cloud_.is_dense        = true;
+    luma_point_cloud_.point_step      = luma_cloud_step;
+    luma_point_cloud_.height          = 1;
+    luma_point_cloud_.header.frame_id = frame_id_left_;
+    luma_point_cloud_.fields.resize(4);
+    luma_point_cloud_.fields[0].name     = "x";
+    luma_point_cloud_.fields[0].offset   = 0;
+    luma_point_cloud_.fields[0].count    = 1;
+    luma_point_cloud_.fields[0].datatype = sensor_msgs::PointField::FLOAT32;
+    luma_point_cloud_.fields[1].name     = "y";
+    luma_point_cloud_.fields[1].offset   = 4;
+    luma_point_cloud_.fields[1].count    = 1;
+    luma_point_cloud_.fields[1].datatype = sensor_msgs::PointField::FLOAT32;
+    luma_point_cloud_.fields[2].name     = "z";
+    luma_point_cloud_.fields[2].offset   = 8;
+    luma_point_cloud_.fields[2].count    = 1;
+    luma_point_cloud_.fields[2].datatype = sensor_msgs::PointField::FLOAT32;
+    luma_point_cloud_.fields[3].name     = "luminance";
+    luma_point_cloud_.fields[3].offset   = 12;
+    luma_point_cloud_.fields[3].count    = 1;
+    luma_point_cloud_.fields[3].datatype = sensor_msgs::PointField::UINT8;
+
+    color_point_cloud_.is_bigendian    = (htonl(1) == 1);
+    color_point_cloud_.is_dense        = true;
+    color_point_cloud_.point_step      = color_cloud_step;
+    color_point_cloud_.height          = 1;
+    color_point_cloud_.header.frame_id = frame_id_left_;
+    color_point_cloud_.fields.resize(4);
+    color_point_cloud_.fields[0].name     = "x";
+    color_point_cloud_.fields[0].offset   = 0;
+    color_point_cloud_.fields[0].count    = 1;
+    color_point_cloud_.fields[0].datatype = sensor_msgs::PointField::FLOAT32;
+    color_point_cloud_.fields[1].name     = "y";
+    color_point_cloud_.fields[1].offset   = 4;
+    color_point_cloud_.fields[1].count    = 1;
+    color_point_cloud_.fields[1].datatype = sensor_msgs::PointField::FLOAT32;
+    color_point_cloud_.fields[2].name     = "z";
+    color_point_cloud_.fields[2].offset   = 8;
+    color_point_cloud_.fields[2].count    = 1;
+    color_point_cloud_.fields[2].datatype = sensor_msgs::PointField::FLOAT32;
+    color_point_cloud_.fields[3].name     = "rgb";
+    color_point_cloud_.fields[3].offset   = 12;
+    color_point_cloud_.fields[3].count    = 1;
+    color_point_cloud_.fields[3].datatype = sensor_msgs::PointField::UINT32;
+
+    //
     // Add driver-level callbacks.
     //
     //    -Driver creates individual background thread for each callback.
@@ -318,6 +458,27 @@ Camera::Camera(Channel* driver) :
     driver_->addIsolatedCallback(rawCB,   Source_Disparity | Source_Luma_Rectified_Left, this);
     driver_->addIsolatedCallback(colorCB, Source_Luma_Left | Source_Chroma_Left, this);
     driver_->addIsolatedCallback(dispCB,  Source_Disparity | Source_Disparity_Right | Source_Disparity_Cost, this);
+
+    //
+    // Get the border clip, if any
+
+    const char *pcBorderClipEnvStringP = getenv("MULTISENSE_ROS_PC_BORDER_CLIP");
+    if (NULL != pcBorderClipEnvStringP) {
+        int32_t tmp = atoi(pcBorderClipEnvStringP);
+        if (tmp > 0) {
+            pc_border_clip_ = atoi(pcBorderClipEnvStringP);
+            ROS_INFO("pc_border_clip: %d", pc_border_clip_);
+        }
+    }
+
+    //
+    // Disable color point cloud strict frame syncing, if desired
+
+    const char *pcColorFrameSyncEnvStringP = getenv("MULTISENSE_ROS_PC_COLOR_FRAME_SYNC_OFF");
+    if (NULL != pcColorFrameSyncEnvStringP) {
+        pc_color_frame_sync_ = false;
+        ROS_INFO("color point cloud frame sync is disabled");
+    }
 }
 
 Camera::~Camera()
@@ -605,18 +766,10 @@ void Camera::pointCloudCallback(const image::Header& header)
         return;
     }
 
-    if (0 == point_cloud_pub_.getNumSubscribers())
+    if (0 == luma_point_cloud_pub_.getNumSubscribers() &&
+        0 == color_point_cloud_pub_.getNumSubscribers())
         return;
-
-    //
-    // If we do not have a matching left-rectified image, bail
-
-    if (left_rect_frame_id_ != header.frameId) {
-        //ROS_WARN("Frame mismatch: left-rectified=%lld, disparity=%lld",
-        //         left_rect_frame_id_, header.frameId);
-        return;
-    }
-
+       
     const bool      handle_missing = true;
     const uint32_t  imageSize      = header.height * header.width;
 
@@ -629,8 +782,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     //
     // Allocate buffer for reprojection output
 
-    cv::Mat_<cv::Vec3f> points(header.height, header.width, 
-                               &(points_buff_[0]));
+    cv::Mat_<cv::Vec3f> points(header.height, header.width, &(points_buff_[0]));
 
     //
     // Image is already 32-bit floating point
@@ -660,65 +812,27 @@ void Camera::pointCloudCallback(const image::Header& header)
     }
 
     //
-    // Copy data to PointCloud2 msg
+    // Publish the cloud if we have a matching luma image
 
-    const uint32_t cloud_step = 13;
+    if (left_rect_frame_id_ == header.frameId)
+        publishPointCloud(luma_point_cloud_pub_,
+                          luma_point_cloud_,
+                          header,
+                          luma_cloud_step,
+                          points_buff_,
+                          &(left_rect_image_.data[0]), 1,
+                          pc_border_clip_,
+                          pc_max_range_);
 
-    point_cloud_.data.reserve(cloud_step * imageSize);
-
-    if (4 != point_cloud_.fields.size()) {
-
-        point_cloud_.is_bigendian    = (htonl(1) == 1);
-        point_cloud_.is_dense        = true;
-        point_cloud_.point_step      = cloud_step;
-        point_cloud_.height          = 1;
-        point_cloud_.header.frame_id = frame_id_left_;
-
-        point_cloud_.fields.resize(4);
-        point_cloud_.fields[0].name     = "x";
-        point_cloud_.fields[0].offset   = 0;
-        point_cloud_.fields[0].count    = 1;
-        point_cloud_.fields[0].datatype = sensor_msgs::PointField::FLOAT32;
-        point_cloud_.fields[1].name     = "y";
-        point_cloud_.fields[1].offset   = 4;
-        point_cloud_.fields[1].count    = 1;
-        point_cloud_.fields[1].datatype = sensor_msgs::PointField::FLOAT32;
-        point_cloud_.fields[2].name     = "z";
-        point_cloud_.fields[2].offset   = 8;
-        point_cloud_.fields[2].count    = 1;
-        point_cloud_.fields[2].datatype = sensor_msgs::PointField::FLOAT32;
-        point_cloud_.fields[3].name     = "luminance";
-        point_cloud_.fields[3].offset   = 12;
-        point_cloud_.fields[3].count    = 1;
-        point_cloud_.fields[3].datatype = sensor_msgs::PointField::UINT8;
-    }
-
-    //
-    // Pack the data into the point cloud structure
-
-    uint8_t       *cloudP    = reinterpret_cast<uint8_t*>(&point_cloud_.data[0]);
-    const uint8_t *grayP     = &(left_rect_image_.data[0]);
-    const uint32_t pointSize = 3 * sizeof(float); // x, y, z
-
-    uint32_t validPoints = 0;
-
-    for(uint32_t i=0; i<imageSize; ++i)
-        if (isValidPoint(points_buff_[i])) {
-
-            memcpy(cloudP, &(points_buff_[i]), pointSize);
-            *(cloudP + pointSize) = grayP[i];
-
-            cloudP += cloud_step;
-            validPoints ++;
-        }
-   
-    point_cloud_.row_step        = validPoints;
-    point_cloud_.width           = validPoints;
-    point_cloud_.header.stamp    = ros::Time(header.timeSeconds,
-                                             1000 * header.timeMicroSeconds);
-
-    point_cloud_.data.resize(validPoints * cloud_step);
-    point_cloud_pub_.publish(point_cloud_);
+    if (false == pc_color_frame_sync_ || left_rgb_rect_frame_id_ == header.frameId)
+        publishPointCloud(color_point_cloud_pub_,
+                          color_point_cloud_,
+                          header,
+                          color_cloud_step,
+                          points_buff_,
+                          &(left_rgb_rect_image_.data[0]), 3,
+                          pc_border_clip_,
+                          pc_max_range_);
 }
 
 void Camera::rawCamDataCallback(const image::Header& header)
@@ -775,7 +889,8 @@ void Camera::rawCamDataCallback(const image::Header& header)
 void Camera::colorImageCallback(const image::Header& header)
 {
     if (0 == left_rgb_cam_pub_.getNumSubscribers() &&
-        0 == left_rgb_rect_cam_pub_.getNumSubscribers()) {
+        0 == left_rgb_rect_cam_pub_.getNumSubscribers() &&
+        0 == color_point_cloud_pub_.getNumSubscribers()) {
         got_left_luma_ = false;
         return;
     }
@@ -861,7 +976,8 @@ void Camera::colorImageCallback(const image::Header& header)
             if (0 != left_rgb_cam_pub_.getNumSubscribers())
                 left_rgb_cam_pub_.publish(left_rgb_image_);
 
-            if (0 != left_rgb_rect_cam_pub_.getNumSubscribers()) {
+            if (left_rgb_rect_cam_pub_.getNumSubscribers() > 0 ||
+                color_point_cloud_pub_.getNumSubscribers() > 0) {
                 boost::mutex::scoped_lock lock(cal_lock_);
 
                 if (width  != image_config_.width() ||
@@ -901,8 +1017,10 @@ void Camera::colorImageCallback(const image::Header& header)
                     left_rgb_rect_image_.step            = 3 * width;
                     
                     left_rgb_rect_cam_info_.header = left_rgb_rect_image_.header;
+                    left_rgb_rect_frame_id_              = header.frameId;
                     
-                    left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_rgb_rect_cam_info_);
+                    if (left_rgb_rect_cam_pub_.getNumSubscribers() > 0)
+                        left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_rgb_rect_cam_info_);
                 }
             }
         }

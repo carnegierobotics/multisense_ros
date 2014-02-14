@@ -217,25 +217,23 @@ bool Reconfigure::changeResolution(image::Config& cfg,
     return true;
 }                       
 
-template<class T> void Reconfigure::configureCamera(const T& config)
+template<class T> void Reconfigure::configureSgm(image::Config& cfg, const T& dyn)
 {
-    image::Config cfg;
+    cfg.setStereoPostFilterStrength(dyn.stereo_post_filtering);
+}
+
+template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T& dyn)
+{
     DataSource    streamsEnabled = 0;
     int32_t       width, height, disparities;
     bool          resolutionChange=false;
-
-    Status status = driver_->getImageConfig(cfg);
-    if (Status_Ok != status) {
-        ROS_ERROR("Reconfigure: failed to query image config: %s", 
-                  Channel::statusString(status));
-        return;
-    }       
+    Status        status=Status_Ok;
 
     //
     // Decode the resolution string
 
-    if (3 != sscanf(config.resolution.c_str(), "%dx%dx%d", &width, &height, &disparities)) {
-        ROS_ERROR("Reconfigure: malformed resolution string: \"%s\"", config.resolution.c_str());
+    if (3 != sscanf(dyn.resolution.c_str(), "%dx%dx%d", &width, &height, &disparities)) {
+        ROS_ERROR("Reconfigure: malformed resolution string: \"%s\"", dyn.resolution.c_str());
         return;
     }
 
@@ -264,18 +262,18 @@ template<class T> void Reconfigure::configureCamera(const T& config)
     //
     // Set all other image config from dynamic reconfigure
 
-    cfg.setFps(config.fps);
-    cfg.setGain(config.gain);
-    cfg.setExposure(config.exposure_time * 1e6);    
-    cfg.setAutoExposure(config.auto_exposure);
-    cfg.setAutoExposureMax(config.auto_exposure_max_time * 1e6);
-    cfg.setAutoExposureDecay(config.auto_exposure_decay);
-    cfg.setAutoExposureThresh(config.auto_exposure_thresh);
-    cfg.setWhiteBalance(config.white_balance_red,
-                        config.white_balance_blue);
-    cfg.setAutoWhiteBalance(config.auto_white_balance);
-    cfg.setAutoWhiteBalanceDecay(config.auto_white_balance_decay);
-    cfg.setAutoWhiteBalanceThresh(config.auto_white_balance_thresh);
+    cfg.setFps(dyn.fps);
+    cfg.setGain(dyn.gain);
+    cfg.setExposure(dyn.exposure_time * 1e6);    
+    cfg.setAutoExposure(dyn.auto_exposure);
+    cfg.setAutoExposureMax(dyn.auto_exposure_max_time * 1e6);
+    cfg.setAutoExposureDecay(dyn.auto_exposure_decay);
+    cfg.setAutoExposureThresh(dyn.auto_exposure_thresh);
+    cfg.setWhiteBalance(dyn.white_balance_red,
+                        dyn.white_balance_blue);
+    cfg.setAutoWhiteBalance(dyn.auto_white_balance);
+    cfg.setAutoWhiteBalanceDecay(dyn.auto_white_balance_decay);
+    cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
     
     //
     // Apply, sensor enforces limits per setting.
@@ -306,7 +304,7 @@ template<class T> void Reconfigure::configureCamera(const T& config)
 
         const float radiansPerSecondToRpm = 9.54929659643;
 
-        status = driver_->setMotorSpeed(radiansPerSecondToRpm * config.motor_speed);
+        status = driver_->setMotorSpeed(radiansPerSecondToRpm * dyn.motor_speed);
         if (Status_Ok != status) {
             if (Status_Unsupported == status)
                 motor_supported_ = false;
@@ -323,12 +321,12 @@ template<class T> void Reconfigure::configureCamera(const T& config)
 
         lighting::Config leds;
         
-        if (false == config.lighting) {
+        if (false == dyn.lighting) {
             leds.setFlash(false);
             leds.setDutyCycle(0.0);
         } else {
-            leds.setFlash(config.flash);
-            leds.setDutyCycle(config.led_duty_cycle * 100.0);
+            leds.setFlash(dyn.flash);
+            leds.setDutyCycle(dyn.led_duty_cycle * 100.0);
         }
 
         status = driver_->setLightingConfig(leds);
@@ -353,10 +351,10 @@ template<class T> void Reconfigure::configureCamera(const T& config)
     //
     // Enabled by default.
 
-    driver_->networkTimeSynchronization(config.network_time_sync);
+    driver_->networkTimeSynchronization(dyn.network_time_sync);
 }
 
-template<class T> void Reconfigure::configureImu(const T& config)
+template<class T> void Reconfigure::configureImu(const T& dyn)
 {
     if (imu_configs_.empty()) {
         Status status = driver_->getImuConfig(imu_samples_per_message_,
@@ -375,46 +373,46 @@ template<class T> void Reconfigure::configureImu(const T& config)
         imu::Config& c = *it;
 
         if ("accelerometer" == c.name &&
-            (c.enabled      != config.accelerometer_enabled ||
-             static_cast<int>(c.rateTableIndex)  != config.accelerometer_rate    ||
-             static_cast<int>(c.rangeTableIndex) != config.accelerometer_range)) {
+            (c.enabled      != dyn.accelerometer_enabled ||
+             static_cast<int>(c.rateTableIndex)  != dyn.accelerometer_rate    ||
+             static_cast<int>(c.rangeTableIndex) != dyn.accelerometer_range)) {
 
-            c.enabled         = config.accelerometer_enabled;
-            c.rateTableIndex  = config.accelerometer_rate;
-            c.rangeTableIndex = config.accelerometer_range;
+            c.enabled         = dyn.accelerometer_enabled;
+            c.rateTableIndex  = dyn.accelerometer_rate;
+            c.rangeTableIndex = dyn.accelerometer_range;
             changedConfigs.push_back(c);
         }
 
         if ("gyroscope" == c.name &&
-            (c.enabled  != config.gyroscope_enabled ||
-             static_cast<int>(c.rateTableIndex)  != config.gyroscope_rate    ||
-             static_cast<int>(c.rangeTableIndex) != config.gyroscope_range)) {
+            (c.enabled  != dyn.gyroscope_enabled ||
+             static_cast<int>(c.rateTableIndex)  != dyn.gyroscope_rate    ||
+             static_cast<int>(c.rangeTableIndex) != dyn.gyroscope_range)) {
 
-            c.enabled         = config.gyroscope_enabled;
-            c.rateTableIndex  = config.gyroscope_rate;
-            c.rangeTableIndex = config.gyroscope_range;
+            c.enabled         = dyn.gyroscope_enabled;
+            c.rateTableIndex  = dyn.gyroscope_rate;
+            c.rangeTableIndex = dyn.gyroscope_range;
             changedConfigs.push_back(c);
         }
 
         if ("magnetometer" == c.name &&
-            (c.enabled     != config.magnetometer_enabled ||
-             static_cast<int>(c.rateTableIndex)  != config.magnetometer_rate    ||
-             static_cast<int>(c.rangeTableIndex) != config.magnetometer_range)) {
+            (c.enabled     != dyn.magnetometer_enabled ||
+             static_cast<int>(c.rateTableIndex)  != dyn.magnetometer_rate    ||
+             static_cast<int>(c.rangeTableIndex) != dyn.magnetometer_range)) {
 
-            c.enabled         = config.magnetometer_enabled;
-            c.rateTableIndex  = config.magnetometer_rate;
-            c.rangeTableIndex = config.magnetometer_range;
+            c.enabled         = dyn.magnetometer_enabled;
+            c.rateTableIndex  = dyn.magnetometer_rate;
+            c.rangeTableIndex = dyn.magnetometer_range;
             changedConfigs.push_back(c);
         }
     }
     
     if (changedConfigs.size() > 0 ||
-        static_cast<int>(imu_samples_per_message_) != config.imu_samples_per_message) {
+        static_cast<int>(imu_samples_per_message_) != dyn.imu_samples_per_message) {
 
         ROS_WARN("Reconfigure: IMU configuration changes will take effect after all IMU "
 		 "topic subscriptions have been closed.");
 
-        imu_samples_per_message_ = config.imu_samples_per_message;
+        imu_samples_per_message_ = dyn.imu_samples_per_message;
 
         Status status = driver_->setImuConfig(false, // store in non-volatile flash
                                               imu_samples_per_message_,
@@ -427,29 +425,41 @@ template<class T> void Reconfigure::configureImu(const T& config)
     }
 }
 
+#define GET_CONFIG()                                                    \
+    image::Config cam;                                                  \
+    Status status = driver_->getImageConfig(cam);                       \
+    if (Status_Ok != status) {                                          \
+        ROS_ERROR("Reconfigure: failed to query image config: %s",      \
+                  Channel::statusString(status));                       \
+        return;                                                         \
+    }                                                                   \
+
 #define SL_BM()  do {                                           \
-        configureCamera(config);                                \
+        GET_CONFIG();                                           \
+        configureCamera(cam, dyn);                              \
     } while(0)
 
 #define SL_BM_IMU()  do {                                       \
-        configureCamera(config);                                \
-        configureImu(config);                                   \
+        GET_CONFIG();                                           \
+        configureCamera(cam, dyn);                              \
+        configureImu(dyn);                                      \
     } while(0)
 
 #define SL_SGM_IMU()  do {                                      \
-        configureCamera(config);                                \
-        configureImu(config);                                   \
-        /* TODO: SGM parameters */                              \
+        GET_CONFIG();                                           \
+        configureSgm(cam, dyn);                                 \
+        configureCamera(cam, dyn);                              \
+        configureImu(dyn);                                      \
     } while(0)
 
 //
 // The dynamic reconfigure callbacks
 
-void Reconfigure::callback_sl_bm_cmv2000      (multisense_ros::sl_bm_cmv2000Config&      config, uint32_t level) { SL_BM();      };
-void Reconfigure::callback_sl_bm_cmv2000_imu  (multisense_ros::sl_bm_cmv2000_imuConfig&  config, uint32_t level) { SL_BM_IMU();  };
-void Reconfigure::callback_sl_bm_cmv4000      (multisense_ros::sl_bm_cmv4000Config&      config, uint32_t level) { SL_BM();      };
-void Reconfigure::callback_sl_bm_cmv4000_imu  (multisense_ros::sl_bm_cmv4000_imuConfig&  config, uint32_t level) { SL_BM_IMU();  };
-void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_imuConfig& config, uint32_t level) { SL_SGM_IMU(); };
-void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& config, uint32_t level) { SL_SGM_IMU(); };
+void Reconfigure::callback_sl_bm_cmv2000      (multisense_ros::sl_bm_cmv2000Config&      dyn, uint32_t level) { SL_BM();      };
+void Reconfigure::callback_sl_bm_cmv2000_imu  (multisense_ros::sl_bm_cmv2000_imuConfig&  dyn, uint32_t level) { SL_BM_IMU();  };
+void Reconfigure::callback_sl_bm_cmv4000      (multisense_ros::sl_bm_cmv4000Config&      dyn, uint32_t level) { SL_BM();      };
+void Reconfigure::callback_sl_bm_cmv4000_imu  (multisense_ros::sl_bm_cmv4000_imuConfig&  dyn, uint32_t level) { SL_BM_IMU();  };
+void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU(); };
+void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU(); };
 
 } // namespace
