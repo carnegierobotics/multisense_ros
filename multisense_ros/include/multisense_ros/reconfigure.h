@@ -27,7 +27,8 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <ros/ros.h>
-#include <MultiSenseChannel.hh>
+
+#include <multisense_lib/MultiSenseChannel.hh>
 
 #include <dynamic_reconfigure/server.h>
 #include <multisense_ros/sl_bm_cmv2000Config.h>

@@ -3,12 +3,12 @@
 
 multisense_lib:
 	mkdir -p sensor_api/build
-	cd sensor_api/build && cmake ..
+	cd sensor_api/build && cmake -DCMAKE_BUILD_TYPE=Release ..
 	${MAKE} -C sensor_api/build
 	mkdir -p lib
 	cp -a sensor_api/bin/libMultiSense* lib/
-	mkdir -p include
-	cp sensor_api/source/LibMultiSense/*.hh include/
+	mkdir -p include/multisense_lib
+	cp sensor_api/source/LibMultiSense/*.hh include/multisense_lib
 	touch multisense_lib
 
 clean:

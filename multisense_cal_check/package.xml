@@ -1,0 +1,17 @@
+<package>
+
+  <name>multisense_cal_check</name>
+  <version>0.0.0</version>
+  <description>multisense_cal_check</description>
+  <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
+  <license>LGPL</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>multisense_ros</build_depend>
+
+  <run_depend>multisense_ros</run_depend>
+
+</package>
+
+

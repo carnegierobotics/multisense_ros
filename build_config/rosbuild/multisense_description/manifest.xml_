@@ -1,4 +1,3 @@
 <package>
   <description brief="MultiSense-SL_simplified2">MultiSense-SL_simplified2</description>
-  <depend package="gazebo" />
 </package>

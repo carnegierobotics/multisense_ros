@@ -293,13 +293,13 @@ int main(int    argc,
 
         CPY_MAT_2(c.left.M, M1, 3, 3);
         memset(&(c.left.D[0]), 0, sizeof(c.left.D));
-        CPY_MAT_1(c.left.D, D1, 5);
+        CPY_MAT_1(c.left.D, D1, D1->cols);
         CPY_MAT_2(c.left.R, R1, 3, 3);
         CPY_MAT_2(c.left.P, P1, 3, 4);
 
         CPY_MAT_2(c.right.M, M2, 3, 3);
         memset(&(c.right.D[0]), 0, sizeof(c.right.D));
-        CPY_MAT_1(c.right.D, D2, 5);
+        CPY_MAT_1(c.right.D, D2, D2->cols);
         CPY_MAT_2(c.right.R, R2, 3, 3);
         CPY_MAT_2(c.right.P, P2, 3, 4);
 

@@ -41,7 +41,7 @@ void ppsCB(const pps::Header& header, void* userDataP)
 
 Pps::Pps(Channel* driver) :
     driver_(driver),
-    device_nh_("multisense_sl"),
+    device_nh_(""),
     pps_pub_(),
     subscribers_(0)
 {

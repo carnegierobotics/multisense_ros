@@ -1,0 +1,15 @@
+<package>
+  <name>multisense_bringup</name>
+  <version>0.0.0</version>
+  <description>multisense_bringup</description>
+  <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
+  <license>LGPL</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>multisense_ros</build_depend>
+  <run_depend>multisense_ros</run_depend>
+
+</package>
+
+

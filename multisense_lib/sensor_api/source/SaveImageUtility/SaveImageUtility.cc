@@ -125,7 +125,7 @@ void imageCallback(const image::Header& header,
 {
     Channel *channelP = reinterpret_cast<Channel*>(userDataP);
     
-    double timeStamp = header.timeSeconds + 1e-6 * header.timeMicroSeconds;
+//    double timeStamp = header.timeSeconds + 1e-6 * header.timeMicroSeconds;
     
     static int64_t lastFrameId = -1;
 

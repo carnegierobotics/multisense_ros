@@ -29,6 +29,7 @@
 #include <multisense_ros/RawCamData.h>
 #include <multisense_ros/RawLidarData.h>
 #include <multisense_ros/RawLidarCal.h>
+#include <multisense_lib/MultiSenseTypes.hh>
 #include <stdio.h>
 #include <ros/callback_queue.h>
 
@@ -39,12 +40,12 @@
 
 namespace { // anonymous
 
-#define TOPIC_DEVICE_INFO     "/multisense_sl/calibration/device_info"
-#define TOPIC_RAW_CAM_CAL     "/multisense_sl/calibration/raw_cam_cal"
-#define TOPIC_RAW_CAM_CONFIG  "/multisense_sl/calibration/raw_cam_config"
-#define TOPIC_RAW_CAM_DATA    "/multisense_sl/calibration/raw_cam_data"
-#define TOPIC_RAW_LIDAR       "/laser/calibration/raw_lidar_data"
-#define TOPIC_RAW_LIDAR_CAL   "/laser/calibration/raw_lidar_cal"
+#define TOPIC_DEVICE_INFO     "/multisense/calibration/device_info"
+#define TOPIC_RAW_CAM_CAL     "/multisense/calibration/raw_cam_cal"
+#define TOPIC_RAW_CAM_CONFIG  "/multisense/calibration/raw_cam_config"
+#define TOPIC_RAW_CAM_DATA    "/multisense/calibration/raw_cam_data"
+#define TOPIC_RAW_LIDAR       "/multisense/calibration/raw_lidar_data"
+#define TOPIC_RAW_LIDAR_CAL   "/multisense/calibration/raw_lidar_cal"
 
 //
 // Helper class for getting a full rotation of laser scan data
@@ -171,7 +172,7 @@ void setConf(const dynamic_reconfigure::Config& conf)
 
     srv_req.config = conf;
 
-    ros::service::call("/multisense_sl/set_parameters", srv_req, srv_resp);
+    ros::service::call("/multisense/set_parameters", srv_req, srv_resp);
 }
 
 void setMotorSpeed(double radPerSec)
@@ -216,9 +217,6 @@ int main(int    argc,
 
     std::string outfile(argvPP[1]);
 
-    setResolution("1024x544x128");
-    ros::Duration(1.0).sleep();
-
     printf("Capturing device information... "); fflush(stdout);
     multisense_ros::DeviceInfo::ConstPtr device_info = ros::topic::waitForMessage<multisense_ros::DeviceInfo>(TOPIC_DEVICE_INFO, nh);
     if (!device_info) {
@@ -226,6 +224,25 @@ int main(int    argc,
         return -1;
     }
     printf("  Success\n");
+
+    switch(device_info->imagerType) {
+    case crl::multisense::system::DeviceInfo::IMAGER_TYPE_CMV2000_GREY:
+    case crl::multisense::system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR:
+      printf("Imager type is CMV2000; setting resolution to 1024x544x128... ");
+      setResolution("1024x544x128");
+      break;
+    case crl::multisense::system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY:
+    case crl::multisense::system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR:
+      printf("Imager type is CMV4000; setting resolution to 1024x1024x128... ");
+      setResolution("1024x1024x128");
+      break;
+    default:
+      printf("Imager type is not recognized; not setting resolution... ");
+      printf("  Error setting imager resolution.  Exiting\n");
+      return -1;
+      break;
+    }
+    ros::Duration(1.0).sleep();
 
     printf("Capturing lidar calibration... ");
     multisense_ros::RawLidarCal::ConstPtr lidar_cal = ros::topic::waitForMessage<multisense_ros::RawLidarCal>(TOPIC_RAW_LIDAR_CAL, nh);

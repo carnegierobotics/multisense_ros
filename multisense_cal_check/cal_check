@@ -88,7 +88,7 @@ class CheckCal():
     #Calibration utility
     def run(self):
         [bag_out, fname] = self.collect_bag()
-        
+
         if bag_out == 0:
             fname = self.process_bag(fname)
             cal_out = self.check_cal(fname)

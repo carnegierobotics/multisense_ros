@@ -25,12 +25,6 @@
 #include <multisense_ros/RawLidarData.h>
 #include <multisense_ros/RawLidarCal.h>
 #include <angles/angles.h>
-#include <kdl/tree.hpp>
-#include <kdl/chain.hpp>
-#include <kdl/jntarray.hpp>
-#include <kdl/chainfksolverpos_recursive.hpp>
-#include <kdl_parser/kdl_parser.hpp>
-#include <kdl/frames_io.hpp>
 
 #include <arpa/inet.h>
 
@@ -38,168 +32,30 @@ using namespace crl::multisense;
 
 namespace { // anonymous
 
-bool computePostSpindleCal(const KDL::Tree&  tree,
-                           const KDL::Frame& spindle_T_laser,
-                           KDL::Frame&       post_spindle_cal)
+const uint32_t laser_cloud_step = 16;
+
+tf::Transform makeTransform(float T[4][4])
 {
-    KDL::Chain chain;
-    if (!tree.getChain("hokuyo_link", "head_hokuyo_frame", chain)) {
-        ROS_ERROR("Laser: error extracting post-spindle chain from KDL tree");
-        return false;
-    }
+    //
+    // Manually create the rotation matrix
+    tf::Matrix3x3 rot = tf::Matrix3x3(T[0][0],
+                                      T[0][1],
+                                      T[0][2],
+                                      T[1][0],
+                                      T[1][1],
+                                      T[1][2],
+                                      T[2][0],
+                                      T[2][1],
+                                      T[2][2]);
 
-    if (chain.getNrOfJoints() != 0) {
-        ROS_ERROR("Laser: expected 0 joints in chain. Got %u\n", 
-                  chain.getNrOfJoints());
-        return false;
-    }
+    //
+    // Maually create the translation vector
+    tf::Vector3 trans = tf::Vector3(T[0][3], T[1][3], T[2][3]);
 
-    KDL::JntArray joint_pos(0);
-    KDL::ChainFkSolverPos_recursive fksolver(chain);
-
-    KDL::Frame scan_post_spindle_cal_T_hokuyo_head;
-    if(fksolver.JntToCart(joint_pos, scan_post_spindle_cal_T_hokuyo_head) < 0) {
-        ROS_ERROR("Laser: error in FK for post-spindle calcs");
-        return false;
-    }
-
-    KDL::Frame nominal_T_optical(KDL::Rotation::RPY(M_PI/2, 
-                                                    -M_PI/2, 0.0).Inverse(), 
-                                 KDL::Vector());
-    post_spindle_cal = (nominal_T_optical * spindle_T_laser * 
-                        (scan_post_spindle_cal_T_hokuyo_head * 
-                         nominal_T_optical).Inverse());
-
-    return true;
-}
-
-bool computePreSpindleCal(const KDL::Tree&  tree,
-                          const KDL::Frame& camera_T_spindle_fixed,
-                          KDL::Frame&       pre_spindle_cal)
-{
-    KDL::Chain head_spindle_chain;
-    if (!tree.getChain("head", "pre_spindle", head_spindle_chain)) {
-        ROS_ERROR("Laser: error extracting head-spindle chain from KDL tree");
-        return false;
-    }
-
-    KDL::Chain head_cam_chain;
-    if (!tree.getChain("head", "left_camera_optical_frame", head_cam_chain)) {
-        ROS_ERROR("Laser: error extracting head-camera chain from KDL tree");
-        return false;
-    }
-
-    if (head_cam_chain.getNrOfJoints() != 0) {
-        ROS_ERROR("Laser: expected 0 joints in head-camera chain. Got %u\n", 
-                  head_cam_chain.getNrOfJoints());
-        return false;
-    }
-
-    if (head_spindle_chain.getNrOfJoints() != 0) {
-        ROS_ERROR("Laser: expected 0 joints in head-spindle chain. Got %u\n", 
-                  head_spindle_chain.getNrOfJoints());
-        return false;
-    }
-
-    KDL::JntArray joint_pos(0);
-    KDL::ChainFkSolverPos_recursive head_spindle_solver(head_spindle_chain);
-    KDL::ChainFkSolverPos_recursive head_cam_solver(head_cam_chain);
-    KDL::Frame head_T_pre_spindle;
-    KDL::Frame head_T_cam_optical;
-    if(head_spindle_solver.JntToCart(joint_pos, head_T_pre_spindle) < 0) {
-        ROS_ERROR("Laser: error in FK for head_spindle calcs");
-        return false;
-    }
-
-    if(head_cam_solver.JntToCart(joint_pos, head_T_cam_optical) < 0) {
-        ROS_ERROR("Laser: error in FK for head_cam calcs");
-        return false;
-    }
-
-    KDL::Frame pre_spindle_T_pre_spindle_rot(KDL::Rotation::RPY(M_PI/2, 
-                                                                -M_PI/2, 0.0).Inverse(), 
-                                             KDL::Vector());
-
-    KDL::Frame cam_opt_T_pre_spindle = (head_T_cam_optical.Inverse() * 
-                                        head_T_pre_spindle);
-
-    pre_spindle_cal = (cam_opt_T_pre_spindle.Inverse()
-                       * camera_T_spindle_fixed * 
-                       pre_spindle_T_pre_spindle_rot.Inverse());
-
-    return true;
+    return tf::Transform(rot, trans);
 }
 
 
-bool computeCal(const std::string& robot_desc_string,
-                const KDL::Frame&  spindle_T_laser, 
-                const KDL::Frame&  camera_T_spindle_fixed,
-                KDL::Frame&        pre_spindle_cal, 
-                KDL::Frame&        post_spindle_cal)
-{
-    KDL::Tree tree;
-    if (!kdl_parser::treeFromString(robot_desc_string, tree)) {
-        ROS_ERROR("Laser: error parsing robot description using kdl_parser");
-        return false;
-    }
-
-    bool success;
-    success = computePostSpindleCal(tree, spindle_T_laser, post_spindle_cal);
-    if (!success) {
-        ROS_ERROR("Laser: error calculating post spindle calibration");
-        return false;
-    }
-
-    success = computePreSpindleCal(tree, camera_T_spindle_fixed, pre_spindle_cal);
-    if (!success) {
-        ROS_ERROR("Laser: error calculating pre spindle calibration");
-        return false;
-    }
-
-    return true;
-}
-
-KDL::Frame makeFrame(float T[4][4])
-{
-    KDL::Frame out;
-
-    for (int i=0; i < 3; i++) {
-        for (int j=0; j < 3; j++)
-            out.M(i,j) = T[i][j];
-    }
-
-    out.p[0] = T[0][3];
-    out.p[1] = T[1][3];
-    out.p[2] = T[2][3];
-
-    return out;
-}
-
-void getLaserCal(lidar::Calibration& c,
-                 const std::string&  robot_desc,
-                 KDL::Frame&         pre_spindle_cal,
-                 KDL::Frame&         post_spindle_cal)
-{   
-    KDL::Frame spindle_T_laser = makeFrame(c.laserToSpindle).Inverse();
-    KDL::Frame camera_T_spindle_fixed = makeFrame(c.cameraToSpindleFixed);
-
-    bool success;
-    success = computeCal(robot_desc,
-                         spindle_T_laser, camera_T_spindle_fixed,
-                         pre_spindle_cal, post_spindle_cal);
-    if (!success)
-        ROS_ERROR("Laser: error computing lidar calibration.");
-}
-
-void pushCal(sensor_msgs::JointState& msg, 
-	     const std::string&       name, 
-	     double                   pos)
-{
-    msg.name.push_back(name);
-    msg.position.push_back(pos);
-    msg.velocity.push_back(0.0);
-    msg.effort.push_back(0.0);
-}
 
 }; // anonymous
 
@@ -227,11 +83,11 @@ void pCB(const lidar::Header&        header,
 }; // anonymous
 
 Laser::Laser(Channel* driver,
-             const std::string& robot_desc)
-    : driver_(driver),
-      subscribers_(0)
+             const std::string& tf_prefix,
+             const std::string& robot_desc) :
+    driver_(driver),
+    subscribers_(0)
 {
-    ros::NodeHandle nh("laser");
 
     //
     // Get device info
@@ -257,10 +113,19 @@ Laser::Laser(Channel* driver,
         return;
     }
 
-    //
-    // Get frame_id
+    ros::NodeHandle nh("");
 
-    nh.param("frame_id", frame_id_, std::string("/head_hokuyo_frame"));
+    //
+    // Set frame ID
+
+    frame_id_ = tf_prefix + "/head_hokuyo_frame";
+
+    left_camera_optical_ =  tf_prefix + "/" + "left_camera_optical_frame";
+    motor_               =  tf_prefix + "/" + "motor";
+    spindle_             =  tf_prefix + "/" + "spindle";
+    hokuyo_              =  tf_prefix + "/" + "hokuyo_link";
+
+    ROS_INFO("laser frame id: %s", frame_id_.c_str());
 
     //
     // Stop lidar stream
@@ -277,62 +142,53 @@ Laser::Laser(Channel* driver,
     else {
 
         //
-        // Calibration for laser scan topic
+        // Create two static transforms representing sensor calibration
+        motor_to_camera_ = makeTransform(lidar_cal_.cameraToSpindleFixed);
+        laser_to_spindle_ = makeTransform(lidar_cal_.laserToSpindle);
 
-        getLaserCal(lidar_cal_, robot_desc, scan_pre_spindle_cal_, scan_post_spindle_cal_);
-
-        //
-        // Calibration for point cloud topic
-
-        pc_post_spindle_cal_  = makeFrame(lidar_cal_.laserToSpindle);
-        pc_pre_spindle_cal_ = makeFrame(lidar_cal_.cameraToSpindleFixed);        
     }
-
-    //
-    // Default joint message for LaserScan message
-
-    js_msg_.name.push_back("hokuyo_joint");
-    js_msg_.position.push_back(0.0);
-    js_msg_.velocity.push_back(0.0);
-    js_msg_.effort.push_back(0.0);
-
-    double roll, pitch, yaw;
-    scan_pre_spindle_cal_.M.GetRPY(roll, pitch, yaw);
-    pushCal(js_msg_, "pre_spindle_cal_x_joint", scan_pre_spindle_cal_.p[0]);
-    pushCal(js_msg_, "pre_spindle_cal_y_joint", scan_pre_spindle_cal_.p[1]);
-    pushCal(js_msg_, "pre_spindle_cal_z_joint", scan_pre_spindle_cal_.p[2]);
-    pushCal(js_msg_, "pre_spindle_cal_roll_joint",  roll);
-    pushCal(js_msg_, "pre_spindle_cal_pitch_joint", pitch);
-    pushCal(js_msg_, "pre_spindle_cal_yaw_joint",   yaw);
-
-    scan_post_spindle_cal_.M.GetRPY(roll, pitch, yaw);
-    pushCal(js_msg_, "post_spindle_cal_x_joint", scan_post_spindle_cal_.p[0]);
-    pushCal(js_msg_, "post_spindle_cal_y_joint", scan_post_spindle_cal_.p[1]);
-    pushCal(js_msg_, "post_spindle_cal_z_joint", scan_post_spindle_cal_.p[2]);
-    pushCal(js_msg_, "post_spindle_cal_roll_joint",  roll);
-    pushCal(js_msg_, "post_spindle_cal_pitch_joint", pitch);
-    pushCal(js_msg_, "post_spindle_cal_yaw_joint",   yaw);
-
-    //
-    // Joint publisher
-
-    ros::NodeHandle nh_js("laser_joint");
-    js_pub_ = nh_js.advertise<sensor_msgs::JointState>("/joint_states", 40);
 
     //
     // Create scan publisher
 
-    scan_pub_ = nh.advertise<sensor_msgs::LaserScan>("scan", 20,
+    scan_pub_ = nh.advertise<sensor_msgs::LaserScan>("lidar_scan", 20,
                 boost::bind(&Laser::subscribe, this),
                 boost::bind(&Laser::unsubscribe, this));
 
     //
+    // Initialize point cloud structure
+
+    point_cloud_.is_bigendian    = (htonl(1) == 1);
+    point_cloud_.is_dense        = true;
+    point_cloud_.point_step      = laser_cloud_step;
+    point_cloud_.height          = 1;
+    point_cloud_.header.frame_id =  tf_prefix + "/left_camera_optical_frame";
+
+    point_cloud_.fields.resize(4);
+    point_cloud_.fields[0].name     = "x";
+    point_cloud_.fields[0].offset   = 0;
+    point_cloud_.fields[0].count    = 1;
+    point_cloud_.fields[0].datatype = sensor_msgs::PointField::FLOAT32;
+    point_cloud_.fields[1].name     = "y";
+    point_cloud_.fields[1].offset   = 4;
+    point_cloud_.fields[1].count    = 1;
+    point_cloud_.fields[1].datatype = sensor_msgs::PointField::FLOAT32;
+    point_cloud_.fields[2].name     = "z";
+    point_cloud_.fields[2].offset   = 8;
+    point_cloud_.fields[2].count    = 1;
+    point_cloud_.fields[2].datatype = sensor_msgs::PointField::FLOAT32;
+    point_cloud_.fields[3].name     = "intensity";
+    point_cloud_.fields[3].offset   = 12;
+    point_cloud_.fields[3].count    = 1;
+    point_cloud_.fields[3].datatype = sensor_msgs::PointField::UINT32;
+
+    //
     // Create point cloud publisher
 
-    point_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("points2", 5,
+    point_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("lidar_points2", 5,
                        boost::bind(&Laser::subscribe, this),
                        boost::bind(&Laser::unsubscribe, this));
-    
+
     //
     // Create calibration publishers
 
@@ -372,6 +228,7 @@ Laser::~Laser()
     driver_->removeIsolatedCallback(pCB);
 }
 
+
 void Laser::pointCloudCallback(const lidar::Header& header)
 {
     //
@@ -380,37 +237,7 @@ void Laser::pointCloudCallback(const lidar::Header& header)
     if (0 == point_cloud_pub_.getNumSubscribers())
         return;
 
-    const uint32_t cloud_step = 16;
-
-    point_cloud_.data.resize(cloud_step * header.pointCount);
-
-    if (4 != point_cloud_.fields.size()) {
-
-        point_cloud_.is_bigendian    = (htonl(1) == 1);
-        point_cloud_.is_dense        = true;
-        point_cloud_.point_step      = cloud_step;
-        point_cloud_.height          = 1;
-        point_cloud_.header.frame_id = "/left_camera_optical_frame";
-
-        point_cloud_.fields.resize(4);
-        point_cloud_.fields[0].name     = "x";
-        point_cloud_.fields[0].offset   = 0;
-        point_cloud_.fields[0].count    = 1;
-        point_cloud_.fields[0].datatype = sensor_msgs::PointField::FLOAT32;
-        point_cloud_.fields[1].name     = "y";
-        point_cloud_.fields[1].offset   = 4;
-        point_cloud_.fields[1].count    = 1;
-        point_cloud_.fields[1].datatype = sensor_msgs::PointField::FLOAT32;
-        point_cloud_.fields[2].name     = "z";
-        point_cloud_.fields[2].offset   = 8;
-        point_cloud_.fields[2].count    = 1;
-        point_cloud_.fields[2].datatype = sensor_msgs::PointField::FLOAT32;
-        point_cloud_.fields[3].name     = "intensity";
-        point_cloud_.fields[3].offset   = 12;
-        point_cloud_.fields[3].count    = 1;
-        point_cloud_.fields[3].datatype = sensor_msgs::PointField::UINT32;
-    }
-
+    point_cloud_.data.resize(laser_cloud_step * header.pointCount);
     point_cloud_.row_step     = header.pointCount;
     point_cloud_.width        = header.pointCount;
     point_cloud_.header.stamp = ros::Time(header.timeStartSeconds,
@@ -427,7 +254,7 @@ void Laser::pointCloudCallback(const lidar::Header& header)
     const double   spindleAngleEnd   = angles::normalize_angle(1e-6 * static_cast<double>(header.spindleAngleEnd));
     const double   spindleAngleRange = angles::normalize_angle(spindleAngleEnd - spindleAngleStart);
 
-    for(uint32_t i=0; i<header.pointCount; ++i, cloudP += cloud_step) {
+    for(uint32_t i=0; i<header.pointCount; ++i, cloudP += laser_cloud_step) {
         
         //
         // Percent through the scan arc
@@ -437,33 +264,30 @@ void Laser::pointCloudCallback(const lidar::Header& header)
         //
         // The mirror angle for this point, invert for mirror motor direction
 
-        const double mirrorTheta = -1.0 * (mirrorThetaStart + percent * arcRadians);
+        const double mirrorTheta = mirrorThetaStart + percent * arcRadians;
 
         //
         // The rotation about the spindle
 
         const double spindleTheta    = spindleAngleStart + percent * spindleAngleRange;
-        const double cosSpindleTheta = std::cos(spindleTheta);
-        const double sinSpindleTheta = std::sin(spindleTheta);
 
-        const KDL::Rotation spindleFromMotor(cosSpindleTheta, -sinSpindleTheta, 0.0,
-                                             sinSpindleTheta,  cosSpindleTheta, 0.0,
-                                             0.0,              0.0,             1.0);
+        tf::Transform spindle_to_motor = publishSpindleTransform(spindleTheta, point_cloud_.header.stamp, false);
+
         //
         // The coordinate in left optical frame
 
         const double      rangeMeters = 1e-3 * static_cast<double>(header.rangesP[i]);  // from millimeters
-        const KDL::Vector pointMotor  = (pc_post_spindle_cal_ * 
-                                         KDL::Vector(rangeMeters * -std::sin(mirrorTheta), 0.0,
+        const tf::Vector3 pointMotor  = (laser_to_spindle_ * 
+                                         tf::Vector3(rangeMeters * std::sin(mirrorTheta), 0.0,
                                                      rangeMeters *  std::cos(mirrorTheta)));
-        const KDL::Vector pointCamera = pc_pre_spindle_cal_ * (spindleFromMotor * pointMotor);
+        const tf::Vector3 pointCamera = motor_to_camera_ * (spindle_to_motor * pointMotor);
         
         //
         // Copy data to point cloud structure
 
-        const float xyz[3] = {static_cast<float>(pointCamera.x()),
-                              static_cast<float>(pointCamera.y()),
-                              static_cast<float>(pointCamera.z())};
+        const float xyz[3] = {static_cast<float>(pointCamera.getX()),
+                              static_cast<float>(pointCamera.getY()),
+                              static_cast<float>(pointCamera.getZ())};
                         
         memcpy(cloudP, &(xyz[0]), pointSize);
         memcpy((cloudP + pointSize), &(header.intensitiesP[i]), sizeof(uint32_t));
@@ -485,7 +309,8 @@ void Laser::scanCallback(const lidar::Header& header)
     //
     // The URDF assumes that the laser straight up at a joint angle of 0 degrees
 
-    const float offset = M_PI;
+    //const float offset = M_PI;
+    const float offset = 0;
 
     const ros::Time start_absolute_time = ros::Time(header.timeStartSeconds,
                                                     1000 * header.timeStartMicroSeconds);
@@ -495,26 +320,12 @@ void Laser::scanCallback(const lidar::Header& header)
 
     const float angle_start = 1e-6 * static_cast<float>(header.spindleAngleStart) - offset;
     const float angle_end   = 1e-6 * static_cast<float>(header.spindleAngleEnd) - offset;
-    const float angle_diff  = angles::shortest_angular_distance(angle_start, angle_end);
-    const float velocity    = angle_diff / scan_time.toSec();
 
-    //
-    // Publish joint state for beginning of scan
+    publishStaticTransforms(start_absolute_time);
 
-    js_msg_.header.frame_id = "";
-    js_msg_.header.stamp    = start_absolute_time;
-    js_msg_.position[0]     = angle_start;
-    js_msg_.velocity[0]     = velocity;
-    js_pub_.publish(js_msg_);
+    publishSpindleTransform(angle_start, start_absolute_time);
 
-    //
-    // Publish joint state for end of scan
-    
-    js_msg_.header.frame_id = "";
-    js_msg_.header.stamp    = end_absolute_time;
-    js_msg_.position[0]     = angle_end;
-    js_msg_.velocity[0]     = velocity;
-    js_pub_.publish(js_msg_);
+    publishSpindleTransform(angle_end, end_absolute_time);
 
     if (scan_pub_.getNumSubscribers() > 0) {
         
@@ -563,6 +374,41 @@ void Laser::scanCallback(const lidar::Header& header)
 
         raw_lidar_data_pub_.publish(ros_msg);
     }
+}
+
+void Laser::publishStaticTransforms(ros::Time time){
+
+    //
+    // Publish the static transforms from our calibration. 
+    static_tf_broadcaster_.sendTransform(tf::StampedTransform(motor_to_camera_, 
+                                          time,left_camera_optical_,
+                                          motor_));
+
+
+
+    static_tf_broadcaster_.sendTransform(tf::StampedTransform(laser_to_spindle_, 
+                                          time, spindle_, hokuyo_));
+
+
+}
+
+tf::Transform Laser::publishSpindleTransform(float spindle_angle, ros::Time time, bool publish){
+
+    //
+    // Spindle angle turns about the z-axis to create a transform where it adjusts
+    // yaw
+    tf::Matrix3x3 spindle_rot = tf::Matrix3x3();
+    spindle_rot.setRPY(0.0, 0.0, spindle_angle);
+    tf::Transform spindle_to_motor = tf::Transform(spindle_rot);
+
+    //
+    // We sometime want to just query this transform and not publish i
+    if (publish){
+        spindle_tf_broadcaster_.sendTransform(tf::StampedTransform(spindle_to_motor, 
+                                              time, motor_, spindle_));
+    }
+
+    return spindle_to_motor;
 }
 
 void Laser::stop() 

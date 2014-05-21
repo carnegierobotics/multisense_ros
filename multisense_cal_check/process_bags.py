@@ -25,22 +25,28 @@ class _BagProcessor():
     def __init__(self, bag_file):
         self.bag_file = bag_file
 
-    #Wrapper method ot processes the bag file
+    #Wrapper method to processes the bag file
     #Returns bag file name
-    def process(self, directory='.'):
-        self.process_laser(directory)
-        self.process_image(directory)
-        self.process_camera_yaml(directory)
-        self.process_laser_yaml(directory)
-        return self.rename_bag(directory)
+    def process(self, directory='.', rename_file = True, 
+                namespace = 'multisense'):
+        self.process_laser(directory, namespace)
+        self.process_image(directory, namespace)
+        self.process_camera_yaml(directory, namespace)
+        self.process_laser_yaml(directory, namespace)
+
+        return_value = self.bag_file
+        if rename_file:
+            return_value = self.rename_bag(directory)
+        # end if
+        return return_value
 
     #Method to extract laser data from bag file and save into .csv
-    def process_laser(self, directory='.'):
+    def process_laser(self, directory='.', namespace='multisense'):
         bag = rosbag.Bag(self.bag_file)
         with open(directory + '/' + 'lidarData.csv', 'wb') as laser_file:
+            topic_name = '/%s/calibration/raw_lidar_data' % namespace
             laser_writer = csv.writer(laser_file, delimiter=',')
-            for topic, msg, t in bag.read_messages(
-                                 topics=['/laser/calibration/raw_lidar_data']):
+            for topic, msg, t in bag.read_messages(topics=[topic_name]):
                 #Unbundle message
                 scan_count = msg.scan_count
                 time_start = float(msg.time_start.secs +
@@ -63,10 +69,10 @@ class _BagProcessor():
 
 
     #Method to extract an image from a bag file
-    def process_image(self, directory='.'):
+    def process_image(self, directory='.', namespace='multisense'):
+        topic_name = '/%s/calibration/raw_cam_data' % namespace
         bag = rosbag.Bag(self.bag_file)
-        for topic, msg, t in bag.read_messages(
-                             topics=['/multisense_sl/calibration/raw_cam_data']):
+        for topic, msg, t in bag.read_messages(topics=[topic_name]):
             width = msg.width
             height = msg.height
 
@@ -99,11 +105,10 @@ class _BagProcessor():
         image.close()
 
     #Extract image intrinsics from RawCamConfig.msg
-    def process_camera_yaml(self, directory='.'):
+    def process_camera_yaml(self, directory='.', namespace='multisense'):
+        topic_name = '/%s/calibration/raw_cam_config' % namespace
         bag = rosbag.Bag(self.bag_file)
-        for topic, msg, t in bag.read_messages(
-                             topics=['/multisense_sl/calibration/'\
-                                      +'raw_cam_config']):
+        for topic, msg, t in bag.read_messages(topics=[topic_name]):
             fx = msg.fx
             fy = msg.fy
             cx = msg.cx
@@ -147,11 +152,11 @@ class _BagProcessor():
 
     #Extract Laser To Spindle and Camera To Spindle Extrinsics from
     #RawLidarCal.msg
-    def process_laser_yaml(self, directory="."):
+    def process_laser_yaml(self, directory=".", namespace='multisense'):
+        topic_name = '/%s/calibration/raw_lidar_cal' % namespace
         bag = rosbag.Bag(self.bag_file)
         i = 0
-        for topic, msg, t in bag.read_messages(
-                             topics=['/laser/calibration/raw_lidar_cal']):
+        for topic, msg, t in bag.read_messages(topics=[topic_name]):
 
             #Only use one message
             if i > 0:
@@ -205,12 +210,18 @@ class _BagProcessor():
 
     #Writes out sensor information appends SN to bagfile name
     #Returns new bag file name
-    def rename_bag(self, directory="."):
+    def rename_bag(self, directory=".", namespace='multisense'):
+        topic_name = '/%s/calibration/device_info' % namespace
         bag = rosbag.Bag(self.bag_file)
-        for topic, msg, t in bag.read_messages(
-                             topics=['/multisense_sl/calibration/device_info']):
+        for topic, msg, t in bag.read_messages(topics=[topic_name]):
 
-            sn = int(msg.serialNumber)
+            # The format of serial numers appears to have changed.  If it's 
+            # new style ('SN0004'), then accept it as is.  If old style 
+            # ('4'), then convert to new style.
+            sn = msg.serialNumber.strip()
+            if sn[:2] != 'SN':
+                sn = 'SN%04d' % int(sn)
+            # end if
 
             info = open(directory + "/dev_info.txt", 'wb')
 
@@ -222,10 +233,59 @@ class _BagProcessor():
             path = os.path.dirname(self.bag_file)
 
             fname = path + "/" + os.path.splitext(bag)[0]\
-                               + "_SL_SN%04d_calCheck.bag" % sn
+                               + "_SL_%s_calCheck.bag" % sn
 
 
             os.rename(self.bag_file, fname)
             self.bag_file = fname
             return fname
 
+
+def usage(argv):
+    print "\nUsage: %s bagFile <outputDirectory> <namespace>" % argv[0]
+    print ""
+    print "If no value is specified for outputDirectory, then a "
+    print "directory will be created using the current time as "
+    print "part of its name."
+    print ""
+    print "If a value is provided for namespace, it will be used "
+    print "in extracting data from the bag file.  The default namespace "
+    print "is multisense.  You might want to specify multisense_sl or "
+    print "laser instead, if you are processing an older bag file."
+# end def
+
+if __name__ == '__main__':
+    # Set up default arguments
+    bag_file_name = 'dummy.bag'
+    output_directory_name = time.strftime('%Y-%m-%d_%H-%M-%S_process_bags')
+    namespace = 'multisense'
+    rename_file = True
+
+    # Process command line.
+    if (len(sys.argv) < 2) | (len(sys.argv) > 4):
+        usage(sys.argv)
+        sys.exit(65)
+    # end if
+    if len(sys.argv) >= 2:
+        bag_file_name = sys.argv[1]
+    # end if
+    if len(sys.argv) >= 3:
+        output_directory_name = sys.argv[2]
+    # end if
+    if len(sys.argv) >= 4:
+        namespace = sys.argv[3]
+    # end if
+
+    # Prepare to run _BagProcessor.
+    if not os.path.exists(output_directory_name):
+        os.makedirs(output_directory_name)
+    # end if
+    if not os.path.isdir(output_directory_name):
+        raise IOError('%s is not a directory' % output_directory_name)
+    # end if
+
+    # Do the processsing.
+    bagProcessor = _BagProcessor(bag_file_name)
+    bagProcessor.process(output_directory_name, rename_file, namespace)
+    sys.exit(0)
+# end if

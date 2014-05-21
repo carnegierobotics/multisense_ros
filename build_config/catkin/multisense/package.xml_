@@ -1,0 +1,30 @@
+<package>
+  <name>multisense</name>
+  <version>1.0.0</version>
+  <description>mulisense catkin driver</description>
+  <maintainer email="support@carnegierobotics.com">Maintained by Carnegie Robotics LLC</maintainer>
+
+  <license>LGPL</license>
+
+  <url type="website">http://ros.org/wiki/multisense</url>
+  <!-- <url type="bugtracker"></url> -->
+
+  <author>Maintained by CarnegieRobotics LLC</author>
+
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <run_depend>multisense_diagnostics</run_depend>
+  <run_depend>multisense_description</run_depend>
+  <run_depend>multisense_bringup</run_depend>
+  <run_depend>multisense_ros</run_depend>
+  <run_depend>multisense_lib</run_depend>
+  <run_depend>multisense_msgs</run_depend>
+  <run_depend>multisense_dashboard</run_depend>
+
+
+
+
+  <export>
+    <metapackage/>
+  </export>
+</package>

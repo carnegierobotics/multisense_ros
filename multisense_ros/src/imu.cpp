@@ -42,7 +42,7 @@ void imuCB(const imu::Header& header, void* userDataP)
 
 Imu::Imu(Channel* driver) :
     driver_(driver),
-    device_nh_("multisense_sl"),
+    device_nh_(""),
     imu_nh_(device_nh_, "imu"),
     accelerometer_pub_(),
     gyroscope_pub_(),

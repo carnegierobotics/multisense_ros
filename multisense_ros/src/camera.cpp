@@ -26,10 +26,11 @@
 #include <multisense_ros/RawCamCal.h>
 #include <multisense_ros/DeviceInfo.h>
 
-#include <MultiSenseChannel.hh>
+#include <multisense_lib/MultiSenseChannel.hh>
 
 #include <opencv2/opencv.hpp>
 #include <arpa/inet.h>
+#include <fstream>
 
 using namespace crl::multisense;
 
@@ -156,11 +157,60 @@ void publishPointCloud(ros::Publisher&               pub,
     pub.publish(cloud);
 }
 
+bool savePgm(const std::string& fileName,
+             uint32_t           width,
+             uint32_t           height,
+             uint32_t           bitsPerPixel,
+             const void        *dataP)
+{
+    std::ofstream outputStream(fileName.c_str(), std::ios::binary | std::ios::out);
+    
+    if (false == outputStream.good()) {
+        fprintf(stderr, "failed to open \"%s\"\n", fileName.c_str());
+        return false;
+    }
+
+    const uint32_t imageSize = height * width;
+
+    switch(bitsPerPixel) {
+    case 8: 
+    {
+
+        outputStream << "P5\n"
+                     << width << " " << height << "\n"
+                     << 0xFF << "\n";
+        
+        outputStream.write(reinterpret_cast<const char*>(dataP), imageSize);
+
+        break;
+    }
+    case 16:
+    {
+        outputStream << "P5\n"
+                     << width << " " << height << "\n"
+                     << 0xFFFF << "\n";
+
+        const uint16_t *imageP = reinterpret_cast<const uint16_t*>(dataP);
+        
+        for (uint32_t i=0; i<imageSize; ++i) {
+            uint16_t o = htons(imageP[i]);
+            outputStream.write(reinterpret_cast<const char*>(&o), sizeof(uint16_t));
+        }
+
+        break;
+    }
+    }
+        
+    outputStream.close();
+    return true;
+}
+
 }; // anonymous
 
-Camera::Camera(Channel* driver) :
+Camera::Camera(Channel* driver,
+               const std::string& tf_prefix) :
     driver_(driver),
-    device_nh_("multisense_sl"),
+    device_nh_(""),
     left_nh_(device_nh_, "left"),
     right_nh_(device_nh_, "right"),
     left_mono_transport_(left_nh_),
@@ -245,8 +295,12 @@ Camera::Camera(Channel* driver) :
         return;
     }
 
-    device_nh_.param("frame_id_left", frame_id_left_, std::string("/left_camera_optical_frame"));
-    device_nh_.param("frame_id_right", frame_id_right_, std::string("/right_camera_optical_frame"));
+    //
+    // Set frame ID
+
+    frame_id_left_  = tf_prefix + "/left_camera_optical_frame";
+    frame_id_right_ = tf_prefix + "/right_camera_optical_frame";
+    ROS_INFO("camera frame id: %s", frame_id_left_.c_str());
 
     //
     // Create topic publishers (TODO: color topics should not be advertised if the device can't support it)
@@ -272,10 +326,10 @@ Camera::Camera(Channel* driver) :
     left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera("image_rect_color", 5,
                           boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
                           boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
-    luma_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>("points2", 5,
+    luma_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>("image_points2", 5,
                           boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
                           boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
-    color_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>("points2_color", 5,
+    color_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>("image_points2_color", 5,
                           boost::bind(&Camera::connectStream, this, 
                           Source_Disparity | Source_Luma_Left | Source_Chroma_Left),
                           boost::bind(&Camera::disconnectStream, this, 
@@ -738,7 +792,7 @@ void Camera::depthCallback(const image::Header& header)
         //
         // Depth = focal_length*baseline/disparity
 
-        const float scale = (16.0f * right_rect_cam_info_.P[3] * right_rect_cam_info_.P[0]);
+        const float scale = ((right_rect_cam_info_.P[3] * right_rect_cam_info_.P[0]) / -16.0f);
         cv::divide(scale, disparity, depth);
 
         //
@@ -1001,7 +1055,8 @@ void Camera::colorImageCallback(const image::Header& header)
                     cvRemap(sourceImageP, destImageP, 
                             calibration_map_left_1_, 
                             calibration_map_left_2_,
-                            CV_INTER_LINEAR, outlierColor);
+                            CV_INTER_LINEAR+CV_WARP_FILL_OUTLIERS, 
+                            outlierColor);
 
                     cvReleaseImageHeader(&sourceImageP);
                     cvReleaseImageHeader(&destImageP);

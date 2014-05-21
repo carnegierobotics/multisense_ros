@@ -11,14 +11,21 @@
 
 cmake_minimum_required(VERSION 2.8)
 
-# This will be useful for build rules in subordinate CMakeLists files.
-
-set(BASE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+# For Backwards compatablity with other ROS builds
+if (BASE_DIRECTORY)
+else()
+    set(BASE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+    set(SOURCE_DIRECTORY )
+endif()
 
 # Define where the result of the build should go.
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BASE_DIRECTORY}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${BASE_DIRECTORY}/bin)
+
+if (CMAKE_LIBRARY_OUTPUT_DIRECTORY)
+else()
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${BASE_DIRECTORY}/bin)
+endif()
 
 #
 # Turn on optimizations and maximum warnings.

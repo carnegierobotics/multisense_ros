@@ -191,7 +191,7 @@ int main(int    argc,
         fprintf(stdout, "\t\tunits :   %s\n", m.units.c_str());
         fprintf(stdout, "\t\trates :   %ld: rate (Hz), bandwidthCutoff (Hz)\n", 
                 m.rates.size());
-        for(int j=0; j<m.rates.size(); j++)
+        for(uint32_t j=0; j<m.rates.size(); j++)
             fprintf(stdout, "\t\t\t\t%d: %.1f, %.3f\n", j,
                     m.rates[j].sampleRate,
                     m.rates[j].bandwidthCutoff);
@@ -199,7 +199,7 @@ int main(int    argc,
                     m.ranges.size(),
                     m.units.c_str(),
                     m.units.c_str());
-        for(int j=0; j<m.ranges.size(); j++)
+        for(uint32_t j=0; j<m.ranges.size(); j++)
             fprintf(stdout, "\t\t\t\t%d: %.1f, %.6f\n", j,
                     m.ranges[j].range,
                     m.ranges[j].resolution);
@@ -225,7 +225,7 @@ int main(int    argc,
         std::vector<imu::Config> user_configs;
         bool                     configValid = true;
 
-        if (user_samplesPerMessage > sensor_maxSamplesPerMessage) {
+        if (user_samplesPerMessage > static_cast<int32_t>(sensor_maxSamplesPerMessage)) {
             fprintf(stderr, "invalid samples-per-message %d, valid values are in [1,%d]\n",
                     user_samplesPerMessage, sensor_maxSamplesPerMessage);
             configValid = false;
@@ -273,13 +273,13 @@ int main(int    argc,
             //
             // Validate the rate/range indices
 
-            if (rate < 0 || rate >= info.rates.size()) {
+            if (rate < 0 || rate >= static_cast<int32_t>(info.rates.size())) {
                 fprintf(stderr, 
                         "invalid rate table index %d for \"%s\", valid indices are in [0,%lu]\n",
                         rate, nameP, info.rates.size() - 1);
                 configValid = false;
             }
-            if (range < 0 || range >= info.ranges.size()) {
+            if (range < 0 || range >= static_cast<int32_t>(info.ranges.size())) {
                 fprintf(stderr,
                         "invalid range table index %d for \"%s\", valid indices are in [0,%lu]\n",
                         range, nameP, info.ranges.size() - 1);

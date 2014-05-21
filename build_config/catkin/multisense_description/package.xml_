@@ -1,0 +1,11 @@
+<package>
+  <name>multisense_description</name>
+  <version>0.0.0</version>
+  <description>multisense_description</description>
+  <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
+  <license>LGPL</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+</package>
+

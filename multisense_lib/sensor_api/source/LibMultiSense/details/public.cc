@@ -377,6 +377,7 @@ Status impl::getImageHistogram(int64_t           frameId,
 Status impl::networkTimeSynchronization(bool enabled)
 {
     m_networkTimeSyncEnabled = enabled;
+    return Status_Ok;
 }
 
 //

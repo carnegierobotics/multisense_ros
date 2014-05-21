@@ -297,7 +297,7 @@ void impl::publish(const utility::BufferStreamWriter& stream)
                                (struct sockaddr *) &m_sensorAddress,
                                sizeof(m_sensorAddress));        
     
-    if (ret != stream.tell())
+    if (static_cast<size_t>(ret) != stream.tell())
         CRL_EXCEPTION("error sending data to sensor, %d/%d bytes written: %s", 
                       ret, stream.tell(), strerror(errno));
 }
@@ -351,9 +351,11 @@ DataSource impl::sourceWireToApi(wire::SourceType mask)
 uint32_t impl::hardwareApiToWire(uint32_t a) 
 {
     switch(a) {
-    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL: return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_SL;
-    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_S:  return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S;
-    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_M:  return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_M;
+    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL:    return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_SL;
+    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7:    return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S7;
+    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_M:     return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_M;
+    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7S:   return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S7S;
+    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_S21:   return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S21;
     default:
         CRL_DEBUG("unknown API hardware type \"%d\"\n", a);
         return a; // pass through
@@ -362,9 +364,11 @@ uint32_t impl::hardwareApiToWire(uint32_t a)
 uint32_t impl::hardwareWireToApi(uint32_t w) 
 {
     switch(w) {
-    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_SL: return system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL;
-    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S:  return system::DeviceInfo::HARDWARE_REV_MULTISENSE_S;
-    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_M:  return system::DeviceInfo::HARDWARE_REV_MULTISENSE_M;
+    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_SL:    return system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL;
+    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S7:    return system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7;
+    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_M:     return system::DeviceInfo::HARDWARE_REV_MULTISENSE_M;
+    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S7S:   return system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7S;
+    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S21:   return system::DeviceInfo::HARDWARE_REV_MULTISENSE_S21;
     default:
         CRL_DEBUG("unknown WIRE hardware type \"%d\"\n", w);
         return w; // pass through

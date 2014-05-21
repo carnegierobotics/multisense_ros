@@ -232,7 +232,7 @@ public:
         //
         // Limit the posts, if asked to do so
 
-        if (m_maximum > 0 && m_avail >= m_maximum)
+        if (m_maximum > 0 && m_avail >= static_cast<int>(m_maximum))
             return false;
         
         const int32_t nval = __sync_add_and_fetch(&m_avail, 1);

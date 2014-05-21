@@ -8,16 +8,12 @@
   <depend package="multisense_lib"/>
   <depend package="rosbag"/>
   <depend package="sensor_msgs"/>
-  <depend package="laser_assembler"/>
   <depend package="image_transport"/>
   <depend package="opencv2"/>
   <depend package="angles"/>
   <depend package="dynamic_reconfigure"/>
   <depend package="image_geometry"/>
-  <depend package="kdl"/>
-  <depend package="kdl_parser"/>
-
-  <rosdep name="yaml-cpp" />
+  <depend package="tf"/>
 
   <export>
     <cpp cflags="-I${prefix}/include" lflags="" />

@@ -31,7 +31,7 @@ Reconfigure::Reconfigure(Channel* driver,
                          boost::function<void ()> resolutionChangeCallback) :
     driver_(driver),
     resolution_change_callback_(resolutionChangeCallback),
-    device_nh_("multisense_sl"),
+    device_nh_(""),
     device_modes_(),
     imu_samples_per_message_(0),
     imu_configs_(),

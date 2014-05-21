@@ -529,9 +529,12 @@ public:
 
     static const uint32_t MAX_PCBS                   = 8;
 
-    static const uint32_t HARDWARE_REV_MULTISENSE_SL = 1;
-    static const uint32_t HARDWARE_REV_MULTISENSE_S  = 2;
-    static const uint32_t HARDWARE_REV_MULTISENSE_M  = 3;
+    static const uint32_t HARDWARE_REV_MULTISENSE_SL    = 1;
+    static const uint32_t HARDWARE_REV_MULTISENSE_S7    = 2;
+    static const uint32_t HARDWARE_REV_MULTISENSE_S     = HARDWARE_REV_MULTISENSE_S7; // alias for backward source compatibility
+    static const uint32_t HARDWARE_REV_MULTISENSE_M     = 3;
+    static const uint32_t HARDWARE_REV_MULTISENSE_S7S   = 4;
+    static const uint32_t HARDWARE_REV_MULTISENSE_S21   = 5;
 
     static const uint32_t IMAGER_TYPE_CMV2000_GREY   = 1;
     static const uint32_t IMAGER_TYPE_CMV2000_COLOR  = 2;

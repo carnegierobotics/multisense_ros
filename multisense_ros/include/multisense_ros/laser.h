@@ -30,20 +30,23 @@
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/JointState.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <kdl/frames.hpp>
+#include <tf/transform_datatypes.h>  
+#include <tf/transform_broadcaster.h>                                              
 
-#include <MultiSenseChannel.hh>
+#include <multisense_lib/MultiSenseChannel.hh>
 
 namespace multisense_ros {
 
 class Laser {
 public:
     Laser(crl::multisense::Channel* driver,
+          const std::string& tf_prefix,
           const std::string& robot_desc);
     ~Laser();
 
     void scanCallback(const crl::multisense::lidar::Header& header);
     void pointCloudCallback(const crl::multisense::lidar::Header& header);
+    void pointCloudCallbackT(const crl::multisense::lidar::Header& header);
 
     static const float EXPECTED_RATE;
     
@@ -57,13 +60,27 @@ private:
     void stop();
 
     //
+    // Transform boadcasting 
+    void publishStaticTransforms(ros::Time time);
+    tf::Transform publishSpindleTransform(float spindle_angle, ros::Time time, bool publish=true);
+
+    tf::TransformBroadcaster static_tf_broadcaster_;
+    tf::TransformBroadcaster spindle_tf_broadcaster_;
+
+    //
     // Calibration from sensor
 
     crl::multisense::lidar::Calibration lidar_cal_;
-    KDL::Frame                          scan_pre_spindle_cal_;
-    KDL::Frame                          scan_post_spindle_cal_;
-    KDL::Frame                          pc_pre_spindle_cal_;
-    KDL::Frame                          pc_post_spindle_cal_;
+
+    tf::Transform motor_to_camera_;
+    tf::Transform laser_to_spindle_;
+
+    //
+    // Frames to Publish
+    std::string left_camera_optical_;
+    std::string motor_;
+    std::string spindle_;
+    std::string hokuyo_;
 
     //
     // Scan publishing
@@ -71,12 +88,6 @@ private:
     crl::multisense::Channel *driver_;
     ros::Publisher            scan_pub_;
     std::string               frame_id_;
-
-    //
-    // Joint state publishing
-
-    ros::Publisher          js_pub_;
-    sensor_msgs::JointState js_msg_;    
 
     //
     // Raw data publishing

@@ -7,7 +7,7 @@
 #
 
 include_directories (
-                      ${BASE_DIRECTORY}/source
+        ${BASE_DIRECTORY}${SOURCE_DIRECTORY}/source
                     )
 #
 # Setup the executable that we will use.

@@ -33,13 +33,14 @@
 #include <image_transport/image_transport.h>
 #include <image_transport/camera_publisher.h>
 
-#include <MultiSenseChannel.hh>
+#include <multisense_lib/MultiSenseChannel.hh>
 
 namespace multisense_ros {
 
 class Camera {
 public:
-    Camera(crl::multisense::Channel* driver);
+    Camera(crl::multisense::Channel* driver,
+           const std::string& tf_prefix);
     ~Camera();
 
     void resolutionChanged() { queryConfig(); };
