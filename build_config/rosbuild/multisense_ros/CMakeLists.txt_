@@ -37,7 +37,7 @@ rosbuild_add_boost_directories()
 #target_link_libraries(${PROJECT_NAME} another_library)
 rosbuild_add_executable(ros_driver src/ros_driver.cpp)
 target_link_libraries(ros_driver ${PROJECT_NAME})
-target_link_libraries(ros_driver yaml-cpp)
+target_link_libraries(ros_driver yaml-cpp turbojpeg)
 
 rosbuild_add_executable(raw_snapshot src/raw_snapshot.cpp)
 target_link_libraries(raw_snapshot ${PROJECT_NAME})

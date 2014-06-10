@@ -45,6 +45,19 @@ Pps::Pps(Channel* driver) :
     pps_pub_(),
     subscribers_(0)
 {
+    system::DeviceInfo deviceInfo;
+    Status status = driver_->getDeviceInfo(deviceInfo);
+    if (Status_Ok != status) {
+        ROS_ERROR("Camera: failed to query device info: %s",
+                  Channel::statusString(status));
+        return;
+    }
+
+    if (system::DeviceInfo::HARDWARE_REV_BCAM == deviceInfo.hardwareRevision) {
+        ROS_INFO("hardware does not support PPS");
+        return;
+    }
+
     system::VersionInfo v;
     if (Status_Ok == driver_->getVersionInfo(v) && v.sensorFirmwareVersion < 0x0202)
         ROS_ERROR("PPS support requires sensor firmware v2.2 or greater (sensor is running v%d.%d)\n",

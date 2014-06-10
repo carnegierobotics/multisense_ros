@@ -71,6 +71,8 @@ static const DataSource Source_Disparity              = (1<<10);
 static const DataSource Source_Disparity_Left         = (1<<10); // same as Source_Disparity
 static const DataSource Source_Disparity_Right        = (1<<11);
 static const DataSource Source_Disparity_Cost         = (1<<12);
+static const DataSource Source_Jpeg_Left              = (1<<16); 
+static const DataSource Source_Rgb_Left               = (1<<17);
 static const DataSource Source_Lidar_Scan             = (1<<24);
 static const DataSource Source_Imu                    = (1<<25);
 
@@ -111,6 +113,7 @@ public:
     float       gain;
     float       framesPerSecond;
 
+    uint32_t    imageLength;
     const void *imageDataP;
 
     Header() 
@@ -154,7 +157,9 @@ public:
     void setAutoWhiteBalance        (bool e)     { m_wbEnabled   = e;    };
     void setAutoWhiteBalanceDecay   (uint32_t d) { m_wbDecay     = d;    }; // [0, ]
     void setAutoWhiteBalanceThresh  (float t)    { m_wbThresh    = t;    }; // [0.0, 1.0]
-    void setStereoPostFilterStrength(float s)    { m_spfStrength = s;    }; // SGM only (3.0+), [0.0, 1.0]
+    void setStereoPostFilterStrength(float s)    { m_spfStrength = s;    }; // v3.0+ firmware, [0.0, 1.0]
+    void setHdr                     (bool  e)    { m_hdrEnabled  = e;    }; // v3.1+ firmware
+    
 
     //
     // Query
@@ -177,6 +182,7 @@ public:
     uint32_t autoWhiteBalanceDecay   () const { return m_wbDecay;     };
     float    autoWhiteBalanceThresh  () const { return m_wbThresh;    };
     float    stereoPostFilterStrength() const { return m_spfStrength; };
+    bool     hdrEnabled              () const { return m_hdrEnabled;  };
 
     //
     // Query camera calibration (read-only)
@@ -197,7 +203,7 @@ public:
     Config() : m_fps(5.0f), m_gain(1.0f),
                m_exposure(10000), m_aeEnabled(true), m_aeMax(5000000), m_aeDecay(7), m_aeThresh(0.75f),
                m_wbBlue(1.0f), m_wbRed(1.0f), m_wbEnabled(true), m_wbDecay(3), m_wbThresh(0.5f),
-               m_width(1024), m_height(544), m_disparities(128), m_spfStrength(0.5f),
+               m_width(1024), m_height(544), m_disparities(128), m_spfStrength(0.5f), m_hdrEnabled(false),
                m_fx(0), m_fy(0), m_cx(0), m_cy(0),
                m_tx(0), m_ty(0), m_tz(0), m_roll(0), m_pitch(0), m_yaw(0) {};
 private:
@@ -216,6 +222,7 @@ private:
     uint32_t m_width, m_height;
     uint32_t m_disparities;
     float    m_spfStrength;
+    bool     m_hdrEnabled;
 
 protected:
 
@@ -535,11 +542,13 @@ public:
     static const uint32_t HARDWARE_REV_MULTISENSE_M     = 3;
     static const uint32_t HARDWARE_REV_MULTISENSE_S7S   = 4;
     static const uint32_t HARDWARE_REV_MULTISENSE_S21   = 5;
+    static const uint32_t HARDWARE_REV_BCAM             = 100;
 
     static const uint32_t IMAGER_TYPE_CMV2000_GREY   = 1;
     static const uint32_t IMAGER_TYPE_CMV2000_COLOR  = 2;
     static const uint32_t IMAGER_TYPE_CMV4000_GREY   = 3;
     static const uint32_t IMAGER_TYPE_CMV4000_COLOR  = 4;
+    static const uint32_t IMAGER_TYPE_IMX104_COLOR   = 100;
 
     std::string name;
     std::string buildDate;

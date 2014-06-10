@@ -37,6 +37,7 @@
 #include <multisense_ros/sl_bm_cmv4000_imuConfig.h>
 #include <multisense_ros/sl_sgm_cmv2000_imuConfig.h>
 #include <multisense_ros/sl_sgm_cmv4000_imuConfig.h>
+#include <multisense_ros/bcam_imx104Config.h>
 
 namespace multisense_ros {
 
@@ -61,6 +62,7 @@ private:
     void callback_sl_bm_cmv4000_imu (multisense_ros::sl_bm_cmv4000_imuConfig&  config, uint32_t level);
     void callback_sl_sgm_cmv2000_imu(multisense_ros::sl_sgm_cmv2000_imuConfig& config, uint32_t level);
     void callback_sl_sgm_cmv4000_imu(multisense_ros::sl_sgm_cmv4000_imuConfig& config, uint32_t level);
+    void callback_bcam_imx104       (multisense_ros::bcam_imx104Config&        config, uint32_t level);
 
     //
     // Internal helper functions
@@ -90,8 +92,8 @@ private:
     // Cached modes from the sensor
 
     std::vector<crl::multisense::system::DeviceMode> device_modes_;
-    uint32_t                                  imu_samples_per_message_;
-    std::vector<crl::multisense::imu::Config> imu_configs_;
+    uint32_t                                         imu_samples_per_message_;
+    std::vector<crl::multisense::imu::Config>        imu_configs_;
 
     //
     // Dynamic reconfigure server variations
@@ -102,6 +104,7 @@ private:
     boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000_imuConfig> >  server_sl_bm_cmv4000_imu_;
     boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv2000_imuConfig> > server_sl_sgm_cmv2000_imu_;
     boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig> > server_sl_sgm_cmv4000_imu_;
+    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::bcam_imx104Config> >        server_bcam_imx104_;
 
     //
     // Cached values for supported sub-systems (these may be unavailable on

@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <package>
 
   <name>multisense_cal_check</name>
@@ -6,6 +7,8 @@
   <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
   <license>LGPL</license>
 
+  <url type="website">https://bitbucket.org/crl/multisense_ros</url>
+
   <buildtool_depend>catkin</buildtool_depend>
 
   <build_depend>multisense_ros</build_depend>
@@ -13,5 +16,3 @@
   <run_depend>multisense_ros</run_depend>
 
 </package>
-
-

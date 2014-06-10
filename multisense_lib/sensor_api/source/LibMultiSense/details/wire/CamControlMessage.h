@@ -38,7 +38,7 @@ namespace wire {
 class CamControl {
 public:
     static const IdType      ID      = ID_CMD_CAM_CONTROL;
-    static const VersionType VERSION = 2;
+    static const VersionType VERSION = 3;
 
     //
     // Parameters representing the current camera configuration
@@ -62,6 +62,11 @@ public:
     // Additions in version 2
 
     float    stereoPostFilterStrength; // [0.0, 1.0]
+
+    //
+    // Additions in version 3
+
+    bool     hdrEnabled;
 
     //
     // Constructors
@@ -95,6 +100,11 @@ public:
             message & stereoPostFilterStrength;
         else
             stereoPostFilterStrength = 0.5f;
+
+        if (version >= 3)
+            message & hdrEnabled;
+        else
+            hdrEnabled = false;
     }
 };
 

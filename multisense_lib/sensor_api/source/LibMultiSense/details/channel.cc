@@ -321,6 +321,8 @@ wire::SourceType impl::sourceApiToWire(DataSource mask)
     if (mask & Source_Disparity)              wire_mask |= wire::SOURCE_DISPARITY;
     if (mask & Source_Disparity_Right)        wire_mask |= wire::SOURCE_DISPARITY_RIGHT;
     if (mask & Source_Disparity_Cost)         wire_mask |= wire::SOURCE_DISPARITY_COST;
+    if (mask & Source_Jpeg_Left)              wire_mask |= wire::SOURCE_JPEG_LEFT;
+    if (mask & Source_Rgb_Left)               wire_mask |= wire::SOURCE_RGB_LEFT;
     if (mask & Source_Lidar_Scan)             wire_mask |= wire::SOURCE_LIDAR_SCAN;
     if (mask & Source_Imu)                    wire_mask |= wire::SOURCE_IMU;
 
@@ -342,6 +344,8 @@ DataSource impl::sourceWireToApi(wire::SourceType mask)
     if (mask & wire::SOURCE_DISPARITY)         api_mask |= Source_Disparity;
     if (mask & wire::SOURCE_DISPARITY_RIGHT)   api_mask |= Source_Disparity_Right;
     if (mask & wire::SOURCE_DISPARITY_COST)    api_mask |= Source_Disparity_Cost;
+    if (mask & wire::SOURCE_JPEG_LEFT)         api_mask |= Source_Jpeg_Left;
+    if (mask & wire::SOURCE_RGB_LEFT)          api_mask |= Source_Rgb_Left;
     if (mask & wire::SOURCE_LIDAR_SCAN)        api_mask |= Source_Lidar_Scan;
     if (mask & wire::SOURCE_IMU)               api_mask |= Source_Imu; 
 
@@ -356,6 +360,7 @@ uint32_t impl::hardwareApiToWire(uint32_t a)
     case system::DeviceInfo::HARDWARE_REV_MULTISENSE_M:     return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_M;
     case system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7S:   return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S7S;
     case system::DeviceInfo::HARDWARE_REV_MULTISENSE_S21:   return wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S21;
+    case system::DeviceInfo::HARDWARE_REV_BCAM:             return wire::SysDeviceInfo::HARDWARE_REV_BCAM;
     default:
         CRL_DEBUG("unknown API hardware type \"%d\"\n", a);
         return a; // pass through
@@ -369,6 +374,7 @@ uint32_t impl::hardwareWireToApi(uint32_t w)
     case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_M:     return system::DeviceInfo::HARDWARE_REV_MULTISENSE_M;
     case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S7S:   return system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7S;
     case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S21:   return system::DeviceInfo::HARDWARE_REV_MULTISENSE_S21;
+    case wire::SysDeviceInfo::HARDWARE_REV_BCAM:             return system::DeviceInfo::HARDWARE_REV_BCAM;
     default:
         CRL_DEBUG("unknown WIRE hardware type \"%d\"\n", w);
         return w; // pass through
@@ -381,6 +387,7 @@ uint32_t impl::imagerApiToWire(uint32_t a)
     case system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR: return wire::SysDeviceInfo::IMAGER_TYPE_CMV2000_COLOR;
     case system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY:  return wire::SysDeviceInfo::IMAGER_TYPE_CMV4000_GREY;
     case system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR: return wire::SysDeviceInfo::IMAGER_TYPE_CMV4000_COLOR;
+    case system::DeviceInfo::IMAGER_TYPE_IMX104_COLOR:  return wire::SysDeviceInfo::IMAGER_TYPE_IMX104_COLOR;
     default:
         CRL_DEBUG("unknown API imager type \"%d\"\n", a);
         return a; // pass through
@@ -393,6 +400,7 @@ uint32_t impl::imagerWireToApi(uint32_t w)
     case wire::SysDeviceInfo::IMAGER_TYPE_CMV2000_COLOR: return system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR;
     case wire::SysDeviceInfo::IMAGER_TYPE_CMV4000_GREY:  return system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY;
     case wire::SysDeviceInfo::IMAGER_TYPE_CMV4000_COLOR: return system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR;
+    case wire::SysDeviceInfo::IMAGER_TYPE_IMX104_COLOR:  return system::DeviceInfo::IMAGER_TYPE_IMX104_COLOR;
     default:
         CRL_DEBUG("unknown WIRE imager type \"%d\"\n", w);
         return w; // pass through

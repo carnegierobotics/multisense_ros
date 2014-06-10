@@ -27,6 +27,8 @@
 #ifndef LibMultiSense_details_wire_protocol
 #define LibMultiSense_details_wire_protocol
 
+#include <stdint.h>
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -192,6 +194,8 @@ static const IdType ID_DATA_IMU_CONFIG            = 0x0116;
 
 static const IdType ID_DATA_SYS_TEST_MTU_RESPONSE = 0x0117;
 
+static const IdType ID_DATA_JPEG_IMAGE            = 0x0118;
+
 //
 // Data sources
 
@@ -210,6 +214,8 @@ static const SourceType SOURCE_DISPARITY         = (1<<10);
 static const SourceType SOURCE_DISPARITY_LEFT    = (1<<10); // same as SOURCE_DISPARITY
 static const SourceType SOURCE_DISPARITY_RIGHT   = (1<<11);
 static const SourceType SOURCE_DISPARITY_COST    = (1<<12);
+static const SourceType SOURCE_JPEG_LEFT         = (1<<16);
+static const SourceType SOURCE_RGB_LEFT          = (1<<17);
 static const SourceType SOURCE_LIDAR_SCAN        = (1<<24);
 static const SourceType SOURCE_IMU               = (1<<25);
 
@@ -223,7 +229,9 @@ static const SourceType SOURCE_IMAGES            = (SOURCE_RAW_LEFT        |
                                                     SOURCE_CHROMA_RIGHT    |
                                                     SOURCE_DISPARITY_LEFT  |
                                                     SOURCE_DISPARITY_RIGHT |
-                                                    SOURCE_DISPARITY_COST);
+                                                    SOURCE_DISPARITY_COST  |
+						    SOURCE_JPEG_LEFT       |
+                                                    SOURCE_RGB_LEFT);
 
 //
 // Some helper macros

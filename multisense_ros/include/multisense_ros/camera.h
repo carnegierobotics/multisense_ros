@@ -52,6 +52,7 @@ public:
     void rawCamDataCallback(const crl::multisense::image::Header& header);
     void colorImageCallback(const crl::multisense::image::Header& header);
     void disparityImageCallback(const crl::multisense::image::Header& header);
+    void jpegImageCallback(const crl::multisense::image::Header& header);
 
 private:
 

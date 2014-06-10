@@ -33,6 +33,7 @@
 
 #include "details/wire/CamConfigMessage.h"
 #include "details/wire/ImageMessage.h"
+#include "details/wire/JpegMessage.h"
 #include "details/wire/ImageMetaMessage.h"
 #include "details/wire/DisparityMessage.h"
 
@@ -219,6 +220,42 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
 
         break;
     }
+    case MSG_ID(wire::JpegImage::ID):
+    {
+        wire::JpegImage image(stream, version);
+
+        const wire::ImageMeta *metaP = m_imageMetaCache.find(image.frameId);
+        if (NULL == metaP)
+            break;
+            //CRL_EXCEPTION("no meta cached for frameId %d", image.frameId);
+
+        image::Header header;
+
+        if (false == m_networkTimeSyncEnabled) {
+
+            header.timeSeconds      = metaP->timeSeconds;
+            header.timeMicroSeconds = metaP->timeMicroSeconds;
+
+        } else
+            sensorToLocalTime(static_cast<double>(metaP->timeSeconds) + 
+                              1e-6 * static_cast<double>(metaP->timeMicroSeconds),
+                              header.timeSeconds, header.timeMicroSeconds);
+
+        header.source           = sourceWireToApi(image.source);
+        header.bitsPerPixel     = 0;
+        header.width            = image.width;
+        header.height           = image.height;
+        header.frameId          = image.frameId;
+        header.exposure         = metaP->exposureTime;
+        header.gain             = metaP->gain;
+        header.framesPerSecond  = metaP->framesPerSecond;
+        header.imageDataP       = image.dataP;
+        header.imageLength      = image.length;
+        
+        dispatchImage(buffer, header);
+
+        break;
+    }
     case MSG_ID(wire::Image::ID):
     {
         wire::Image image(stream, version);
@@ -249,7 +286,8 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
         header.gain             = metaP->gain;
         header.framesPerSecond  = metaP->framesPerSecond;
         header.imageDataP       = image.dataP;
-        
+        header.imageLength      = static_cast<uint32_t>(std::ceil(((double) image.bitsPerPixel / 8.0) * image.width * image.height));
+
         dispatchImage(buffer, header);
 
         break;

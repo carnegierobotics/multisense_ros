@@ -20,7 +20,10 @@ endif()
 
 # Define where the result of the build should go.
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BASE_DIRECTORY}/bin)
+if (CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+else()
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BASE_DIRECTORY}/bin)
+endif()
 
 if (CMAKE_LIBRARY_OUTPUT_DIRECTORY)
 else()

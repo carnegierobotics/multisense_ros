@@ -41,6 +41,7 @@ Reconfigure::Reconfigure(Channel* driver,
     server_sl_bm_cmv4000_imu_(),
     server_sl_sgm_cmv2000_imu_(),
     server_sl_sgm_cmv4000_imu_(),
+    server_bcam_imx104_(),
     lighting_supported_(true),
     motor_supported_(true)
 {
@@ -66,7 +67,14 @@ Reconfigure::Reconfigure(Channel* driver,
     //
     // Launch the correct reconfigure server for this device configuration.
 
-    if (versionInfo.sensorFirmwareVersion <= 0x0202) {
+    if (system::DeviceInfo::HARDWARE_REV_BCAM == deviceInfo.hardwareRevision) {
+
+        server_bcam_imx104_ =
+            boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::bcam_imx104Config> > (
+                new dynamic_reconfigure::Server<multisense_ros::bcam_imx104Config>(device_nh_));
+        server_bcam_imx104_->setCallback(boost::bind(&Reconfigure::callback_bcam_imx104, this, _1, _2));
+
+    } else if (versionInfo.sensorFirmwareVersion <= 0x0202) {
 
         switch(deviceInfo.imagerType) {
         case system::DeviceInfo::IMAGER_TYPE_CMV2000_GREY:
@@ -426,8 +434,8 @@ template<class T> void Reconfigure::configureImu(const T& dyn)
 }
 
 #define GET_CONFIG()                                                    \
-    image::Config cam;                                                  \
-    Status status = driver_->getImageConfig(cam);                       \
+    image::Config cfg;                                                  \
+    Status status = driver_->getImageConfig(cfg);                       \
     if (Status_Ok != status) {                                          \
         ROS_ERROR("Reconfigure: failed to query image config: %s",      \
                   Channel::statusString(status));                       \
@@ -436,24 +444,24 @@ template<class T> void Reconfigure::configureImu(const T& dyn)
 
 #define SL_BM()  do {                                           \
         GET_CONFIG();                                           \
-        configureCamera(cam, dyn);                              \
+        configureCamera(cfg, dyn);                              \
     } while(0)
 
 #define SL_BM_IMU()  do {                                       \
         GET_CONFIG();                                           \
-        configureCamera(cam, dyn);                              \
+        configureCamera(cfg, dyn);                              \
         configureImu(dyn);                                      \
     } while(0)
 
 #define SL_SGM_IMU()  do {                                      \
         GET_CONFIG();                                           \
-        configureSgm(cam, dyn);                                 \
-        configureCamera(cam, dyn);                              \
+        configureSgm(cfg, dyn);                                 \
+        configureCamera(cfg, dyn);                              \
         configureImu(dyn);                                      \
     } while(0)
 
 //
-// The dynamic reconfigure callbacks
+// The dynamic reconfigure callbacks (MultiSense S* variations)
 
 void Reconfigure::callback_sl_bm_cmv2000      (multisense_ros::sl_bm_cmv2000Config&      dyn, uint32_t level) { SL_BM();      };
 void Reconfigure::callback_sl_bm_cmv2000_imu  (multisense_ros::sl_bm_cmv2000_imuConfig&  dyn, uint32_t level) { SL_BM_IMU();  };
@@ -461,5 +469,85 @@ void Reconfigure::callback_sl_bm_cmv4000      (multisense_ros::sl_bm_cmv4000Conf
 void Reconfigure::callback_sl_bm_cmv4000_imu  (multisense_ros::sl_bm_cmv4000_imuConfig&  dyn, uint32_t level) { SL_BM_IMU();  };
 void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU(); };
 void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU(); };
+
+//
+// BCAM (Sony IMX104)
+
+void Reconfigure::callback_bcam_imx104(multisense_ros::bcam_imx104Config& dyn, 
+                                       uint32_t                           level) 
+{
+    GET_CONFIG();
+    DataSource  streamsEnabled = 0;
+    int32_t     width, height;
+    bool        resolutionChange=false;
+
+    //
+    // Decode the resolution string
+
+    if (2 != sscanf(dyn.resolution.c_str(), "%dx%dx", &width, &height)) {
+        ROS_ERROR("Reconfigure: malformed resolution string: \"%s\"", dyn.resolution.c_str());
+        return;
+    }
+
+    //
+    // If a resolution change is desired
+    
+    if ((resolutionChange = changeResolution(cfg, width, height, 0))) {
+
+        //
+        // Halt streams during the resolution change
+    
+        status = driver_->getEnabledStreams(streamsEnabled);
+        if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to get enabled streams: %s",
+                      Channel::statusString(status));
+            return;
+        }
+        status = driver_->stopStreams(streamsEnabled);
+        if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to stop streams for a resolution change: %s",
+                      Channel::statusString(status));
+            return;
+        }
+    }
+
+    //
+    // Set all other image config from dynamic reconfigure
+
+    cfg.setFps(static_cast<float>(dyn.fps));
+    cfg.setGain(dyn.gain);
+    cfg.setExposure(dyn.exposure_time * 1e6);    
+    cfg.setAutoExposure(dyn.auto_exposure);
+    cfg.setAutoExposureMax(dyn.auto_exposure_max_time * 1e6);
+    cfg.setAutoExposureDecay(dyn.auto_exposure_decay);
+    cfg.setAutoExposureThresh(dyn.auto_exposure_thresh);
+    cfg.setWhiteBalance(dyn.white_balance_red,
+                        dyn.white_balance_blue);
+    cfg.setAutoWhiteBalance(dyn.auto_white_balance);
+    cfg.setAutoWhiteBalanceDecay(dyn.auto_white_balance_decay);
+    cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
+
+    //
+    // Apply, sensor enforces limits per setting.
+
+    status = driver_->setImageConfig(cfg);
+    if (Status_Ok != status)
+        ROS_ERROR("Reconfigure: failed to set image config: %s", 
+                  Channel::statusString(status));
+
+    //
+    // If we are changing the resolution, let others know about it
+
+    if (resolutionChange) {
+
+        if (false == resolution_change_callback_.empty())
+            resolution_change_callback_();
+
+        status = driver_->startStreams(streamsEnabled);
+        if (Status_Ok != status)
+            ROS_ERROR("Reconfigure: failed to restart streams after a resolution change: %s",
+                      Channel::statusString(status));
+    }
+}
 
 } // namespace

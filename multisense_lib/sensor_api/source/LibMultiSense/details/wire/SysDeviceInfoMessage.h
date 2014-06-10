@@ -68,18 +68,20 @@ public:
     // map any differences when translating between
     // WIRE and API.)
 
-    static const uint8_t  MAX_PCBS                   = 8;
+    static const uint8_t  MAX_PCBS = 8;
 
     static const uint32_t HARDWARE_REV_MULTISENSE_SL    = 1;
     static const uint32_t HARDWARE_REV_MULTISENSE_S7    = 2;
     static const uint32_t HARDWARE_REV_MULTISENSE_M     = 3;
     static const uint32_t HARDWARE_REV_MULTISENSE_S7S   = 4;
     static const uint32_t HARDWARE_REV_MULTISENSE_S21   = 5;
+    static const uint32_t HARDWARE_REV_BCAM             = 100;
 
     static const uint32_t IMAGER_TYPE_CMV2000_GREY   = 1;
     static const uint32_t IMAGER_TYPE_CMV2000_COLOR  = 2;
     static const uint32_t IMAGER_TYPE_CMV4000_GREY   = 3;
     static const uint32_t IMAGER_TYPE_CMV4000_COLOR  = 4;
+    static const uint32_t IMAGER_TYPE_IMX104_COLOR   = 100;
 
     std::string key;
     std::string name;

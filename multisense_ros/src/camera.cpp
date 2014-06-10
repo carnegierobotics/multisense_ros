@@ -31,6 +31,7 @@
 #include <opencv2/opencv.hpp>
 #include <arpa/inet.h>
 #include <fstream>
+#include <turbojpeg.h>
 
 using namespace crl::multisense;
 
@@ -48,7 +49,8 @@ const DataSource allImageSources = (Source_Luma_Left            |
                                     Source_Chroma_Left          |
                                     Source_Disparity            |
                                     Source_Disparity_Right      |
-                                    Source_Disparity_Cost);
+                                    Source_Disparity_Cost       |
+                                    Source_Jpeg_Left);
 //
 // Packed size of point cloud structures
 
@@ -72,6 +74,8 @@ void colorCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->colorImageCallback(header); }
 void dispCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->disparityImageCallback(header); }
+void jpegCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->jpegImageCallback(header); }
 
 //
 // Check for valid range points coming out of OpenCV
@@ -303,59 +307,86 @@ Camera::Camera(Channel* driver,
     ROS_INFO("camera frame id: %s", frame_id_left_.c_str());
 
     //
-    // Create topic publishers (TODO: color topics should not be advertised if the device can't support it)
-
-    left_mono_cam_pub_  = left_mono_transport_.advertise("image_mono", 5, 
-                          boost::bind(&Camera::connectStream, this, Source_Luma_Left),
-                          boost::bind(&Camera::disconnectStream, this, Source_Luma_Left));
-    right_mono_cam_pub_ = right_mono_transport_.advertise("image_mono", 5, 
-                          boost::bind(&Camera::connectStream, this, Source_Luma_Right),
-                          boost::bind(&Camera::disconnectStream, this, Source_Luma_Right));
-    left_rect_cam_pub_  = left_rect_transport_.advertiseCamera("image_rect", 5, 
-                          boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
-                          boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
-    right_rect_cam_pub_ = right_rect_transport_.advertiseCamera("image_rect", 5, 
-                          boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Right),
-                          boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Right));
-    depth_cam_pub_      = depth_transport_.advertiseCamera("depth", 5, 
-                          boost::bind(&Camera::connectStream, this, Source_Disparity),
-                          boost::bind(&Camera::disconnectStream, this, Source_Disparity));
-    left_rgb_cam_pub_   = left_rgb_transport_.advertise("image_color", 5,
-                          boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
-                          boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
-    left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera("image_rect_color", 5,
-                          boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
-                          boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
-    luma_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>("image_points2", 5,
-                          boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
-                          boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
-    color_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>("image_points2_color", 5,
-                          boost::bind(&Camera::connectStream, this, 
-                          Source_Disparity | Source_Luma_Left | Source_Chroma_Left),
-                          boost::bind(&Camera::disconnectStream, this, 
-                          Source_Disparity | Source_Luma_Left | Source_Chroma_Left));
+    // Topics published for all device types
 
     ros::NodeHandle calibration_nh(device_nh_, "calibration");
     device_info_pub_    = calibration_nh.advertise<multisense_ros::DeviceInfo>("device_info", 1, true);
     raw_cam_cal_pub_    = calibration_nh.advertise<multisense_ros::RawCamCal>("raw_cam_cal", 1, true);
     raw_cam_config_pub_ = calibration_nh.advertise<multisense_ros::RawCamConfig>("raw_cam_config", 1, true);
-    raw_cam_data_pub_   = calibration_nh.advertise<multisense_ros::RawCamData>("raw_cam_data", 5,
-                          boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
-                          boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
 
-    left_disparity_pub_ = disparity_left_transport_.advertise("disparity", 5,
-                          boost::bind(&Camera::connectStream, this, Source_Disparity),
-                          boost::bind(&Camera::disconnectStream, this, Source_Disparity));
+    //
+    // Create topic publishers (TODO: color topics should not be advertised if the device can't support it)
 
-    if (version_info_.sensorFirmwareVersion >= 0x0300) {
+    if (system::DeviceInfo::HARDWARE_REV_BCAM == device_info_.hardwareRevision) {
 
-        right_disparity_pub_ = disparity_right_transport_.advertise("disparity", 5,
-                          boost::bind(&Camera::connectStream, this, Source_Disparity_Right),
-                          boost::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
-        left_disparity_cost_pub_ = disparity_cost_transport_.advertise("cost", 5,
-                          boost::bind(&Camera::connectStream, this, Source_Disparity_Cost),
-                          boost::bind(&Camera::disconnectStream, this, Source_Disparity_Cost));
+        left_mono_cam_pub_  = left_mono_transport_.advertise("image_mono", 5, 
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left));
+        /*
+        left_rect_cam_pub_  = left_rect_transport_.advertiseCamera("image_rect", 5, 
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left));
+        */
+        left_rgb_cam_pub_   = left_rgb_transport_.advertise("image_color", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Jpeg_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Jpeg_Left));
+        
+        left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera("image_rect_color", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Jpeg_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Jpeg_Left));
+
+    } else {  // all MultiSense-S* variations
+
+
+        left_mono_cam_pub_  = left_mono_transport_.advertise("image_mono", 5, 
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left));
+        right_mono_cam_pub_ = right_mono_transport_.advertise("image_mono", 5, 
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Right),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Right));
+        left_rect_cam_pub_  = left_rect_transport_.advertiseCamera("image_rect", 5, 
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
+        right_rect_cam_pub_ = right_rect_transport_.advertiseCamera("image_rect", 5, 
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Right),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Right));
+        depth_cam_pub_      = depth_transport_.advertiseCamera("depth", 5, 
+                              boost::bind(&Camera::connectStream, this, Source_Disparity),
+                              boost::bind(&Camera::disconnectStream, this, Source_Disparity));
+        left_rgb_cam_pub_   = left_rgb_transport_.advertise("image_color", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+        left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera("image_rect_color", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+        luma_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>("image_points2", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
+        color_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>("image_points2_color", 5,
+                              boost::bind(&Camera::connectStream, this, 
+                              Source_Disparity | Source_Luma_Left | Source_Chroma_Left),
+                              boost::bind(&Camera::disconnectStream, this, 
+                              Source_Disparity | Source_Luma_Left | Source_Chroma_Left));
+
+        raw_cam_data_pub_   = calibration_nh.advertise<multisense_ros::RawCamData>("raw_cam_data", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
+
+        left_disparity_pub_ = disparity_left_transport_.advertise("disparity", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Disparity),
+                             boost::bind(&Camera::disconnectStream, this, Source_Disparity));
+
+        if (version_info_.sensorFirmwareVersion >= 0x0300) {
+
+            right_disparity_pub_ = disparity_right_transport_.advertise("disparity", 5,
+                                   boost::bind(&Camera::connectStream, this, Source_Disparity_Right),
+                                   boost::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
+            left_disparity_cost_pub_ = disparity_cost_transport_.advertise("cost", 5,
+                                   boost::bind(&Camera::connectStream, this, Source_Disparity_Cost),
+                                   boost::bind(&Camera::disconnectStream, this, Source_Disparity_Cost));
+        }
     }
+
 
     //
     // All image streams off
@@ -505,13 +536,21 @@ Camera::Camera(Channel* driver,
     //    -Images are queued (depth=5) per callback, with oldest silently dropped if not keeping up.
     //    -All images presented are backed by a referenced buffer system (no copying of image data is done.)
 
-    driver_->addIsolatedCallback(monoCB,  Source_Luma_Left | Source_Luma_Right, this);
-    driver_->addIsolatedCallback(rectCB,  Source_Luma_Rectified_Left | Source_Luma_Rectified_Right, this);
-    driver_->addIsolatedCallback(depthCB, Source_Disparity, this);
-    driver_->addIsolatedCallback(pointCB, Source_Disparity, this);
-    driver_->addIsolatedCallback(rawCB,   Source_Disparity | Source_Luma_Rectified_Left, this);
-    driver_->addIsolatedCallback(colorCB, Source_Luma_Left | Source_Chroma_Left, this);
-    driver_->addIsolatedCallback(dispCB,  Source_Disparity | Source_Disparity_Right | Source_Disparity_Cost, this);
+    if (system::DeviceInfo::HARDWARE_REV_BCAM == device_info_.hardwareRevision) {
+
+        driver_->addIsolatedCallback(monoCB, Source_Luma_Left, this);
+        driver_->addIsolatedCallback(jpegCB, Source_Jpeg_Left, this);
+
+    } else {
+
+        driver_->addIsolatedCallback(monoCB,  Source_Luma_Left | Source_Luma_Right, this);
+        driver_->addIsolatedCallback(rectCB,  Source_Luma_Rectified_Left | Source_Luma_Rectified_Right, this);
+        driver_->addIsolatedCallback(depthCB, Source_Disparity, this);
+        driver_->addIsolatedCallback(pointCB, Source_Disparity, this);
+        driver_->addIsolatedCallback(rawCB,   Source_Disparity | Source_Luma_Rectified_Left, this);
+        driver_->addIsolatedCallback(colorCB, Source_Luma_Left | Source_Chroma_Left, this);
+        driver_->addIsolatedCallback(dispCB,  Source_Disparity | Source_Disparity_Right | Source_Disparity_Cost, this);
+    }
 
     //
     // Get the border clip, if any
@@ -538,13 +577,97 @@ Camera::Camera(Channel* driver,
 Camera::~Camera()
 {
     stop();
-    driver_->removeIsolatedCallback(monoCB);
-    driver_->removeIsolatedCallback(rectCB);
-    driver_->removeIsolatedCallback(depthCB);
-    driver_->removeIsolatedCallback(pointCB);
-    driver_->removeIsolatedCallback(rawCB);
-    driver_->removeIsolatedCallback(colorCB);
-    driver_->removeIsolatedCallback(dispCB);
+
+    if (system::DeviceInfo::HARDWARE_REV_BCAM == device_info_.hardwareRevision) {
+
+        driver_->removeIsolatedCallback(monoCB);
+        driver_->removeIsolatedCallback(jpegCB);
+
+    } else {
+
+        driver_->removeIsolatedCallback(monoCB);
+        driver_->removeIsolatedCallback(rectCB);
+        driver_->removeIsolatedCallback(depthCB);
+        driver_->removeIsolatedCallback(pointCB);
+        driver_->removeIsolatedCallback(rawCB);
+        driver_->removeIsolatedCallback(colorCB);
+        driver_->removeIsolatedCallback(dispCB);
+    }
+}
+
+void Camera::jpegImageCallback(const image::Header& header)
+{
+    if (Source_Jpeg_Left != header.source)
+        return;
+
+    const uint32_t height    = header.height;
+    const uint32_t width     = header.width;
+    const uint32_t rgbLength = height * width * 3;
+
+    left_rgb_image_.header.frame_id = frame_id_left_;
+    left_rgb_image_.height          = height;
+    left_rgb_image_.width           = width;             
+    left_rgb_image_.encoding        = "rgb8";
+    left_rgb_image_.is_bigendian    = false;
+    left_rgb_image_.step            = 3 * width;
+    left_rgb_image_.header.stamp    = ros::Time(header.timeSeconds,
+                                                1000 * header.timeMicroSeconds);
+
+    left_rgb_image_.data.resize(rgbLength);
+
+    tjhandle jpegDecompressor = tjInitDecompress();
+    tjDecompress2(jpegDecompressor, 
+                  reinterpret_cast<unsigned char*>(const_cast<void*>(header.imageDataP)),
+                  header.imageLength, 
+                  &(left_rgb_image_.data[0]),
+                  width, 0/*pitch*/, height, TJPF_RGB, 0);
+    tjDestroy(jpegDecompressor);
+    
+    left_rgb_cam_pub_.publish(left_rgb_image_);
+
+    if (left_rgb_rect_cam_pub_.getNumSubscribers() > 0) {
+        boost::mutex::scoped_lock lock(cal_lock_);
+        
+        if (width  != image_config_.width() ||
+            height != image_config_.height())
+            //ROS_ERROR("calibration/image size mismatch: image=%dx%d, calibration=%dx%d",
+            //width, height, image_config_.width(), image_config_.height());
+            ;
+        else if (NULL == calibration_map_left_1_ || NULL == calibration_map_left_2_)
+            ROS_ERROR("Camera: undistort maps not initialized");
+        else {
+
+            const CvScalar outlierColor = {{0.0}};
+            
+            left_rgb_rect_image_.data.resize(rgbLength);
+
+            IplImage *sourceImageP  = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 3);
+            sourceImageP->imageData = reinterpret_cast<char*>(&(left_rgb_image_.data[0]));
+            IplImage *destImageP    = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 3);
+            destImageP->imageData   = reinterpret_cast<char*>(&(left_rgb_rect_image_.data[0]));
+            
+            cvRemap(sourceImageP, destImageP, 
+                    calibration_map_left_1_, 
+                    calibration_map_left_2_,
+                    CV_INTER_LINEAR+CV_WARP_FILL_OUTLIERS, 
+                    outlierColor);
+
+            cvReleaseImageHeader(&sourceImageP);
+            cvReleaseImageHeader(&destImageP);
+
+            left_rgb_rect_image_.header.frame_id = frame_id_left_;
+            left_rgb_rect_image_.header.stamp    = ros::Time(header.timeSeconds,
+                                                             1000 * header.timeMicroSeconds);
+            left_rgb_rect_image_.height          = height;
+            left_rgb_rect_image_.width           = width;
+            left_rgb_rect_image_.encoding        = "rgb8";
+            left_rgb_rect_image_.is_bigendian    = false;
+            left_rgb_rect_image_.step            = 3 * width;            
+            left_rgb_rect_cam_info_.header       = left_rgb_rect_image_.header;
+            left_rgb_rect_frame_id_              = header.frameId;
+            left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_rgb_rect_cam_info_);
+        }
+    }
 }
 
 void Camera::disparityImageCallback(const image::Header& header)

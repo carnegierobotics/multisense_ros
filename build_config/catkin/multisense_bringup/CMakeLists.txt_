@@ -13,4 +13,10 @@ catkin_package(CATKIN_DEPENDS multisense_ros)
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
-## Add executables here
+## Install ##
+# Install Gazebo launch files
+install(FILES
+  rviz_config.rviz
+  multisense.launch
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
+)

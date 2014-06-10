@@ -7,9 +7,23 @@ project(multisense_description)
 
 ## Declare ROS messages and services
 
+find_package(catkin REQUIRED)
+
 ## Declare a catkin package
 catkin_package()
 
+## Build
 include_directories(include ${catkin_INCLUDE_DIRS})
 
-## Add executables here
+## Install
+install(DIRECTORY
+  urdf meshes materials robots
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
+# install below for gazebo to find this model through GAZEBO_MODEL_PATH.
+install(FILES
+  model.config
+  dummy.urdf
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)

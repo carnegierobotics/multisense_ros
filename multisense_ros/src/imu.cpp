@@ -53,8 +53,24 @@ Imu::Imu(Channel* driver) :
     mag_subscribers_(0),
     total_subscribers_(0)
 {
+    //
+    // Get device info
+
+    system::DeviceInfo  deviceInfo;
+    Status status = driver_->getDeviceInfo(deviceInfo);
+    if (Status_Ok != status) {
+        ROS_ERROR("IMU: failed to query device info: %s",
+                  Channel::statusString(status));
+        return;
+    }
+
+    if (system::DeviceInfo::HARDWARE_REV_BCAM == deviceInfo.hardwareRevision) {
+        ROS_INFO("hardware does not support an IMU");
+        return;
+    }
+
     system::VersionInfo v;
-    Status status = driver_->getVersionInfo(v);
+    status = driver_->getVersionInfo(v);
     if (Status_Ok != status) {
         ROS_ERROR("IMU: Unable to query sensor firmware version: %s",
                   Channel::statusString(status));

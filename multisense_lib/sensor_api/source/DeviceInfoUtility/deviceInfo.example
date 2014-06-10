@@ -24,8 +24,11 @@ serialNumber: 0004
 #
 # For 'hardwareRevision'
 #   1: MultiSense-SL
-#   2: MultiSense-S
+#   2: MultiSense-S7
 #   3: MultiSense-M (monocular)
+#   4: MultiSense-S7S
+#   5: MultiSense-S21
+# 100: BCAM
 hardwareRevision: 1
 
 # string
@@ -38,6 +41,7 @@ imagerName: CMV2000
 #   2: CMV2000, color
 #   3: CMV4000, greyscale
 #   4: CMV4000, color
+# 100: Sony IMX104, color
 imagerType: 2
 
 # integers

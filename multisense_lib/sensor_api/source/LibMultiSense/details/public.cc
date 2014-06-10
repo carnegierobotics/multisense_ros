@@ -39,7 +39,6 @@
 #include "details/wire/StreamControlMessage.h"
 
 #include "details/wire/CamControlMessage.h"
-#include "details/wire/CamSetHdrMessage.h"
 #include "details/wire/CamSetResolutionMessage.h"
 #include "details/wire/CamGetConfigMessage.h"
 #include "details/wire/CamConfigMessage.h"
@@ -582,6 +581,7 @@ Status impl::getImageConfig(image::Config& config)
     a.setAutoWhiteBalanceDecay(d.autoWhiteBalanceDecay);
     a.setAutoWhiteBalanceThresh(d.autoWhiteBalanceThresh);
     a.setStereoPostFilterStrength(d.stereoPostFilterStrength);
+    a.setHdr(d.hdrEnabled);
 
     a.setCal(d.fx, d.fy, d.cx, d.cy, 
              d.tx, d.ty, d.tz,
@@ -623,6 +623,7 @@ Status impl::setImageConfig(const image::Config& c)
     cmd.autoWhiteBalanceDecay    = c.autoWhiteBalanceDecay();
     cmd.autoWhiteBalanceThresh   = c.autoWhiteBalanceThresh();
     cmd.stereoPostFilterStrength = c.stereoPostFilterStrength();
+    cmd.hdrEnabled               = c.hdrEnabled();
 
     return waitAck(cmd);
 }

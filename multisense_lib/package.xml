@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <package>
   <name>multisense_lib</name>
   <version>0.0.0</version>
@@ -5,8 +6,8 @@
   <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
   <license>LGPL</license>
 
+  <url type="website">https://bitbucket.org/crl/multisense_ros</url>
+
   <buildtool_depend>catkin</buildtool_depend>
 
 </package>
-
-

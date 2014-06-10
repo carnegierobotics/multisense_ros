@@ -38,7 +38,7 @@ namespace wire {
 class CamConfig {
 public:
     static const IdType      ID      = ID_DATA_CAM_CONFIG;
-    static const VersionType VERSION = 3;
+    static const VersionType VERSION = 4;
 
     //
     // Parameters representing the current camera configuration
@@ -74,6 +74,11 @@ public:
     // Version 3 additions
 
     float stereoPostFilterStrength;
+
+    //
+    // Version 4 additions
+
+    bool hdrEnabled;
 
     //
     // Constructors
@@ -128,6 +133,11 @@ public:
             message & stereoPostFilterStrength;
         else
             stereoPostFilterStrength = 0.5f;
+
+        if (version >= 4)
+            message & hdrEnabled;
+        else
+            hdrEnabled = false;
     }
 };
 

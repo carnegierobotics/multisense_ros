@@ -13,4 +13,17 @@ catkin_package(CATKIN_DEPENDS multisense_ros)
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
-## Add executables here
+## Install
+install(PROGRAMS
+  cal_check
+  process_bags.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(FILES
+  distrib/MULTISENSE_SL_CHECK_CAL_32
+  distrib/MULTISENSE_SL_CHECK_CAL_64
+  distrib/run_MULTISENSE_SL_CHECK_CAL_32.sh
+  distrib/run_MULTISENSE_SL_CHECK_CAL_64.sh
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/distrib
+)
