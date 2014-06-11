@@ -120,81 +120,63 @@ typedef uint16_t VersionType;
 //
 // [N]acks
 
-static const IdType ID_ACK                        = 0x0001;
+static const IdType ID_ACK = 0x0001;
 
 //
 // Commands 
 
-static const IdType ID_CMD_GET_VERSION            = 0x0002;
-static const IdType ID_CMD_GET_STATUS             = 0x0003;
-
-static const IdType ID_CMD_CAM_GET_CONFIG         = 0x0004;
-static const IdType ID_CMD_CAM_CONTROL            = 0x0007;
-static const IdType ID_CMD_CAM_GET_HISTORY        = 0x0008;
-static const IdType ID_CMD_CAM_SET_HDR            = 0x000b;
-static const IdType ID_CMD_CAM_SET_RESOLUTION     = 0x000c;
-
-static const IdType ID_CMD_LIDAR_GET_CONFIG       = 0x000d;
-static const IdType ID_CMD_LIDAR_SET_MOTOR        = 0x0010;
-
-static const IdType ID_CMD_LED_GET_STATUS         = 0x0012;
-static const IdType ID_CMD_LED_SET                = 0x0013;
-
-static const IdType ID_CMD_SYS_MTU                = 0x0014;
-static const IdType ID_CMD_SYS_FLASH_OP           = 0x0015;
-static const IdType ID_CMD_SYS_SET_NETWORK        = 0x0016;
-static const IdType ID_CMD_SYS_GET_DEVICE_INFO    = 0x0017;
-static const IdType ID_CMD_SYS_GET_CAMERA_CAL     = 0x0018;
-static const IdType ID_CMD_SYS_GET_LIDAR_CAL      = 0x0019;
-
-static const IdType ID_CMD_SYS_GET_MTU            = 0x001a;
-static const IdType ID_CMD_SYS_GET_NETWORK        = 0x001b;
-
-static const IdType ID_CMD_STREAM_CONTROL         = 0x001c;
-
-static const IdType ID_CMD_SYS_GET_DEVICE_MODES   = 0x001d;
-
-static const IdType ID_CMD_CAM_SET_TRIGGER_SOURCE = 0x001e;
-
-static const IdType ID_CMD_IMU_GET_INFO           = 0x001f;
-static const IdType ID_CMD_IMU_GET_CONFIG         = 0x0020;
-
-static const IdType ID_CMD_SYS_TEST_MTU           = 0x0021;
+static const IdType ID_CMD_GET_VERSION              = 0x0002;
+static const IdType ID_CMD_GET_STATUS               = 0x0003;
+static const IdType ID_CMD_CAM_GET_CONFIG           = 0x0004;
+static const IdType ID_CMD_CAM_CONTROL              = 0x0007;
+static const IdType ID_CMD_CAM_GET_HISTORY          = 0x0008;
+static const IdType ID_CMD_CAM_SET_HDR              = 0x000b;
+static const IdType ID_CMD_CAM_SET_RESOLUTION       = 0x000c;
+static const IdType ID_CMD_LIDAR_GET_CONFIG         = 0x000d;
+static const IdType ID_CMD_LIDAR_SET_MOTOR          = 0x0010;
+static const IdType ID_CMD_LED_GET_STATUS           = 0x0012;
+static const IdType ID_CMD_LED_SET                  = 0x0013;
+static const IdType ID_CMD_SYS_MTU                  = 0x0014;
+static const IdType ID_CMD_SYS_FLASH_OP             = 0x0015;
+static const IdType ID_CMD_SYS_SET_NETWORK          = 0x0016;
+static const IdType ID_CMD_SYS_GET_DEVICE_INFO      = 0x0017;
+static const IdType ID_CMD_SYS_GET_CAMERA_CAL       = 0x0018;
+static const IdType ID_CMD_SYS_GET_LIDAR_CAL        = 0x0019;
+static const IdType ID_CMD_SYS_GET_MTU              = 0x001a;
+static const IdType ID_CMD_SYS_GET_NETWORK          = 0x001b;
+static const IdType ID_CMD_STREAM_CONTROL           = 0x001c;
+static const IdType ID_CMD_SYS_GET_DEVICE_MODES     = 0x001d;
+static const IdType ID_CMD_CAM_SET_TRIGGER_SOURCE   = 0x001e;
+static const IdType ID_CMD_IMU_GET_INFO             = 0x001f;
+static const IdType ID_CMD_IMU_GET_CONFIG           = 0x0020;
+static const IdType ID_CMD_SYS_TEST_MTU             = 0x0021;
+static const IdType ID_CMD_SYS_GET_DIRECTED_STREAMS = 0x0022;
 
 //
 // Data 
 
 static const IdType ID_DATA_VERSION               = 0x0102;
 static const IdType ID_DATA_STATUS                = 0x0103;
-
 static const IdType ID_DATA_CAM_CONFIG            = 0x0104;
 static const IdType ID_DATA_CAM_HISTORY           = 0x0105;
-
 static const IdType ID_DATA_LIDAR_CONFIG          = 0x0108;
 static const IdType ID_DATA_LIDAR_SCAN            = 0x0109;
-
 static const IdType ID_DATA_LED_STATUS            = 0x010a;
-
 static const IdType ID_DATA_SYS_FLASH_RESPONSE    = 0x010b;
 static const IdType ID_DATA_SYS_DEVICE_INFO       = 0x010c;
 static const IdType ID_DATA_SYS_CAMERA_CAL        = 0x010d;
 static const IdType ID_DATA_SYS_LIDAR_CAL         = 0x010e;
-
 static const IdType ID_DATA_IMAGE_META            = 0x010f;
 static const IdType ID_DATA_IMAGE                 = 0x0110;
 static const IdType ID_DATA_DISPARITY             = 0x0111;
-
 static const IdType ID_DATA_SYS_DEVICE_MODES      = 0x0112;
-
 static const IdType ID_DATA_SYS_PPS               = 0x0113;
-
 static const IdType ID_DATA_IMU                   = 0x0114;
 static const IdType ID_DATA_IMU_INFO              = 0x0115;
 static const IdType ID_DATA_IMU_CONFIG            = 0x0116;
-
 static const IdType ID_DATA_SYS_TEST_MTU_RESPONSE = 0x0117;
-
 static const IdType ID_DATA_JPEG_IMAGE            = 0x0118;
+static const IdType ID_DATA_SYS_DIRECTED_STREAMS  = 0x0119;
 
 //
 // Data sources
@@ -218,7 +200,6 @@ static const SourceType SOURCE_JPEG_LEFT         = (1<<16);
 static const SourceType SOURCE_RGB_LEFT          = (1<<17);
 static const SourceType SOURCE_LIDAR_SCAN        = (1<<24);
 static const SourceType SOURCE_IMU               = (1<<25);
-
 static const SourceType SOURCE_IMAGES            = (SOURCE_RAW_LEFT        |
                                                     SOURCE_RAW_RIGHT       |
                                                     SOURCE_LUMA_LEFT       |

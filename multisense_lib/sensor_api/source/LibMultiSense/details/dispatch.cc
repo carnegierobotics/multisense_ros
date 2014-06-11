@@ -58,6 +58,7 @@
 #include "details/wire/ImuInfoMessage.h"
 
 #include "details/wire/SysTestMtuResponseMessage.h"
+#include "details/wire/SysDirectedStreamsMessage.h"
 
 #include <limits>
 
@@ -425,6 +426,9 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
         break;
     case MSG_ID(wire::SysTestMtuResponse::ID):
         m_messages.store(wire::SysTestMtuResponse(stream, version));
+        break;
+    case MSG_ID(wire::SysDirectedStreams::ID):
+        m_messages.store(wire::SysDirectedStreams(stream, version));
         break;
     default:
 

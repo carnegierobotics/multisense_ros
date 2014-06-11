@@ -37,6 +37,8 @@
 #include "details/wire/StatusResponseMessage.h"
 
 #include "details/wire/StreamControlMessage.h"
+#include "details/wire/SysGetDirectedStreamsMessage.h"
+#include "details/wire/SysDirectedStreamsMessage.h"
 
 #include "details/wire/CamControlMessage.h"
 #include "details/wire/CamSetResolutionMessage.h"
@@ -347,7 +349,8 @@ Status impl::getImageHistogram(int64_t           frameId,
 
         const wire::ImageMeta *metaP = m_imageMetaCache.find_nolock(frameId);
         if (NULL == metaP) {
-            CRL_DEBUG("no meta cached for frameId %ld", frameId);
+            CRL_DEBUG("no meta cached for frameId %ld", 
+                      static_cast<long int>(frameId));
             return Status_Failed;
         }
 
@@ -380,7 +383,7 @@ Status impl::networkTimeSynchronization(bool enabled)
 }
 
 //
-// Stream control
+// Primary stream control
 
 Status impl::startStreams(DataSource mask)
 {
@@ -416,6 +419,57 @@ Status impl::getEnabledStreams(DataSource& mask)
 
     mask = m_streamsEnabled;
 
+    return Status_Ok;
+}
+
+//
+// Secondary stream control
+
+Status impl::startDirectedStream(const DirectedStream& stream)
+{
+    wire::SysDirectedStreams cmd(wire::SysDirectedStreams::CMD_START);
+
+    cmd.streams.push_back(wire::DirectedStream(stream.mask,
+                                               stream.address,
+                                               stream.udpPort,
+                                               stream.fpsDecimation));
+    return waitAck(cmd);
+}
+
+Status impl::stopDirectedStream(const DirectedStream& stream)
+{
+    wire::SysDirectedStreams cmd(wire::SysDirectedStreams::CMD_STOP);
+
+    cmd.streams.push_back(wire::DirectedStream(stream.mask,
+                                               stream.address,
+                                               stream.udpPort,
+                                               stream.fpsDecimation));
+    return waitAck(cmd);
+}
+
+Status impl::getDirectedStreams(std::vector<DirectedStream>& streams)
+{
+    Status                   status;
+    wire::SysDirectedStreams rsp;
+
+    streams.clear();
+
+    status = waitData(wire::SysGetDirectedStreams(), rsp);
+    if (Status_Ok != status)
+        return status;
+    
+    std::vector<wire::DirectedStream>::const_iterator it = rsp.streams.begin();
+    for(; it != rsp.streams.end(); ++it)
+        streams.push_back(DirectedStream((*it).mask,
+                                         (*it).address,
+                                         (*it).udpPort,
+                                         (*it).fpsDecimation));
+    return Status_Ok;
+}
+
+Status impl::maxDirectedStreams(uint32_t& maximum)
+{
+    maximum = MAX_DIRECTED_STREAMS;
     return Status_Ok;
 }
 
@@ -1031,11 +1085,13 @@ Status impl::setLargeBuffers(const std::vector<uint8_t*>& buffers,
                              uint32_t                     bufferSize)
 {
     if (buffers.size() < RX_POOL_LARGE_BUFFER_COUNT)
-        CRL_DEBUG("WARNING: supplying less than recommended number of large buffers: %ld/%d\n",
-                  buffers.size(), RX_POOL_LARGE_BUFFER_COUNT);
+        CRL_DEBUG("WARNING: supplying less than recommended number of large buffers: %ld/%ld\n",
+                  static_cast<long int>(buffers.size()), 
+                  static_cast<long int>(RX_POOL_LARGE_BUFFER_COUNT));
     if (bufferSize < RX_POOL_LARGE_BUFFER_SIZE)
-        CRL_DEBUG("WARNING: supplying smaller than recommended large buffers: %d/%d bytes\n",
-                  bufferSize, RX_POOL_LARGE_BUFFER_SIZE);
+        CRL_DEBUG("WARNING: supplying smaller than recommended large buffers: %ld/%ld bytes\n",
+                  static_cast<long int>(bufferSize), 
+                  static_cast<long int>(RX_POOL_LARGE_BUFFER_SIZE));
 
     try {
 
@@ -1061,6 +1117,15 @@ Status impl::setLargeBuffers(const std::vector<uint8_t*>& buffers,
         return Status_Exception;
     }
 
+    return Status_Ok;
+}
+
+//
+// Retrieve the system-assigned local UDP port
+
+Status impl::getLocalUdpPort(uint16_t& port)
+{
+    port = m_serverSocketPort;
     return Status_Ok;
 }
 

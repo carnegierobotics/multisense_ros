@@ -31,6 +31,15 @@ else()
 endif()
 
 #
+# We want to build "Release" by default
+#
+
+if (CMAKE_BUILD_TYPE)
+else()
+  set(CMAKE_BUILD_TYPE "Release")
+endif()
+
+#
 # Turn on optimizations and maximum warnings.
 #
 
@@ -41,8 +50,8 @@ endif()
 set(CMAKE_C_FLAGS_DEBUG "-g -march=native -Wall -fstrict-aliasing")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -march=native -Wall -fstrict-aliasing")
 
-set(CMAKE_C_FLAGS_RELEASE "-g -O2 -Wall -ffunction-sections -fomit-frame-pointer -march=native -mfpmath=both -Wall -fstrict-aliasing")
-set(CMAKE_CXX_FLAGS_RELEASE "-g -O2 -Wall -ffunction-sections -fomit-frame-pointer -march=native -mfpmath=both -Wall -fstrict-aliasing")
+set(CMAKE_C_FLAGS_RELEASE "-g -O2 -Wall -ffunction-sections -fomit-frame-pointer -march=native -Wall -fstrict-aliasing")
+set(CMAKE_CXX_FLAGS_RELEASE "-g -O2 -Wall -ffunction-sections -fomit-frame-pointer -march=native -Wall -fstrict-aliasing")
 
 # Dispatch to subordinate CMakeList.txt files.
 

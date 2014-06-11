@@ -77,6 +77,32 @@ static const DataSource Source_Lidar_Scan             = (1<<24);
 static const DataSource Source_Imu                    = (1<<25);
 
 //
+// 3rd-party stream destination
+//  (limited hardware support, currently only supported by
+//   CRL's Monocular IP Camera)
+
+class DirectedStream {
+public:
+
+    static const uint16_t DFL_UDP_PORT = 10001;
+
+    DataSource  mask;
+    std::string address;       // IPv4 dotted quad 
+    uint16_t    udpPort;       // default=10001
+    uint32_t    fpsDecimation; // on top of image::Config::setFps
+
+    DirectedStream() {};
+    DirectedStream(DataSource         m,
+                   const std::string& addr,
+                   uint16_t           p=DFL_UDP_PORT,
+                   uint32_t           dec=1) :
+        mask(m),
+        address(addr),
+        udpPort(p),
+        fpsDecimation(dec) {};
+};
+
+//
 // Trigger sources
 
 typedef uint32_t TriggerSource;

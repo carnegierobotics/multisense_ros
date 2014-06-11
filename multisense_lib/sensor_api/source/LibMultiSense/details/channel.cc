@@ -50,6 +50,7 @@ namespace details {
 
 impl::impl(const std::string& address) :
     m_serverSocket(-1),
+    m_serverSocketPort(0),
     m_sensorAddress(),
     m_sensorMtu(MAX_MTU_SIZE),
     m_incomingBuffer(MAX_MTU_SIZE),
@@ -270,6 +271,14 @@ void impl::bind()
     if (0 != ::bind(m_serverSocket, (struct sockaddr*) &address, sizeof(address)))
         CRL_EXCEPTION("failed to bind the server socket to system-assigned port: %s", 
                       strerror(errno));
+
+    //
+    // Retrieve the system assigned local UDP port
+
+    socklen_t len = sizeof(address);
+    if (0 != getsockname(m_serverSocket, (struct sockaddr*) &address, &len))
+        CRL_EXCEPTION("getsockname() failed: %s", strerror(errno));
+    m_serverSocketPort = htons(address.sin_port);
 }
 
 //

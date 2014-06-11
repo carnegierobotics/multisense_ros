@@ -27,8 +27,9 @@
 #ifndef LibMultiSense_MultiSenseChannel_hh
 #define LibMultiSense_MultiSenseChannel_hh
 
-#include <string>
 #include <stdint.h>
+#include <string>
+#include <vector>
 
 #include "MultiSenseTypes.hh"
 
@@ -155,11 +156,56 @@ public:
     virtual Status networkTimeSynchronization(bool enabled) = 0;
 
     //
-    // Control/query (see data types in MultiSenseChannel.hh for more details.)
+    // Primary stream control. All streams will come to the requestor (i.e., the 
+    // machine making the request with this API. The server peeks the source address 
+    // and port from the request UDP packet.)
+    //
+    // Multiple streams may be started at once by setting the individual source bits 
+    // in the mask.  Different streams may be started at differing times
+    // by calling startStreams() multiple times.
+    //
+    // Stop streams may be called to selectively disable streams at any time.
+    //  (use stopStreams(0xffffffff) to disable all streaming.)
 
-    virtual Status startStreams        (DataSource mask)                    = 0;
-    virtual Status stopStreams         (DataSource mask)                    = 0;
-    virtual Status getEnabledStreams   (DataSource& mask)                   = 0;
+    virtual Status startStreams     (DataSource mask)  = 0;
+    virtual Status stopStreams      (DataSource mask)  = 0;
+    virtual Status getEnabledStreams(DataSource& mask) = 0;
+
+    //
+    // NOTE: Directed streams are currently only supported by CRL's
+    //       Monocular IP Camera.  MultiSense-S* hardware variations
+    //       are not supported (the following functions will return 
+    //       the 'Status_Unknown' error code.)
+    //
+    // Secondary stream control.  In addition to the primary stream control
+    // above, a set of streams may be directed to a 3rd party (or multiple 
+    // 3rd parties), where a 3rd party is uniquely defined as an IP address / 
+    // UDP port pair.
+    // 
+    // The number of simulataneous parties supported can be queried via 
+    // maxDirectedStreams(). If the number of maximum directed streams has 
+    // already been achieved, startDirectedStream() will return an error code.
+    //
+    // If the stream address/port combination already exists as a streaming
+    // destination, then startDirectedStream() will update the data source 
+    // mask and FPS decimation.
+    //
+    // getDirectedStreams() will return the current list of active streams.
+    //
+    // The DirectedStream stream type contains:
+    //
+    //      DataSource mask          : bitmask of desired data sources
+    //     std::string address       : IPv4 dotted quad
+    //         int16_t udpPort       : default=10001
+    //        uint32_t fpsDecimation : on top of image::Config::setFps (default=1)
+
+    virtual Status startDirectedStream(const DirectedStream& stream) = 0;
+    virtual Status stopDirectedStream (const DirectedStream& stream) = 0;
+    virtual Status getDirectedStreams (std::vector<DirectedStream>& streams) = 0;
+    virtual Status maxDirectedStreams (uint32_t& maximum) = 0;
+
+    //
+    // Control/query (see data types in MultiSenseChannel.hh for more details.)
 
     virtual Status setTriggerSource    (TriggerSource s)                    = 0;
 
@@ -185,7 +231,7 @@ public:
                                         image::Histogram& histogram)        = 0;
 
     //
-    // System configuration
+    // System configuration 
 
     virtual Status getDeviceModes      (std::vector<system::DeviceMode>& m) = 0;
 
@@ -259,6 +305,10 @@ public:
     virtual Status setLargeBuffers      (const std::vector<uint8_t*>& buffers,
                                          uint32_t                     bufferSize) = 0;
 
+    //
+    // Retrieve the system-assigned local UDP port
+
+    virtual Status getLocalUdpPort(uint16_t& port) = 0;
 };
 
 

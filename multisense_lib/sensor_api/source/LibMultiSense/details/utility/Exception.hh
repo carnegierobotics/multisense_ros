@@ -33,10 +33,17 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <syslog.h>
 #include <exception>
 #include <string>
 
 #include "TimeStamp.hh"
+
+#ifdef CRL_DEBUG_SYSLOG
+#define CRL_DEBUG_REDIRECTION syslog(LOG_USER|LOG_INFO,
+#else
+#define CRL_DEBUG_REDIRECTION fprintf(stderr,
+#endif // CRL_DEBUG_SYSLOG
 
 #define CRL_FILENAME                            \
     (strrchr(__FILE__,'/')                      \
@@ -52,7 +59,7 @@
 #define CRL_DEBUG(fmt, ...)                                             \
     do {                                                                \
         double now = crl::multisense::details::utility::TimeStamp::getCurrentTime(); \
-        fprintf(stderr, "[%.3f] %s(%d): %s: "fmt,now,CRL_FILENAME,__LINE__, \
+        CRL_DEBUG_REDIRECTION "[%.3f] %s(%d): %s: "fmt,now,CRL_FILENAME,__LINE__, \
                 __PRETTY_FUNCTION__,##__VA_ARGS__);                     \
     } while(0)
 
