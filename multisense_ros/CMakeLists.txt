@@ -32,7 +32,8 @@ add_message_files(DIRECTORY msg
                   RawLidarData.msg
                   RawCamCal.msg
                   RawCamData.msg
-                  RawLidarCal.msg)
+                  RawLidarCal.msg
+                  Histogram.msg)
 
 generate_messages(DEPENDENCIES sensor_msgs)
 

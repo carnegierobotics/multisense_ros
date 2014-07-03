@@ -25,6 +25,7 @@
 #include <multisense_ros/RawCamConfig.h>
 #include <multisense_ros/RawCamCal.h>
 #include <multisense_ros/DeviceInfo.h>
+#include <multisense_ros/Histogram.h>
 
 #include <multisense_lib/MultiSenseChannel.hh>
 
@@ -51,6 +52,7 @@ const DataSource allImageSources = (Source_Luma_Left            |
                                     Source_Disparity_Right      |
                                     Source_Disparity_Cost       |
                                     Source_Jpeg_Left);
+
 //
 // Packed size of point cloud structures
 
@@ -76,6 +78,8 @@ void dispCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->disparityImageCallback(header); }
 void jpegCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->jpegImageCallback(header); }
+void histCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->histogramCallback(header); }
 
 //
 // Check for valid range points coming out of OpenCV
@@ -105,10 +109,25 @@ bool isValidPoint(const cv::Vec3f& pt,
 //
 // Publish a point cloud, using the given storage, filtering the points,
 // and colorizing the cloud with all available color channels.
+//
+// Note that the dependencies for the point cloud will be generated in
+// different threads.  This function is called each time a dependency 
+// becomes ready.
+//
+// The published frame ID for this point cloud type is tracked and
+// publishing is serialized here via a mutex to prevent race conditions.
 
-void publishPointCloud(ros::Publisher&               pub,
+boost::mutex point_cloud_mutex;
+
+bool publishPointCloud(int64_t                       imageFrameId,
+                       int64_t                       pointsFrameId,
+                       int64_t&                      cloudFrameId,
+                       ros::Publisher&               pub,
                        sensor_msgs::PointCloud2&     cloud,
-                       const image::Header&          header,
+                       const uint32_t                width,
+                       const uint32_t                height,
+                       const uint32_t                timeSeconds,
+                       const uint32_t                timeMicroSeconds,
                        const uint32_t                cloudStep,
                        const std::vector<cv::Vec3f>& points,
                        const uint8_t*                imageP,
@@ -116,13 +135,18 @@ void publishPointCloud(ros::Publisher&               pub,
                        const uint32_t                borderClip,
                        const float                   maxRange)
 {
-    if (0 == pub.getNumSubscribers())
-        return;
+    boost::mutex::scoped_lock lock(point_cloud_mutex);
 
-    const uint32_t imageSize = header.height * header.width;
+    if (0            == pub.getNumSubscribers()  ||
+        imageFrameId != pointsFrameId            ||
+        cloudFrameId >= imageFrameId)
+        return false;
+
+    cloudFrameId = imageFrameId;
+    const uint32_t imageSize = height * width;
 
     if (points.size() != imageSize)
-        return;
+        return false;
 
     cloud.data.reserve(imageSize * cloudStep);
     
@@ -130,10 +154,10 @@ void publishPointCloud(ros::Publisher&               pub,
     const uint32_t pointSize   = 3 * sizeof(float); // x, y, z
     uint32_t       validPoints = 0;
 
-    for(uint32_t i=borderClip; i<(header.height - borderClip); ++i)
-        for(uint32_t j=borderClip; j<(header.width - borderClip); ++j) {
+    for(uint32_t i=borderClip; i<(height - borderClip); ++i)
+        for(uint32_t j=borderClip; j<(width - borderClip); ++j) {
 
-            const uint32_t index = i*header.width + j;
+            const uint32_t index = i * width + j;
 
             if (false == isValidPoint(points[index], maxRange))
                 continue;
@@ -155,10 +179,11 @@ void publishPointCloud(ros::Publisher&               pub,
 
     cloud.row_step     = validPoints;
     cloud.width        = validPoints;
-    cloud.header.stamp = ros::Time(header.timeSeconds,
-                                   1000 * header.timeMicroSeconds);
+    cloud.header.stamp = ros::Time(timeSeconds, 1000 * timeMicroSeconds);
     cloud.data.resize(validPoints * cloudStep);
     pub.publish(cloud);
+
+    return true;
 }
 
 bool savePgm(const std::string& fileName,
@@ -246,6 +271,7 @@ Camera::Camera(Channel* driver,
     raw_cam_config_pub_(),
     raw_cam_cal_pub_(),
     device_info_pub_(),
+    histogram_pub_(),
     left_mono_image_(),
     right_mono_image_(),
     left_rect_image_(),
@@ -263,7 +289,9 @@ Camera::Camera(Channel* driver,
     got_left_luma_(false),
     left_luma_frame_id_(0),
     left_rect_frame_id_(0),
-    left_rgb_rect_frame_id_(0),
+    left_rgb_rect_frame_id_(-1),
+    luma_point_cloud_frame_id_(-1),
+    color_point_cloud_frame_id_(-1),
     raw_cam_data_(),
     version_info_(),
     device_info_(),
@@ -276,12 +304,14 @@ Camera::Camera(Channel* driver,
     frame_id_right_(),
     disparity_buff_(),
     points_buff_(),
+    points_buff_frame_id_(-1),
     q_matrix_(4, 4, 0.0),
     pc_border_clip_(10),
     pc_max_range_(15.0f),
     pc_color_frame_sync_(true),
     stream_lock_(),
-    stream_map_()
+    stream_map_(),
+    last_frame_id_(-1)
 {
     //
     // Query device and version information from sensor
@@ -313,6 +343,7 @@ Camera::Camera(Channel* driver,
     device_info_pub_    = calibration_nh.advertise<multisense_ros::DeviceInfo>("device_info", 1, true);
     raw_cam_cal_pub_    = calibration_nh.advertise<multisense_ros::RawCamCal>("raw_cam_cal", 1, true);
     raw_cam_config_pub_ = calibration_nh.advertise<multisense_ros::RawCamConfig>("raw_cam_config", 1, true);
+    histogram_pub_      = device_nh_.advertise<multisense_ros::Histogram>("histogram", 5); 
 
     //
     // Create topic publishers (TODO: color topics should not be advertised if the device can't support it)
@@ -374,7 +405,7 @@ Camera::Camera(Channel* driver,
 
         left_disparity_pub_ = disparity_left_transport_.advertise("disparity", 5,
                               boost::bind(&Camera::connectStream, this, Source_Disparity),
-                             boost::bind(&Camera::disconnectStream, this, Source_Disparity));
+                              boost::bind(&Camera::disconnectStream, this, Source_Disparity));
 
         if (version_info_.sensorFirmwareVersion >= 0x0300) {
 
@@ -553,6 +584,11 @@ Camera::Camera(Channel* driver,
     }
 
     //
+    // A common callback to publish histograms
+
+    driver_->addIsolatedCallback(histCB, allImageSources, this);
+
+    //
     // Get the border clip, if any
 
     const char *pcBorderClipEnvStringP = getenv("MULTISENSE_ROS_PC_BORDER_CLIP");
@@ -595,6 +631,42 @@ Camera::~Camera()
     }
 }
 
+void Camera::histogramCallback(const image::Header& header)
+{
+    if (last_frame_id_ >= header.frameId)
+        return;
+
+    last_frame_id_ = header.frameId;
+
+    if (histogram_pub_.getNumSubscribers() > 0) {
+        multisense_ros::Histogram rh;
+        image::Histogram          mh;
+
+        Status status = driver_->getImageHistogram(header.frameId, mh);
+        if (Status_Ok == status) {
+            rh.frame_count = header.frameId;
+            rh.time_stamp  = ros::Time(header.timeSeconds,
+                                       1000 * header.timeMicroSeconds);
+            rh.width  = header.width;
+            rh.height = header.height;
+            switch(header.source) {
+            case Source_Chroma_Left:
+            case Source_Chroma_Right:
+                rh.width  *= 2;
+                rh.height *= 2;
+            }
+                      
+            rh.exposure_time = header.exposure;
+            rh.gain          = header.gain;
+            rh.fps           = header.framesPerSecond;
+            rh.channels      = mh.channels;
+            rh.bins          = mh.bins;
+            rh.data          = mh.data;
+            histogram_pub_.publish(rh);
+        }
+    }
+}
+
 void Camera::jpegImageCallback(const image::Header& header)
 {
     if (Source_Jpeg_Left != header.source)
@@ -629,10 +701,12 @@ void Camera::jpegImageCallback(const image::Header& header)
         boost::mutex::scoped_lock lock(cal_lock_);
         
         if (width  != image_config_.width() ||
-            height != image_config_.height())
+            height != image_config_.height()){
             //ROS_ERROR("calibration/image size mismatch: image=%dx%d, calibration=%dx%d",
             //width, height, image_config_.width(), image_config_.height());
-            ;
+            cal_lock_.unlock();
+            queryConfig();
+        }
         else if (NULL == calibration_map_left_1_ || NULL == calibration_map_left_2_)
             ROS_ERROR("Camera: undistort maps not initialized");
         else {
@@ -827,6 +901,21 @@ void Camera::rectCallback(const image::Header& header)
 
         left_rect_cam_pub_.publish(left_rect_image_, left_rect_cam_info_);
 
+        publishPointCloud(left_rect_frame_id_,
+                          points_buff_frame_id_,
+                          luma_point_cloud_frame_id_,
+                          luma_point_cloud_pub_,
+                          luma_point_cloud_,
+                          header.width,
+                          header.height,
+                          header.timeSeconds,
+                          header.timeMicroSeconds,
+                          luma_cloud_step,
+                          points_buff_,
+                          &(left_rect_image_.data[0]), 1,
+                          pc_border_clip_,
+                          pc_max_range_);
+
         break;
     case Source_Luma_Rectified_Right:
 
@@ -989,27 +1078,42 @@ void Camera::pointCloudCallback(const image::Header& header)
     }
 
     //
-    // Publish the cloud if we have a matching luma image
+    // Store the disparity frame ID
 
-    if (left_rect_frame_id_ == header.frameId)
-        publishPointCloud(luma_point_cloud_pub_,
-                          luma_point_cloud_,
-                          header,
-                          luma_cloud_step,
-                          points_buff_,
-                          &(left_rect_image_.data[0]), 1,
-                          pc_border_clip_,
-                          pc_max_range_);
+    points_buff_frame_id_ = header.frameId;
 
-    if (false == pc_color_frame_sync_ || left_rgb_rect_frame_id_ == header.frameId)
-        publishPointCloud(color_point_cloud_pub_,
-                          color_point_cloud_,
-                          header,
-                          color_cloud_step,
-                          points_buff_,
-                          &(left_rgb_rect_image_.data[0]), 3,
-                          pc_border_clip_,
-                          pc_max_range_);
+    //
+    // Publish the point clouds if desired/possible
+
+    publishPointCloud(left_rect_frame_id_,
+                      points_buff_frame_id_,
+                      luma_point_cloud_frame_id_,
+                      luma_point_cloud_pub_,
+                      luma_point_cloud_,
+                      header.width,
+                      header.height,
+                      header.timeSeconds,
+                      header.timeMicroSeconds,
+                      luma_cloud_step,
+                      points_buff_,
+                      &(left_rect_image_.data[0]), 1,
+                      pc_border_clip_,
+                      pc_max_range_);
+
+    publishPointCloud(left_rgb_rect_frame_id_,
+                      points_buff_frame_id_,
+                      color_point_cloud_frame_id_,
+                      color_point_cloud_pub_,
+                      color_point_cloud_,
+                      header.width,
+                      header.height,
+                      header.timeSeconds,
+                      header.timeMicroSeconds,
+                      color_cloud_step,
+                      points_buff_,
+                      &(left_rgb_rect_image_.data[0]), 3,
+                      pc_border_clip_,
+                      pc_max_range_);
 }
 
 void Camera::rawCamDataCallback(const image::Header& header)
@@ -1199,6 +1303,24 @@ void Camera::colorImageCallback(const image::Header& header)
                     
                     if (left_rgb_rect_cam_pub_.getNumSubscribers() > 0)
                         left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_rgb_rect_cam_info_);
+                    
+                    //
+                    // Publish the color point cloud if desired/possible
+
+                    publishPointCloud(left_rgb_rect_frame_id_,
+                                      points_buff_frame_id_,
+                                      color_point_cloud_frame_id_,
+                                      color_point_cloud_pub_,
+                                      color_point_cloud_,
+                                      left_luma_image_.width,
+                                      left_luma_image_.height,
+                                      header.timeSeconds,
+                                      header.timeMicroSeconds,
+                                      color_cloud_step,
+                                      points_buff_,
+                                      &(left_rgb_rect_image_.data[0]), 3,
+                                      pc_border_clip_,
+                                      pc_max_range_);
                 }
             }
         }

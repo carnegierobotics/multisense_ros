@@ -53,6 +53,7 @@ public:
     void colorImageCallback(const crl::multisense::image::Header& header);
     void disparityImageCallback(const crl::multisense::image::Header& header);
     void jpegImageCallback(const crl::multisense::image::Header& header);
+    void histogramCallback(const crl::multisense::image::Header& header);
 
 private:
 
@@ -123,6 +124,7 @@ private:
     ros::Publisher raw_cam_config_pub_;
     ros::Publisher raw_cam_cal_pub_;
     ros::Publisher device_info_pub_;
+    ros::Publisher histogram_pub_;
 
     //
     // Store outgoing messages for efficiency
@@ -148,6 +150,8 @@ private:
     int64_t                    left_luma_frame_id_;
     int64_t                    left_rect_frame_id_;
     int64_t                    left_rgb_rect_frame_id_;
+    int64_t                    luma_point_cloud_frame_id_;
+    int64_t                    color_point_cloud_frame_id_;
     multisense_ros::RawCamData raw_cam_data_;
 
     //
@@ -176,6 +180,7 @@ private:
 
     std::vector<float>            disparity_buff_;
     std::vector<cv::Vec3f>        points_buff_;
+    int64_t                       points_buff_frame_id_;
     cv::Mat_<double>              q_matrix_;
     uint32_t                      pc_border_clip_;
     float                         pc_max_range_;
@@ -187,6 +192,11 @@ private:
     typedef std::map<crl::multisense::DataSource, int32_t> StreamMapType;
     boost::mutex stream_lock_;
     StreamMapType stream_map_;
+
+    //
+    // Histogram tracking
+
+    int64_t last_frame_id_;
 };
 
 }

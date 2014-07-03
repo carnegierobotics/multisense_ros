@@ -6,7 +6,6 @@
   </description>
 
   <depend package="multisense_ros"/>
-  <depend package="multisense_diagnostics"/>
 
 </package>
 
