@@ -47,11 +47,11 @@ endif()
 # which build type, use "cmake -DCMAKE_BUILD_TYPE=Debug <directory>" or
 # "cmake -DCMAKE_BUILD_TYPE=Release <directory>".
 
-set(CMAKE_C_FLAGS_DEBUG "-g -march=native -Wall -fstrict-aliasing")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -march=native -Wall -fstrict-aliasing")
+set(CMAKE_C_FLAGS_DEBUG "-g -Wall -fstrict-aliasing")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -Wall -fstrict-aliasing")
 
-set(CMAKE_C_FLAGS_RELEASE "-g -O2 -Wall -ffunction-sections -fomit-frame-pointer -march=native -Wall -fstrict-aliasing")
-set(CMAKE_CXX_FLAGS_RELEASE "-g -O2 -Wall -ffunction-sections -fomit-frame-pointer -march=native -Wall -fstrict-aliasing")
+set(CMAKE_C_FLAGS_RELEASE "-g -O2 -Wall -ffunction-sections -fomit-frame-pointer -Wall -fstrict-aliasing")
+set(CMAKE_CXX_FLAGS_RELEASE "-g -O2 -Wall -ffunction-sections -fomit-frame-pointer -Wall -fstrict-aliasing")
 
 # Dispatch to subordinate CMakeList.txt files.
 
