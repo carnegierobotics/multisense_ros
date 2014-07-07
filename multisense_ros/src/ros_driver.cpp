@@ -73,12 +73,16 @@ int main(int    argc,
             return -3;
         }
 
-        multisense_ros::Laser        laser(d, tf_prefix, robot_desc_string);
-        multisense_ros::Camera       camera(d, tf_prefix);
-        multisense_ros::Pps          pps(d);
-        multisense_ros::Imu          imu(d);
-        multisense_ros::Reconfigure  rec(d, boost::bind(&multisense_ros::Camera::resolutionChanged, &camera));
-        ros::spin();
+        //
+        // Anonymous namespace so objects can deconstruct before channel is destroyed
+        {
+            multisense_ros::Laser        laser(d, tf_prefix, robot_desc_string);
+            multisense_ros::Camera       camera(d, tf_prefix);
+            multisense_ros::Pps          pps(d);
+            multisense_ros::Imu          imu(d);
+            multisense_ros::Reconfigure  rec(d, boost::bind(&multisense_ros::Camera::resolutionChanged, &camera));
+            ros::spin();
+        }
 
         Channel::Destroy(d);
         return 0;
