@@ -4,7 +4,7 @@
   <description>mulisense catkin driver</description>
   <maintainer email="support@carnegierobotics.com">Maintained by Carnegie Robotics LLC</maintainer>
 
-  <license>LGPL</license>
+  <license>BSD</license>
 
   <url type="website">http://ros.org/wiki/multisense</url>
   <!-- <url type="bugtracker"></url> -->

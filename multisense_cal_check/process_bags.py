@@ -68,25 +68,37 @@ class _BagProcessor():
         laser_file.close()
 
 
-    #Method to extract an image from a bag file
+    #Method to extract first instance of disparity and recitified images from 
+    #bag
     def process_image(self, directory='.', namespace='multisense'):
         topic_name = '/%s/calibration/raw_cam_data' % namespace
         bag = rosbag.Bag(self.bag_file)
+        
+        #Attempt to find both disparity and rectified images before quitting
+        found_rectified_image = False
+        found_disparity_image = False
+
         for topic, msg, t in bag.read_messages(topics=[topic_name]):
             width = msg.width
             height = msg.height
 
             #Write to .pgm file stereo_left_0000.pgm
-            if len(list(msg.gray_scale_image)) != 0:
+            if not found_rectified_image and len(list(msg.gray_scale_image)) != 0:
                 self.write_pgm(np.array(list(msg.gray_scale_image)),
                                 directory + '/' + "stereo_left_0000.pgm",
                                 width, height, 8)
-            if len(list(msg.disparity_image)) != 0:
+                found_rectified_image = True
+
+            if not found_disparity_image and len(list(msg.disparity_image)) != 0:
                 self.write_pgm(np.array(list(msg.disparity_image),
                                 dtype=np.uint16),
                                 directory + '/' + "disparity_0000.pgm",
                                 width, height, 16)
+                found_disparity_image = True
 
+            #Quit once disparity and rectified images have been found
+            if found_disparity_image and found_rectified_image:
+                break 
 
     #Method to write an image to a .pgm file
     def write_pgm(self, data, name, width, height, bits):

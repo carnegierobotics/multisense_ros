@@ -3,7 +3,7 @@
 
   </description>
   <author>Maintained by Carnegie Robotics, LLC.</author>
-  <license>LGPL</license>
+  <license>BSD</license>
 
   <depend stack="ros" />
   <depend stack="ros_comm" />
