@@ -108,9 +108,15 @@ private:
     //
     // Data publishers
 
+    sensor_msgs::CameraInfo          left_mono_cam_info_;
+    sensor_msgs::CameraInfo          right_mono_cam_info_;
     sensor_msgs::CameraInfo          left_rect_cam_info_;
     sensor_msgs::CameraInfo          right_rect_cam_info_;
     sensor_msgs::CameraInfo          left_rgb_rect_cam_info_;
+    sensor_msgs::CameraInfo          left_disp_cam_info_;
+    sensor_msgs::CameraInfo          right_disp_cam_info_;
+    sensor_msgs::CameraInfo          left_cost_cam_info_;
+    sensor_msgs::CameraInfo          left_rgb_cam_info_;
 
     image_transport::Publisher       left_mono_cam_pub_;
     image_transport::Publisher       right_mono_cam_pub_;
@@ -120,8 +126,21 @@ private:
     image_transport::Publisher       left_rgb_cam_pub_;
     image_transport::CameraPublisher left_rgb_rect_cam_pub_;
 
+    ros::Publisher                   left_mono_cam_info_pub_;
+    ros::Publisher                   right_mono_cam_info_pub_;
+    ros::Publisher                   left_rect_cam_info_pub_;
+    ros::Publisher                   right_rect_cam_info_pub_;
+    ros::Publisher                   left_disp_cam_info_pub_;
+    ros::Publisher                   right_disp_cam_info_pub_;
+    ros::Publisher                   left_cost_cam_info_pub_;
+    ros::Publisher                   left_rgb_cam_info_pub_;
+    ros::Publisher                   left_rgb_rect_cam_info_pub_;
+
     ros::Publisher                   luma_point_cloud_pub_;
     ros::Publisher                   color_point_cloud_pub_;
+
+    ros::Publisher                   luma_organized_point_cloud_pub_;
+    ros::Publisher                   color_organized_point_cloud_pub_;
 
     image_transport::Publisher       left_disparity_pub_;
     image_transport::Publisher       right_disparity_pub_;
@@ -146,6 +165,8 @@ private:
     sensor_msgs::Image         depth_image_;
     sensor_msgs::PointCloud2   luma_point_cloud_;
     sensor_msgs::PointCloud2   color_point_cloud_;
+    sensor_msgs::PointCloud2   luma_organized_point_cloud_;
+    sensor_msgs::PointCloud2   color_organized_point_cloud_;
 
     sensor_msgs::Image         left_luma_image_;
     sensor_msgs::Image         left_rgb_image_;
@@ -174,17 +195,17 @@ private:
 
     //
     // For local rectification of color images
-    
+
     boost::mutex cal_lock_;
     CvMat *calibration_map_left_1_;
     CvMat *calibration_map_left_2_;
 
     //
     // The frame IDs
-    
+
     std::string frame_id_left_;
     std::string frame_id_right_;
-    
+
     //
     // For pointcloud generation
 
@@ -198,7 +219,7 @@ private:
 
     //
     // Stream subscriptions
-    
+
     typedef std::map<crl::multisense::DataSource, int32_t> StreamMapType;
     boost::mutex stream_lock_;
     StreamMapType stream_map_;
@@ -207,6 +228,17 @@ private:
     // Histogram tracking
 
     int64_t last_frame_id_;
+
+    //
+    // Luma Color Depth
+
+    uint8_t luma_color_depth_;
+
+    //
+    // If the color pointcloud data should be written packed. If false
+    // it will be static_cast to a flat and interpreted literally
+
+    bool write_pc_color_packed_;
 };
 
 }

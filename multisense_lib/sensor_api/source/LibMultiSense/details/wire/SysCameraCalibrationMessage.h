@@ -39,6 +39,8 @@
 #ifndef LibMultiSense_SysCameraCalibrationMessage
 #define LibMultiSense_SysCameraCalibrationMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -46,7 +48,7 @@ namespace wire {
     
 class CameraCalData {
 public:
-    static const VersionType VERSION = 1;
+    static CONSTEXPR VersionType VERSION = 1;
 
     float M[3][3];
     float D[8];
@@ -66,8 +68,8 @@ public:
 
 class SysCameraCalibration {
 public:
-    static const IdType      ID      = ID_DATA_SYS_CAMERA_CAL;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_DATA_SYS_CAMERA_CAL;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // 2 MPix 

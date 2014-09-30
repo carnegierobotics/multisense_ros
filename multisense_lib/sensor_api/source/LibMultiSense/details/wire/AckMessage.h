@@ -37,6 +37,8 @@
 #ifndef LibMultiSense_AckMessage
 #define LibMultiSense_AckMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -44,8 +46,8 @@ namespace wire {
 
 class Ack {
 public:
-    static const IdType      ID      = ID_ACK;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_ACK;
+    static CONSTEXPR VersionType VERSION = 1;
 
     IdType command; // the command being [n]ack'd
     Status status;

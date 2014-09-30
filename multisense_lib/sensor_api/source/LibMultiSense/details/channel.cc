@@ -393,6 +393,7 @@ uint32_t impl::hardwareWireToApi(uint32_t w)
     case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_M:     return system::DeviceInfo::HARDWARE_REV_MULTISENSE_M;
     case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S7S:   return system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7S;
     case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_S21:   return system::DeviceInfo::HARDWARE_REV_MULTISENSE_S21;
+    case wire::SysDeviceInfo::HARDWARE_REV_MULTISENSE_ST21:  return system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21;
     case wire::SysDeviceInfo::HARDWARE_REV_BCAM:             return system::DeviceInfo::HARDWARE_REV_BCAM;
     default:
         CRL_DEBUG("unknown WIRE hardware type \"%d\"\n", w);

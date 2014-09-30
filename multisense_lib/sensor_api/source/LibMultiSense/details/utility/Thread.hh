@@ -54,6 +54,8 @@
 #include <vector>
 #include <deque>
 
+#include "details/utility/Portability.hh"
+
 #include "Exception.hh"
 
 namespace crl {
@@ -72,7 +74,7 @@ class ScopedLock;
 class Thread {
 public:
 
-    static const uint32_t FLAGS_DETACH = (1 << 0);
+    static CONSTEXPR uint32_t FLAGS_DETACH = (1 << 0);
 
     Thread(void    *(*functionP)(void *),
            void    *contextP=NULL,

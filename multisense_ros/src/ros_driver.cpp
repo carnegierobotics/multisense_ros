@@ -40,7 +40,7 @@
 
 using namespace crl::multisense;
 
-int main(int    argc, 
+int main(int    argc,
          char** argvPP)
 {
     ros::init(argc, argvPP, "multisense_driver");
@@ -77,7 +77,7 @@ int main(int    argc,
 
         Status status = d->setMtu(sensor_mtu);
         if (Status_Ok != status) {
-            ROS_ERROR("multisense_ros: failed to set sensor MTU to %d: %s", 
+            ROS_ERROR("multisense_ros: failed to set sensor MTU to %d: %s",
                       sensor_mtu, Channel::statusString(status));
             Channel::Destroy(d);
             return -3;

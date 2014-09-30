@@ -39,6 +39,8 @@
 
 #include <typeinfo>
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,12 +49,12 @@ namespace wire {
 class WIRE_HEADER_ATTRIBS_ ImageMetaHeader {
 public:
 
-    static const IdType      ID      = ID_DATA_IMAGE_META;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_DATA_IMAGE_META;
+    static CONSTEXPR VersionType VERSION = 1;
 
-    static const uint32_t HISTOGRAM_CHANNELS = 4; // g0, r, b, g1
-    static const uint32_t HISTOGRAM_BINS     = 256;
-    static const uint32_t HISTOGRAM_LENGTH   = (HISTOGRAM_CHANNELS * HISTOGRAM_BINS *
+    static CONSTEXPR uint32_t HISTOGRAM_CHANNELS = 4; // g0, r, b, g1
+    static CONSTEXPR uint32_t HISTOGRAM_BINS     = 256;
+    static CONSTEXPR uint32_t HISTOGRAM_LENGTH   = (HISTOGRAM_CHANNELS * HISTOGRAM_BINS *
                                                 sizeof(uint32_t));
 
 #ifdef SENSORPOD_FIRMWARE

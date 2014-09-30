@@ -37,6 +37,8 @@
 #ifndef LibMultiSense_SysPpsMessage
 #define LibMultiSense_SysPpsMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -44,8 +46,8 @@ namespace wire {
 
 class SysPps {
 public:
-    static const IdType      ID      = ID_DATA_SYS_PPS;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_DATA_SYS_PPS;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Sensor system clock at time of last PPS pulse

@@ -42,6 +42,8 @@
 
 #include <typeinfo>
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -49,29 +51,29 @@ namespace wire {
 
 class SysFlashOp {
 public:
-    static const IdType      ID      = ID_CMD_SYS_FLASH_OP;
-    static const VersionType VERSION = 1; 
+    static CONSTEXPR IdType      ID      = ID_CMD_SYS_FLASH_OP;
+    static CONSTEXPR VersionType VERSION = 1; 
 
     //
     // Maximum payload length per operation
 
-    static const uint32_t MAX_LENGTH = 1024;
+    static CONSTEXPR uint32_t MAX_LENGTH = 1024;
 
     //
     // Parameters representing the desired flash operation
 
-    static const uint32_t OP_STATUS  = 0; // just check status
-    static const uint32_t OP_ERASE   = 1; // erase entire region
-    static const uint32_t OP_PROGRAM = 2; // program/verify chunk within region
-    static const uint32_t OP_VERIFY  = 3; // just verify chunk within region
+    static CONSTEXPR uint32_t OP_STATUS  = 0; // just check status
+    static CONSTEXPR uint32_t OP_ERASE   = 1; // erase entire region
+    static CONSTEXPR uint32_t OP_PROGRAM = 2; // program/verify chunk within region
+    static CONSTEXPR uint32_t OP_VERIFY  = 3; // just verify chunk within region
 
     uint32_t operation;
 
     //
     // Parameters representing the desired flash region
 
-    static const uint32_t RGN_BITSTREAM   = 0; // FPGA configuration bitstream
-    static const uint32_t RGN_FIRMWARE    = 1; // Microblaze firmware
+    static CONSTEXPR uint32_t RGN_BITSTREAM   = 0; // FPGA configuration bitstream
+    static CONSTEXPR uint32_t RGN_FIRMWARE    = 1; // Microblaze firmware
 
     uint32_t region;
 

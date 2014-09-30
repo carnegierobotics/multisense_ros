@@ -39,6 +39,8 @@
 
 #include <typeinfo>
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -46,9 +48,9 @@ namespace wire {
 
 class SysTestMtuResponse {
 public:
-    static const IdType      ID          = ID_DATA_SYS_TEST_MTU_RESPONSE;
-    static const VersionType VERSION     = 1;
-    static const uint32_t    HEADER_SIZE = sizeof(uint32_t);
+    static CONSTEXPR IdType      ID          = ID_DATA_SYS_TEST_MTU_RESPONSE;
+    static CONSTEXPR VersionType VERSION     = 1;
+    static CONSTEXPR uint32_t    HEADER_SIZE = sizeof(uint32_t);
 
     uint32_t payloadSize;
 

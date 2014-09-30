@@ -21,6 +21,10 @@ find_package(catkin REQUIRED COMPONENTS roscpp
                                         image_geometry
                                         message_generation)
 
+set(CMAKE_C_FLAGS "-O3")
+set(CMAKE_CXX_FLAGS "-O3")
+add_definitions(-mavx)
+add_definitions(-msse4)
 
 generate_dynamic_reconfigure_options(cfg/multisense.cfg)
 
@@ -90,11 +94,15 @@ set_target_properties(ros_driver
 add_dependencies(ros_driver ${PROJECT_NAME}_generate_messages_cpp)
 
 add_executable(raw_snapshot src/raw_snapshot.cpp)
+add_dependencies(raw_snapshot ${PROJECT_NAME}_generate_messages_cpp)
+add_dependencies(raw_snapshot multisense_lib)
 target_link_libraries(raw_snapshot ${catkin_LIBRARIES}
                                    ${OpenCV_LIBS}
-                                   ${Boost_LIBRARIES})
+                                   ${Boost_LIBRARIES}
+                                   ${multisense_lib_LIBRARIES})
 
-add_dependencies(raw_snapshot ${PROJECT_NAME}_generate_messages_cpp)
+set_target_properties(raw_snapshot
+  PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/source/LibMultiSense")
 
 ## Install
 ## Mark executables and/or libraries for installation

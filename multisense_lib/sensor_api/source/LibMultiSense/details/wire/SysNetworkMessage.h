@@ -37,6 +37,8 @@
 #ifndef LibMultiSense_SysNetworkMessage
 #define LibMultiSense_SysNetworkMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -44,15 +46,15 @@ namespace wire {
 
 class SysNetwork {
 public:
-    static const IdType      ID      = ID_CMD_SYS_SET_NETWORK;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_SYS_SET_NETWORK;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Configurable interfaces
 
-    static const uint8_t Interface_Unknown   = 0;
-    static const uint8_t Interface_Primary   = 1;  // external GigE
-    static const uint8_t Interface_Secondary = 2;  // internal 100Mb
+    static CONSTEXPR uint8_t Interface_Unknown   = 0;
+    static CONSTEXPR uint8_t Interface_Primary   = 1;  // external GigE
+    static CONSTEXPR uint8_t Interface_Secondary = 2;  // internal 100Mb
 
     //
     // IPV4 parameters

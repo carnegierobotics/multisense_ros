@@ -139,7 +139,7 @@ bool parseFile(const std::string& fileName,
 #define CASE_STR(str_,x_)                                               \
             if (0 == strncasecmp(s, str_, strlen(str_))) {              \
                 if (1 != sscanf(s, str_"%[^\n]", tempP)) {              \
-                    fprintf(stderr, "malformed "str_" %s\n",s);         \
+                    fprintf(stderr, "malformed " str_ " %s\n",s);       \
                     return false;                                       \
                 } else {                                                \
                     x_ = std::string(tempP);                            \
@@ -149,7 +149,7 @@ bool parseFile(const std::string& fileName,
 #define CASE_INT(str_,x_)                                               \
             if (0 == strncasecmp(s, str_, strlen(str_))) {              \
                 if (1 != sscanf(s, str_"%d\n", &tempi)) {               \
-                    fprintf(stderr, "malformed "str_" %s\n",s);         \
+                    fprintf(stderr, "malformed " str_ " %s\n",s);       \
                     return false;                                       \
                 } else {                                                \
                     x_ = tempi;                                         \
@@ -159,7 +159,7 @@ bool parseFile(const std::string& fileName,
 #define CASE_FLT(str_,x_)                                               \
             if (0 == strncasecmp(s, str_, strlen(str_))) {              \
                 if (1 != sscanf(s, str_"%f\n", &tempf)) {               \
-                    fprintf(stderr, "malformed "str_" %s\n",s);         \
+                    fprintf(stderr, "malformed " str_ " %s\n",s);       \
                     return false;                                       \
                 } else {                                                \
                     x_ = tempf;                                         \
@@ -169,7 +169,7 @@ bool parseFile(const std::string& fileName,
 #define CASE_PCB(str_)                                                  \
         if (0 == strncasecmp(s, str_, strlen(str_))) {                  \
             if (2 != sscanf(s, str_"%d %[^\n]", &tempi, tempP)) {       \
-                fprintf(stderr, "malformed "str_" %s\n",s);             \
+                fprintf(stderr, "malformed " str_ " %s\n",s);           \
                 return false;                                           \
             } else                                                      \
                 

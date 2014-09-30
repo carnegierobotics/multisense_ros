@@ -48,6 +48,7 @@
 #include <multisense_ros/sl_sgm_cmv2000_imuConfig.h>
 #include <multisense_ros/sl_sgm_cmv4000_imuConfig.h>
 #include <multisense_ros/bcam_imx104Config.h>
+#include <multisense_ros/st21_sgm_vga_imuConfig.h>
 
 namespace multisense_ros {
 
@@ -56,7 +57,7 @@ public:
 
     Reconfigure(crl::multisense::Channel* driver,
                 boost::function<void ()> resolutionChangeCallback=0);
-                
+
     ~Reconfigure();
 
     void imuCallback(const crl::multisense::imu::Header& header);
@@ -73,6 +74,7 @@ private:
     void callback_sl_sgm_cmv2000_imu(multisense_ros::sl_sgm_cmv2000_imuConfig& config, uint32_t level);
     void callback_sl_sgm_cmv4000_imu(multisense_ros::sl_sgm_cmv4000_imuConfig& config, uint32_t level);
     void callback_bcam_imx104       (multisense_ros::bcam_imx104Config&        config, uint32_t level);
+    void callback_st21_vga          (multisense_ros::st21_sgm_vga_imuConfig&   config, uint32_t level);
 
     //
     // Internal helper functions
@@ -115,6 +117,7 @@ private:
     boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv2000_imuConfig> > server_sl_sgm_cmv2000_imu_;
     boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig> > server_sl_sgm_cmv4000_imu_;
     boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::bcam_imx104Config> >        server_bcam_imx104_;
+    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::st21_sgm_vga_imuConfig> >   server_st21_vga_;
 
     //
     // Cached values for supported sub-systems (these may be unavailable on

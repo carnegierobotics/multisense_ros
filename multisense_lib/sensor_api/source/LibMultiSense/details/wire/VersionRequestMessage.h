@@ -40,6 +40,8 @@
 #ifndef LibMultiSense_VersionRequestMessage
 #define LibMultiSense_VersionRequestMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,8 +49,8 @@ namespace wire {
 
 class VersionRequest {
 public:
-    static const IdType      ID      = ID_CMD_GET_VERSION;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_GET_VERSION;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Constructors

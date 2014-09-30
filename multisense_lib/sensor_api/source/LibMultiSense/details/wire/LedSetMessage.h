@@ -40,6 +40,8 @@
 #ifndef LibMultiSense_LedSetMessage
 #define LibMultiSense_LedSetMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,8 +49,8 @@ namespace wire {
 
 class LedSet {
 public:
-    static const IdType      ID      = ID_CMD_LED_SET;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_LED_SET;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Bit mask selecting which LEDs to update

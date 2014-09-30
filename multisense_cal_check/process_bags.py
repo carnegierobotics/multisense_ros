@@ -13,6 +13,7 @@ import csv
 import time
 import os
 import numpy as np
+import string
 try:
     import rospy
     import rosbag
@@ -27,7 +28,7 @@ class _BagProcessor():
 
     #Wrapper method to processes the bag file
     #Returns bag file name
-    def process(self, directory='.', rename_file = True, 
+    def process(self, directory='.', rename_file = True,
                 namespace = 'multisense'):
         self.process_laser(directory, namespace)
         self.process_image(directory, namespace)
@@ -68,12 +69,12 @@ class _BagProcessor():
         laser_file.close()
 
 
-    #Method to extract first instance of disparity and recitified images from 
+    #Method to extract first instance of disparity and recitified images from
     #bag
     def process_image(self, directory='.', namespace='multisense'):
         topic_name = '/%s/calibration/raw_cam_data' % namespace
         bag = rosbag.Bag(self.bag_file)
-        
+
         #Attempt to find both disparity and rectified images before quitting
         found_rectified_image = False
         found_disparity_image = False
@@ -98,7 +99,7 @@ class _BagProcessor():
 
             #Quit once disparity and rectified images have been found
             if found_disparity_image and found_rectified_image:
-                break 
+                break
 
     #Method to write an image to a .pgm file
     def write_pgm(self, data, name, width, height, bits):
@@ -227,15 +228,20 @@ class _BagProcessor():
         bag = rosbag.Bag(self.bag_file)
         for topic, msg, t in bag.read_messages(topics=[topic_name]):
 
-            # The format of serial numers appears to have changed.  If it's 
-            # new style ('SN0004'), then accept it as is.  If old style 
-            # ('4'), then convert to new style.
+            #Extract all the digits in the serial number. The format of the
+            #serial number varies from unit to unit (SNXXX, SL XXXX, SN SLXXXX)
             sn = msg.serialNumber.strip()
-            if sn[:2] != 'SN':
-                sn = 'SN%04d' % int(sn)
-            # end if
+            exclude_characters = string.letters + string.punctuation + " "
+            sn = sn.strip(exclude_characters)
 
-            info = open(directory + "/dev_info.txt", 'wb')
+            #If for whatever reason there are characters still in our serial
+            #number (XXXvX) just append SN to the front
+            try:
+                sn = "SN%04d" % int(sn)
+            except:
+                sn = "SN" + sn
+
+            info = open(os.path.join(directory, "dev_info.txt"), 'wb')
 
             info.write(str(msg))
             info.close
@@ -244,8 +250,8 @@ class _BagProcessor():
             bag = os.path.basename(self.bag_file)
             path = os.path.dirname(self.bag_file)
 
-            fname = path + "/" + os.path.splitext(bag)[0]\
-                               + "_SL_%s_calCheck.bag" % sn
+            fname = os.path.join(path,  os.path.splitext(bag)[0]\
+                               + "_SL_%s_calCheck.bag" % sn)
 
 
             os.rename(self.bag_file, fname)

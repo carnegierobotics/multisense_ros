@@ -1,0 +1,83 @@
+<!-- Simple URDF for Multisense S7S -->
+
+<robot name="multisenseS7S">
+
+    <link name="head_root"/>
+
+    <joint name="head_root_joint" type="fixed">
+        <parent link="head_root"/>
+        <child link="head"/>
+    </joint>
+
+    <link name="head">
+        <visual>
+            <origin xyz="0 -0.0625 -0.037" rpy="1.57079632679 0 1.57079632679" />
+            <geometry>
+                <mesh filename="package://multisense_description/meshes/multisense_s7s.STL" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.9098 0.44314 0.031373 1" />
+            </material>
+        </visual>
+    </link>
+
+
+
+    <joint name="left_camera_joint" type="fixed">
+        <origin xyz="0.03 0.035 0.0"/>
+        <parent link="head"/>
+        <child link="left_camera_frame"/>
+    </joint>
+
+    <link name="left_camera_frame"/>
+
+    <joint name="right_camera_joint" type="fixed">
+        <origin xyz="0.03 -0.035 0.0"/>
+        <parent link="head"/>
+        <child link="right_camera_frame"/>
+    </joint>
+
+    <link name="right_camera_frame"/>
+
+    <joint name="left_camera_optical_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="-1.57079632679 0.0 -1.57079632679"/>
+        <parent link="left_camera_frame"/>
+        <child link="left_camera_optical_frame"/>
+    </joint>
+
+    <link name="left_camera_optical_frame"/>
+
+    <joint name="right_camera_optical_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="-1.57079632679 0.0 -1.57079632679"/>
+        <parent link="right_camera_frame"/>
+        <child link="right_camera_optical_frame"/>
+    </joint>
+
+    <link name="right_camera_optical_frame"/>
+
+    <joint name="accelerometer_joint" type="fixed">
+        <origin xyz="0.047 0.0302 -0.00075" rpy="0.0 1.57079632679 0.0"/>
+        <parent link="head"/>
+        <child link="accelerometer"/>
+    </joint>
+
+    <link name="accelerometer"/>
+
+    <joint name="magnetometer_joint" type="fixed">
+        <origin xyz="0.047 0.0302 -0.00075" rpy="0.0 1.57079632679 0.0"/>
+        <parent link="head"/>
+        <child link="magnetometer"/>
+    </joint>
+
+    <link name="magnetometer"/>
+
+    <joint name="gyroscope_joint" type="fixed">
+        <origin xyz="0.047 0.03880 0.00125" rpy="-1.57079632679 0.0 -1.57079632679"/>
+        <parent link="head"/>
+        <child link="gyroscope"/>
+    </joint>
+
+    <link name="gyroscope"/>
+
+</robot>
+

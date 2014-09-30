@@ -40,6 +40,8 @@
 #ifndef LibMultiSense_CamControlMessage
 #define LibMultiSense_CamControlMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,8 +49,8 @@ namespace wire {
 
 class CamControl {
 public:
-    static const IdType      ID      = ID_CMD_CAM_CONTROL;
-    static const VersionType VERSION = 3;
+    static CONSTEXPR IdType      ID      = ID_CMD_CAM_CONTROL;
+    static CONSTEXPR VersionType VERSION = 3;
 
     //
     // Parameters representing the current camera configuration

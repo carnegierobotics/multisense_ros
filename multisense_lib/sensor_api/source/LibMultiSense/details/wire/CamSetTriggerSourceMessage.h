@@ -39,6 +39,8 @@
 #ifndef LibMultiSense_CamSetTriggerSourceMessage
 #define LibMultiSense_CamSetTriggerSourceMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -46,11 +48,11 @@ namespace wire {
 
 class CamSetTriggerSource {
 public:
-    static const IdType      ID      = ID_CMD_CAM_SET_TRIGGER_SOURCE;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_CAM_SET_TRIGGER_SOURCE;
+    static CONSTEXPR VersionType VERSION = 1;
 
-    static const uint32_t    SOURCE_INTERNAL = 0;
-    static const uint32_t    SOURCE_EXTERNAL = 1; // OPTO_RX
+    static CONSTEXPR uint32_t    SOURCE_INTERNAL = 0;
+    static CONSTEXPR uint32_t    SOURCE_EXTERNAL = 1; // OPTO_RX
 
     //
     // Parameters

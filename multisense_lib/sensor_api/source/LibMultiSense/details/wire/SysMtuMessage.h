@@ -38,6 +38,8 @@
 #ifndef LibMultiSense_SysMtuMessage
 #define LibMultiSense_SysMtuMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -45,8 +47,8 @@ namespace wire {
 
 class SysMtu {
 public:
-    static const IdType      ID      = ID_CMD_SYS_MTU;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_SYS_MTU;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Parameters

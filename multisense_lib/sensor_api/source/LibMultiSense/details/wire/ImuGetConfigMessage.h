@@ -37,6 +37,8 @@
 #ifndef LibMultiSense_ImuGetConfigMessage
 #define LibMultiSense_ImuGetConfigMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -44,8 +46,8 @@ namespace wire {
 
 class ImuGetConfig {
 public:
-    static const IdType      ID      = ID_CMD_IMU_GET_CONFIG;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_IMU_GET_CONFIG;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Constructors

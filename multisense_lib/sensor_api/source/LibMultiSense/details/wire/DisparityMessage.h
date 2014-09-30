@@ -41,6 +41,8 @@
 #include <typeinfo>
 #include <cmath>
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -49,13 +51,13 @@ namespace wire {
 class WIRE_HEADER_ATTRIBS_ DisparityHeader {
 public:
 
-    static const IdType      ID      = ID_DATA_DISPARITY;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_DATA_DISPARITY;
+    static CONSTEXPR VersionType VERSION = 1;
 
-    static const uint8_t  WIRE_BITS_PER_PIXEL = 12;
-    static const uint8_t  WIRE_BYTE_ALIGNMENT = 3;
-    static const uint8_t  API_BITS_PER_PIXEL  = 16; // after custom assemble()
-    static const uint32_t META_LENGTH         = 16; // packed, includes type/version
+    static CONSTEXPR uint8_t  WIRE_BITS_PER_PIXEL = 12;
+    static CONSTEXPR uint8_t  WIRE_BYTE_ALIGNMENT = 3;
+    static CONSTEXPR uint8_t  API_BITS_PER_PIXEL  = 16; // after custom assemble()
+    static CONSTEXPR uint32_t META_LENGTH         = 16; // packed, includes type/version
 
 #ifdef SENSORPOD_FIRMWARE
     IdType      id;

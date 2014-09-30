@@ -73,7 +73,7 @@ public:
 
         if (motion_started_ || 0 == scans_.size())
             scans_.push_back(msg);
-      
+
         if (!motion_started_) {
             std::list<multisense_ros::RawLidarData::ConstPtr>::const_iterator it = scans_.begin();
 
@@ -126,7 +126,7 @@ public:
 
             //
             // Save the previous start angle
-            
+
             previous_start = current_start;
         }
 
@@ -151,7 +151,7 @@ public:
 
         //
         // Service our own callback queue
-        
+
         while(1) {
 
             queue_.callOne(ros::WallDuration(1.0));
@@ -205,19 +205,19 @@ void setResolution(const std::string& res)
     str_param.name  = "resolution";
     str_param.value = res;
     conf.strs.push_back(str_param);
-    
+
     setConf(conf);
 }
 
 }; // anonymous
 
-int main(int    argc, 
+int main(int    argc,
          char** argvPP)
 {
     ros::init(argc, argvPP, "raw_snapshot");
     ros::NodeHandle nh;
 
-    if (argc != 2 || 
+    if (argc != 2 ||
         std::string(argvPP[1]) == "--help" ||
         std::string(argvPP[1]) == "-h") {
 
@@ -292,7 +292,7 @@ int main(int    argc,
 
     LaserHelper laser_helper;
     std::list<multisense_ros::RawLidarData::ConstPtr> raw_lidar_data;
-    
+
     if (false == laser_helper.getRotation(raw_lidar_data)) {
         printf("  Error capturing RawLidarData...\n");
         return -1;
@@ -307,7 +307,7 @@ int main(int    argc,
     printf("Saving data to file [%s]\n", outfile.c_str());
     rosbag::Bag bag;
     bag.open(outfile, rosbag::bagmode::Write);
-    
+
     bag.write(TOPIC_DEVICE_INFO, ros::TIME_MIN, *device_info);
     bag.write(TOPIC_RAW_LIDAR_CAL, ros::TIME_MIN, *lidar_cal);
     bag.write(TOPIC_RAW_CAM_CAL, ros::TIME_MIN, *cam_cal);

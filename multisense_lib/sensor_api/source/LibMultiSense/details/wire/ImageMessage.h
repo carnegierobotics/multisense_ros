@@ -40,6 +40,8 @@
 #include <typeinfo>
 #include <cmath>
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -48,8 +50,8 @@ namespace wire {
 class WIRE_HEADER_ATTRIBS_ ImageHeader {
 public:
 
-static const IdType      ID      = ID_DATA_IMAGE;
-static const VersionType VERSION = 1;
+static CONSTEXPR IdType      ID      = ID_DATA_IMAGE;
+static CONSTEXPR VersionType VERSION = 1;
 
 #ifdef SENSORPOD_FIRMWARE
     IdType      id;

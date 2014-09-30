@@ -40,6 +40,8 @@
 #ifndef LibMultiSense_VersionResponseMessage
 #define LibMultiSense_VersionResponseMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,8 +49,8 @@ namespace wire {
 
 class VersionResponse {
 public:
-    static const IdType      ID      = ID_DATA_VERSION;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_DATA_VERSION;
+    static CONSTEXPR VersionType VERSION = 1;
 
     std::string firmwareBuildDate;
     VersionType firmwareVersion;

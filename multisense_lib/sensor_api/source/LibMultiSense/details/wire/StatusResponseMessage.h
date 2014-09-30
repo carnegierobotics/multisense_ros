@@ -40,6 +40,8 @@
 #ifndef LibMultiSense_StatusResponseMessage
 #define LibMultiSense_StatusResponseMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,18 +49,18 @@ namespace wire {
 
 class StatusResponse {
 public:
-    static const IdType      ID                  = ID_DATA_STATUS;
-    static const VersionType VERSION             = 2;
-    static const float       INVALID_TEMPERATURE = -99999.0;
+    static CONSTEXPR IdType      ID                  = ID_DATA_STATUS;
+    static CONSTEXPR VersionType VERSION             = 2;
+    static CONSTEXPR float       INVALID_TEMPERATURE = -99999.0;
 
     //
     // Subsytem status
 
-    static const uint32_t STATUS_GENERAL_OK     = (1<<0);
-    static const uint32_t STATUS_LASER_OK       = (1<<1);
-    static const uint32_t STATUS_LASER_MOTOR_OK = (1<<2);
-    static const uint32_t STATUS_CAMERAS_OK     = (1<<3);
-    static const uint32_t STATUS_IMU_OK         = (1<<4);
+    static CONSTEXPR uint32_t STATUS_GENERAL_OK     = (1<<0);
+    static CONSTEXPR uint32_t STATUS_LASER_OK       = (1<<1);
+    static CONSTEXPR uint32_t STATUS_LASER_MOTOR_OK = (1<<2);
+    static CONSTEXPR uint32_t STATUS_CAMERAS_OK     = (1<<3);
+    static CONSTEXPR uint32_t STATUS_IMU_OK         = (1<<4);
 
     //
     // The reported uptime for the system

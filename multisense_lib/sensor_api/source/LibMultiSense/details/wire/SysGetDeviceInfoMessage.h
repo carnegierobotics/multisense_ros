@@ -39,6 +39,8 @@
 #ifndef LibMultiSense_SysGetDeviceInfoMessage
 #define LibMultiSense_SysGetDeviceInfoMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -46,8 +48,8 @@ namespace wire {
 
 class SysGetDeviceInfo {
 public:
-    static const IdType      ID      = ID_CMD_SYS_GET_DEVICE_INFO;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_SYS_GET_DEVICE_INFO;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Constructors

@@ -1,0 +1,42 @@
+<!-- Simple URDF for BCAM -->
+
+<robot name="BCAM">
+
+    <link name="head_root"/>
+
+    <joint name="head_root_joint" type="fixed">
+        <parent link="head_root"/>
+        <child link="head"/>
+    </joint>
+
+    <link name="head">
+        <visual>
+            <origin xyz="0 -0.052 -0.052" rpy="1.57079632679 0 1.57079632679" />
+            <geometry>
+                <mesh filename="package://multisense_description/meshes/BCAM.STL" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.9098 0.44314 0.031373 1" />
+            </material>
+        </visual>
+    </link>
+
+    <joint name="left_camera_joint" type="fixed">
+        <origin xyz="0.03 0 0.0"/>
+        <parent link="head"/>
+        <child link="left_camera_frame"/>
+    </joint>
+
+    <link name="left_camera_frame"/>
+
+
+    <joint name="left_camera_optical_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="-1.57079632679 0.0 -1.57079632679"/>
+        <parent link="left_camera_frame"/>
+        <child link="left_camera_optical_frame"/>
+    </joint>
+
+    <link name="left_camera_optical_frame"/>
+
+</robot>
+

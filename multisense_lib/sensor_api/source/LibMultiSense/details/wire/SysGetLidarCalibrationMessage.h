@@ -39,6 +39,8 @@
 #ifndef LibMultiSense_SysGetLidarCalibrationMessage
 #define LibMultiSense_SysGetLidarCalibrationMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -46,8 +48,8 @@ namespace wire {
 
 class SysGetLidarCalibration {
 public:
-    static const IdType      ID      = ID_CMD_SYS_GET_LIDAR_CAL;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_SYS_GET_LIDAR_CAL;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Constructors

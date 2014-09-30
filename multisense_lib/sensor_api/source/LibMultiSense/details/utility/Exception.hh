@@ -62,14 +62,14 @@
 
 #define CRL_EXCEPTION(fmt, ...)                                         \
     do {                                                                \
-        throw crl::multisense::details::utility::Exception("%s(%d): %s: "fmt,CRL_FILENAME,__LINE__, \
+        throw crl::multisense::details::utility::Exception("%s(%d): %s: " fmt,CRL_FILENAME,__LINE__, \
                                                            __PRETTY_FUNCTION__,##__VA_ARGS__); \
     } while(0)
 
 #define CRL_DEBUG(fmt, ...)                                             \
     do {                                                                \
         double now = crl::multisense::details::utility::TimeStamp::getCurrentTime(); \
-        CRL_DEBUG_REDIRECTION "[%.3f] %s(%d): %s: "fmt,now,CRL_FILENAME,__LINE__, \
+        CRL_DEBUG_REDIRECTION "[%.3f] %s(%d): %s: " fmt,now,CRL_FILENAME,__LINE__, \
                 __PRETTY_FUNCTION__,##__VA_ARGS__);                     \
     } while(0)
 

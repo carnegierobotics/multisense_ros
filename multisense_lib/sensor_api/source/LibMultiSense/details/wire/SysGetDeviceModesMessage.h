@@ -37,6 +37,8 @@
 #ifndef LibMultiSense_SysGetDeviceModesMessage
 #define LibMultiSense_SysGetDeviceModesMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -44,8 +46,8 @@ namespace wire {
 
 class SysGetDeviceModes {
 public:
-    static const IdType      ID      = ID_CMD_SYS_GET_DEVICE_MODES;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_SYS_GET_DEVICE_MODES;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Constructors

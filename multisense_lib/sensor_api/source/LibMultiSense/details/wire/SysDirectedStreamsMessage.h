@@ -37,6 +37,8 @@
 #ifndef LibMultiSense_SysDirectedStreamsMessage
 #define LibMultiSense_SysDirectedStreamsMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -44,7 +46,7 @@ namespace wire {
 
 class DirectedStream {
 public:
-    static const VersionType VERSION = 1;
+    static CONSTEXPR VersionType VERSION = 1;
 
     uint32_t    mask;
     std::string address;
@@ -77,12 +79,12 @@ public:
 
 class SysDirectedStreams {
 public:
-    static const IdType      ID        = ID_DATA_SYS_DIRECTED_STREAMS;
-    static const VersionType VERSION   = 1;
+    static CONSTEXPR IdType      ID        = ID_DATA_SYS_DIRECTED_STREAMS;
+    static CONSTEXPR VersionType VERSION   = 1;
 
-    static const uint32_t    CMD_NONE  = 0;
-    static const uint32_t    CMD_START = 1;
-    static const uint32_t    CMD_STOP  = 2;
+    static CONSTEXPR uint32_t    CMD_NONE  = 0;
+    static CONSTEXPR uint32_t    CMD_START = 1;
+    static CONSTEXPR uint32_t    CMD_STOP  = 2;
 
     uint32_t                          command;
     std::vector<wire::DirectedStream> streams;

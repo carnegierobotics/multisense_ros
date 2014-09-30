@@ -37,6 +37,8 @@
 #ifndef LibMultiSense_SysGetDirectedStreamsMessage
 #define LibMultiSense_SysGetDirectedStreamsMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -44,8 +46,8 @@ namespace wire {
 
 class SysGetDirectedStreams {
 public:
-    static const IdType      ID      = ID_CMD_SYS_GET_DIRECTED_STREAMS;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_SYS_GET_DIRECTED_STREAMS;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Constructors

@@ -40,6 +40,8 @@
 #ifndef LibMultiSense_CamSetResolutionMessage
 #define LibMultiSense_CamSetResolutionMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,8 +49,8 @@ namespace wire {
 
 class CamSetResolution {
 public:
-    static const IdType      ID      = ID_CMD_CAM_SET_RESOLUTION;
-    static const VersionType VERSION = 2;
+    static CONSTEXPR IdType      ID      = ID_CMD_CAM_SET_RESOLUTION;
+    static CONSTEXPR VersionType VERSION = 2;
 
     //
     // Parameters

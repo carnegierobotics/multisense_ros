@@ -39,6 +39,8 @@
 
 #include <typeinfo>
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,7 +49,7 @@ namespace imu {
 
 class RateType {
 public:
-    static const VersionType VERSION = 1;
+    static CONSTEXPR VersionType VERSION = 1;
 
     float sampleRate;
     float bandwidthCutoff;
@@ -63,7 +65,7 @@ public:
 
 class RangeType {
 public:
-    static const VersionType VERSION = 1;
+    static CONSTEXPR VersionType VERSION = 1;
 
     float range;
     float resolution;
@@ -79,7 +81,7 @@ public:
 
 class Details {
 public:
-    static const VersionType VERSION = 1;
+    static CONSTEXPR VersionType VERSION = 1;
 
     std::string            name;
     std::string            device;
@@ -103,8 +105,8 @@ public:
 
 class ImuInfo {
 public:
-    static const IdType      ID      = ID_DATA_IMU_INFO;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_DATA_IMU_INFO;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // IMU details per sensor

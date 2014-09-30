@@ -39,6 +39,8 @@
 #ifndef LibMultiSense_ImuDataMessage
 #define LibMultiSense_ImuDataMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -46,10 +48,10 @@ namespace wire {
 
 class WIRE_HEADER_ATTRIBS_ ImuSample {
 public:
-    static const VersionType VERSION    = 1;
-    static const uint16_t    TYPE_ACCEL = 1;
-    static const uint16_t    TYPE_GYRO  = 2;
-    static const uint16_t    TYPE_MAG   = 3;
+    static CONSTEXPR VersionType VERSION    = 1;
+    static CONSTEXPR uint16_t    TYPE_ACCEL = 1;
+    static CONSTEXPR uint16_t    TYPE_GYRO  = 2;
+    static CONSTEXPR uint16_t    TYPE_MAG   = 3;
 
     uint16_t type;
     int64_t  timeNanoSeconds;
@@ -71,8 +73,8 @@ public:
 
 class ImuData  {
 public:
-    static const IdType      ID      = ID_DATA_IMU;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_DATA_IMU;
+    static CONSTEXPR VersionType VERSION = 1;
 
     uint32_t               sequence;
     std::vector<ImuSample> samples;

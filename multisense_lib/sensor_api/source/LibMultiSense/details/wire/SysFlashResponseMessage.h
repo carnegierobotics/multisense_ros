@@ -40,6 +40,8 @@
 #ifndef LibMultiSense_SysFlashResponseMessage
 #define LibMultiSense_SysFlashResponseMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,16 +49,16 @@ namespace wire {
 
 class SysFlashResponse {
 public:
-    static const IdType      ID      = ID_DATA_SYS_FLASH_RESPONSE;
-    static const VersionType VERSION = 1; 
+    static CONSTEXPR IdType      ID      = ID_DATA_SYS_FLASH_RESPONSE;
+    static CONSTEXPR VersionType VERSION = 1; 
 
     //
     // Parameters representing the desired flash operation
 
-    static const uint32_t STATUS_IDLE              = 0;// no operation in progress or requested
-    static const uint32_t STATUS_SUCCESS           = 1;// requested operation succeeded/started
-    static const uint32_t STATUS_FAILURE           = 2;// requested operation failed
-    static const uint32_t STATUS_ERASE_IN_PROGRESS = 3;// operation not possible
+    static CONSTEXPR uint32_t STATUS_IDLE              = 0;// no operation in progress or requested
+    static CONSTEXPR uint32_t STATUS_SUCCESS           = 1;// requested operation succeeded/started
+    static CONSTEXPR uint32_t STATUS_FAILURE           = 2;// requested operation failed
+    static CONSTEXPR uint32_t STATUS_ERASE_IN_PROGRESS = 3;// operation not possible
 
     uint32_t status;
 

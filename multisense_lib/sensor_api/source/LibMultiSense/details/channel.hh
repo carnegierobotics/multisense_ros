@@ -38,6 +38,7 @@
 
 #include "MultiSenseChannel.hh"
 
+#include "details/utility/Portability.hh"
 #include "details/utility/Thread.hh"
 #include "details/utility/BufferStream.hh"
 #include "details/utility/Units.hh"
@@ -173,23 +174,23 @@ private:
     //
     // The version of this API
 
-    static const VersionType API_VERSION = 0x0302; // 3.2
+    static CONSTEXPR VersionType API_VERSION = 0x0303; // 3.3
 
     //
     // Misc. internal constants
 
-    static const uint32_t MAX_MTU_SIZE               = 9000;
-    static const uint16_t DEFAULT_SENSOR_TX_PORT     = 9001;
-    static const uint32_t RX_POOL_LARGE_BUFFER_SIZE  = (10 * (1024 * 1024));
-    static const uint32_t RX_POOL_LARGE_BUFFER_COUNT = 50;
-    static const uint32_t RX_POOL_SMALL_BUFFER_SIZE  = (10 * (1024));
-    static const uint32_t RX_POOL_SMALL_BUFFER_COUNT = 100;
+    static CONSTEXPR uint32_t MAX_MTU_SIZE               = 9000;
+    static CONSTEXPR uint16_t DEFAULT_SENSOR_TX_PORT     = 9001;
+    static CONSTEXPR uint32_t RX_POOL_LARGE_BUFFER_SIZE  = (10 * (1024 * 1024));
+    static CONSTEXPR uint32_t RX_POOL_LARGE_BUFFER_COUNT = 50;
+    static CONSTEXPR uint32_t RX_POOL_SMALL_BUFFER_SIZE  = (10 * (1024));
+    static CONSTEXPR uint32_t RX_POOL_SMALL_BUFFER_COUNT = 100;
 
-    static const double   DEFAULT_ACK_TIMEOUT        = 0.2; // seconds
-    static const uint32_t DEFAULT_ACK_ATTEMPTS       = 5;
-    static const uint32_t IMAGE_META_CACHE_DEPTH     = 20;
-    static const uint32_t UDP_TRACKER_CACHE_DEPTH    = 10;
-    static const uint32_t TIME_SYNC_OFFSET_DECAY     = 8;
+    static CONSTEXPR double   DEFAULT_ACK_TIMEOUT        = 0.2; // seconds
+    static CONSTEXPR uint32_t DEFAULT_ACK_ATTEMPTS       = 5;
+    static CONSTEXPR uint32_t IMAGE_META_CACHE_DEPTH     = 20;
+    static CONSTEXPR uint32_t UDP_TRACKER_CACHE_DEPTH    = 10;
+    static CONSTEXPR uint32_t TIME_SYNC_OFFSET_DECAY     = 8;
 
     //
     // We must protect ourselves from user callbacks misbehaving
@@ -198,22 +199,22 @@ private:
     // These define the maximum number of datums that we will
     // queue up in a user dispatch thread.
 
-    static const uint32_t MAX_USER_IMAGE_QUEUE_SIZE = 5;
-    static const uint32_t MAX_USER_LASER_QUEUE_SIZE = 20;
+    static CONSTEXPR uint32_t MAX_USER_IMAGE_QUEUE_SIZE = 5;
+    static CONSTEXPR uint32_t MAX_USER_LASER_QUEUE_SIZE = 20;
 
     //
     // PPS and IMU callbacks do not reserve an RX buffer, so queue
     // depths are limited by RAM (via heap.)
 
-    static const uint32_t MAX_USER_PPS_QUEUE_SIZE = 2;
-    static const uint32_t MAX_USER_IMU_QUEUE_SIZE = 50;
+    static CONSTEXPR uint32_t MAX_USER_PPS_QUEUE_SIZE = 2;
+    static CONSTEXPR uint32_t MAX_USER_IMU_QUEUE_SIZE = 50;
 
     //
     // The maximum number of directed streams
     //  (this is completely arbitrary, TODO: determine
     //   reasonable values per hardware type)
 
-    static const uint32_t MAX_DIRECTED_STREAMS = 10;
+    static CONSTEXPR uint32_t MAX_DIRECTED_STREAMS = 10;
 
     //
     // A re-assembler for multi-packet messages

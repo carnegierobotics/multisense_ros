@@ -50,7 +50,7 @@ namespace wire {
 
 class PcbInfo {
 public:
-    static const VersionType VERSION = 1;
+    static CONSTEXPR VersionType VERSION = 1;
 
     std::string name;
     uint32_t    revision;
@@ -66,32 +66,33 @@ public:
 
 class SysDeviceInfo {
 public:
-    static const IdType      ID      = ID_DATA_SYS_DEVICE_INFO;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_DATA_SYS_DEVICE_INFO;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // These constants are stored in flash on the device, do
     // not change these, only add.
     //
     // crl::multisense::DeviceInfo:: has similar constants
-    // that can be changed at will (just remember to 
+    // that can be changed at will (just remember to
     // map any differences when translating between
     // WIRE and API.)
 
-    static const uint8_t  MAX_PCBS = 8;
+    static CONSTEXPR uint8_t  MAX_PCBS = 8;
 
-    static const uint32_t HARDWARE_REV_MULTISENSE_SL    = 1;
-    static const uint32_t HARDWARE_REV_MULTISENSE_S7    = 2;
-    static const uint32_t HARDWARE_REV_MULTISENSE_M     = 3;
-    static const uint32_t HARDWARE_REV_MULTISENSE_S7S   = 4;
-    static const uint32_t HARDWARE_REV_MULTISENSE_S21   = 5;
-    static const uint32_t HARDWARE_REV_BCAM             = 100;
+    static CONSTEXPR uint32_t HARDWARE_REV_MULTISENSE_SL    = 1;
+    static CONSTEXPR uint32_t HARDWARE_REV_MULTISENSE_S7    = 2;
+    static CONSTEXPR uint32_t HARDWARE_REV_MULTISENSE_M     = 3;
+    static CONSTEXPR uint32_t HARDWARE_REV_MULTISENSE_S7S   = 4;
+    static CONSTEXPR uint32_t HARDWARE_REV_MULTISENSE_S21   = 5;
+    static CONSTEXPR uint32_t HARDWARE_REV_MULTISENSE_ST21  = 6;
+    static CONSTEXPR uint32_t HARDWARE_REV_BCAM             = 100;
 
-    static const uint32_t IMAGER_TYPE_CMV2000_GREY   = 1;
-    static const uint32_t IMAGER_TYPE_CMV2000_COLOR  = 2;
-    static const uint32_t IMAGER_TYPE_CMV4000_GREY   = 3;
-    static const uint32_t IMAGER_TYPE_CMV4000_COLOR  = 4;
-    static const uint32_t IMAGER_TYPE_IMX104_COLOR   = 100;
+    static CONSTEXPR uint32_t IMAGER_TYPE_CMV2000_GREY   = 1;
+    static CONSTEXPR uint32_t IMAGER_TYPE_CMV2000_COLOR  = 2;
+    static CONSTEXPR uint32_t IMAGER_TYPE_CMV4000_GREY   = 3;
+    static CONSTEXPR uint32_t IMAGER_TYPE_CMV4000_COLOR  = 4;
+    static CONSTEXPR uint32_t IMAGER_TYPE_IMX104_COLOR   = 100;
 
     std::string key;
     std::string name;
@@ -101,12 +102,12 @@ public:
 
     uint8_t     numberOfPcbs;
     PcbInfo     pcbs[MAX_PCBS];
-    
+
     std::string imagerName;
     uint32_t    imagerType;
     uint32_t    imagerWidth;
     uint32_t    imagerHeight;
-    
+
     std::string lensName;
     uint32_t    lensType;
     float       nominalBaseline;          // meters
@@ -144,7 +145,7 @@ public:
 
     //
     // Serialization routine
-    
+
     template<class Archive>
         void serialize(Archive&          message,
                        const VersionType version)

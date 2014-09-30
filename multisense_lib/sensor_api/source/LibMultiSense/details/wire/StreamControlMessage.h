@@ -37,6 +37,8 @@
 #ifndef LibMultiSense_StreamControlMessage
 #define LibMultiSense_StreamControlMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -44,8 +46,8 @@ namespace wire {
 
 class StreamControl {
 public:
-    static const IdType      ID      = ID_CMD_STREAM_CONTROL;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_STREAM_CONTROL;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Set modify mask bit high to have the device

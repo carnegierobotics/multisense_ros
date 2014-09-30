@@ -16,6 +16,11 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+set(CMAKE_C_FLAGS "-O3")
+set(CMAKE_CXX_FLAGS "-O3")
+add_definitions(-mavx)
+add_definitions(-msse4)
+
 rosbuild_find_ros_package(dynamic_reconfigure)
 include(${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake)
 gencfg()
@@ -31,6 +36,10 @@ rosbuild_add_library(${PROJECT_NAME} src/laser.cpp
                                      src/pps.cpp
                                      src/imu.cpp
                                      src/reconfigure.cpp)
+set_target_properties(${PROJECT_NAME}
+  PROPERTIES LINK_FLAGS "-L${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/bin/")
+set_target_properties(${PROJECT_NAME}
+  PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/source/LibMultiSense")
 
 rosbuild_add_boost_directories()
 #rosbuild_link_boost(${PROJECT_NAME} thread)
@@ -38,6 +47,10 @@ rosbuild_add_boost_directories()
 rosbuild_add_executable(ros_driver src/ros_driver.cpp)
 target_link_libraries(ros_driver ${PROJECT_NAME})
 target_link_libraries(ros_driver yaml-cpp turbojpeg)
+set_target_properties(ros_driver
+  PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/source/LibMultiSense")
 
 rosbuild_add_executable(raw_snapshot src/raw_snapshot.cpp)
 target_link_libraries(raw_snapshot ${PROJECT_NAME})
+set_target_properties(raw_snapshot
+  PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/source/LibMultiSense")

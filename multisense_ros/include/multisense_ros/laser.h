@@ -40,8 +40,8 @@
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/JointState.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <tf/transform_datatypes.h>  
-#include <tf/transform_broadcaster.h>                                              
+#include <tf/transform_datatypes.h>
+#include <tf/transform_broadcaster.h>
 
 #include <multisense_lib/MultiSenseChannel.hh>
 
@@ -59,7 +59,7 @@ public:
     void pointCloudCallbackT(const crl::multisense::lidar::Header& header);
 
     static const float EXPECTED_RATE;
-    
+
 private:
 
     //
@@ -70,12 +70,18 @@ private:
     void stop();
 
     //
-    // Transform boadcasting 
-    void publishStaticTransforms(ros::Time time);
-    tf::Transform publishSpindleTransform(float spindle_angle, ros::Time time, bool publish=true);
+    // Transform boadcasting
+    void publishStaticTransforms(const ros::Time& time);
+    void publishSpindleTransform(const float spindle_angle, const float velocity, const ros::Time& time);
 
     tf::TransformBroadcaster static_tf_broadcaster_;
-    tf::TransformBroadcaster spindle_tf_broadcaster_;
+
+    void defaultTfPublisher(const ros::TimerEvent& event);
+
+    //
+    // Query transforms
+
+    tf::Transform getSpindleTransform(float spindle_angle);
 
     //
     // Calibration from sensor
@@ -105,18 +111,37 @@ private:
     ros::Publisher raw_lidar_data_pub_;
     ros::Publisher point_cloud_pub_;
     ros::Publisher raw_lidar_cal_pub_;
+    ros::Publisher joint_states_pub_;
 
     //
     // Keep around for efficiency
 
     sensor_msgs::LaserScan   laser_msg_;
     sensor_msgs::PointCloud2 point_cloud_;
+    sensor_msgs::JointState  joint_states_;
 
     //
     // Subscriptions
-    
+
     boost::mutex sub_lock_;
     int32_t      subscribers_;
+
+    //
+    // Timer used to publish the default laser transforms
+
+    ros::Timer timer_;
+
+    //
+    // Spindle angle used when publishing the default transforms
+
+    float spindle_angle_;
+
+
+    //
+    // Track publishing rates
+
+    ros::Time previous_scan_time_;
+
 
 }; // class
 

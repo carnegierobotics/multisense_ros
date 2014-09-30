@@ -42,6 +42,8 @@
 
 #include <typeinfo>
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -50,9 +52,9 @@ namespace wire {
 class WIRE_HEADER_ATTRIBS_ LidarDataHeader {
 public:
 
-    static const IdType      ID          = ID_DATA_LIDAR_SCAN;
-    static const VersionType VERSION     = 1;
-    static const uint32_t    SCAN_POINTS = 1081;
+    static CONSTEXPR IdType      ID          = ID_DATA_LIDAR_SCAN;
+    static CONSTEXPR VersionType VERSION     = 1;
+    static CONSTEXPR uint32_t    SCAN_POINTS = 1081;
 
 #ifdef SENSORPOD_FIRMWARE
     IdType      id;

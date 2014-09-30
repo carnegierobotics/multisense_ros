@@ -41,6 +41,8 @@
 #ifndef LibMultiSense_LedGetStatusMessage
 #define LibMultiSense_LedGetStatusMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -48,8 +50,8 @@ namespace wire {
 
 class LedGetStatus {
 public:
-    static const IdType      ID      = ID_CMD_LED_GET_STATUS;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_LED_GET_STATUS;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Constructors

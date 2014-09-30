@@ -41,6 +41,8 @@
 #ifndef LibMultiSense_CamGetHistoryMessage
 #define LibMultiSense_CamGetHistoryMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -48,8 +50,8 @@ namespace wire {
 
 class CamGetHistory {
 public:
-    static const IdType      ID      = ID_CMD_CAM_GET_HISTORY;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_CAM_GET_HISTORY;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Constructors

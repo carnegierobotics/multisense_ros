@@ -40,6 +40,8 @@
 #ifndef LibMultiSense_LedStatusMessage
 #define LibMultiSense_LedStatusMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,8 +49,8 @@ namespace wire {
 
 class LedStatus {
 public:
-    static const IdType      ID      = ID_DATA_LED_STATUS;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_DATA_LED_STATUS;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Bit mask indicating which LEDs are implemented

@@ -40,6 +40,8 @@
 #ifndef LibMultiSense_LidarSetMotorMessage
 #define LibMultiSense_LidarSetMotorMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -47,8 +49,8 @@ namespace wire {
 
 class LidarSetMotor {
 public:
-    static const IdType      ID      = ID_CMD_LIDAR_SET_MOTOR;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_CMD_LIDAR_SET_MOTOR;
+    static CONSTEXPR VersionType VERSION = 1;
 
     //
     // Desired output RPM

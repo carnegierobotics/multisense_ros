@@ -37,6 +37,8 @@
 #ifndef LibMultiSense_ImuConfigMessage
 #define LibMultiSense_ImuConfigMessage
 
+#include "details/utility/Portability.hh"
+
 namespace crl {
 namespace multisense {
 namespace details {
@@ -45,8 +47,8 @@ namespace imu {
 
 class Config {
 public:
-    static const VersionType VERSION       = 1;
-    static const uint32_t    FLAGS_ENABLED = (1<<0);
+    static CONSTEXPR VersionType VERSION       = 1;
+    static CONSTEXPR uint32_t    FLAGS_ENABLED = (1<<0);
 
     std::string name;
     uint32_t    flags;
@@ -71,8 +73,8 @@ public:
 
 class ImuConfig {
 public:
-    static const IdType      ID      = ID_DATA_IMU_CONFIG;
-    static const VersionType VERSION = 1;
+    static CONSTEXPR IdType      ID      = ID_DATA_IMU_CONFIG;
+    static CONSTEXPR VersionType VERSION = 1;
 
     uint8_t                  storeSettingsInFlash;  // boolean
     uint32_t                 samplesPerMessage;     // 0 to ignore
