@@ -2,8 +2,8 @@
 Changelog for package multisense_lib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.1 (2014-10-09)
+------------------
 * Added stamped PPS topic. Updated LibMultiSense to version 3.4 which includes doxygen documentation. Added host time to the PPS header. Improved point cloud publishing speed. Fixed ordered point cloud width and height. Fixed all point cloud row_step fields. Added broadcast parameter to ChangeIpUtility. Removed SSE4 and AVX compilation flags in multisense_ros.
 * Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
 
