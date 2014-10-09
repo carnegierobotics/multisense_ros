@@ -187,6 +187,9 @@ bool publishPointCloud(int64_t                       imageFrameId,
 
             const uint32_t index = i * width + j;
 
+            const uint32_t* pointP = reinterpret_cast<const uint32_t*>(&points[index]);
+            uint32_t* targetCloudP = reinterpret_cast<uint32_t*>(cloudP);
+
             if (organized) {
                 //
                 // If the point is in a border region or it is invalid publish
@@ -195,42 +198,72 @@ bool publishPointCloud(int64_t                       imageFrameId,
                     j < borderClip || j > width - borderClip ||
                     false == isValidPoint(points[index], maxRange)) {
 
-                    memcpy(cloudP, &nanPoint, pointSize);
-
-                } else {
-                    memcpy(cloudP, &(points[index]), pointSize);
+                    pointP = reinterpret_cast<const uint32_t*>(&nanPoint[0]);
                 }
 
             } else {
                 if (false == isValidPoint(points[index], maxRange))
                     continue;
-
-                memcpy(cloudP, &(points[index]), pointSize);
             }
+
+            //
+            // Directly copy points to eliminate memcpy
+            targetCloudP[0] = pointP[0];
+            targetCloudP[1] = pointP[1];
+            targetCloudP[2] = pointP[2];
+
 
             const uint8_t *sourceColorP = &(imageP[colorChannels * index]);
             uint8_t       *cloudColorP  = (cloudP + pointSize);
 
             //
             // Write the poincloud packed if specified or the color image
-            // is BGR
-            if (writeColorPacked || colorChannels == 3)
+            // is BGR. Copying is optimized to eliminate memcpy operations
+            // increasing overall speed
+            if (writeColorPacked || colorChannels > 2)
             {
-                memcpy(cloudColorP, sourceColorP, colorChannels);
+                switch(colorChannels)
+                {
+                    case 4:
+                        cloudColorP[3] = sourceColorP[3];
+                    case 3:
+                        cloudColorP[2] = sourceColorP[2];
+                    case 2:
+                        cloudColorP[1] = sourceColorP[1];
+                    case 1:
+                        cloudColorP[0] = sourceColorP[0];
+                }
 
             } else {
-                uint32_t color = 0;
-                memcpy(&color, sourceColorP, colorChannels);
+                union
+                {
+                    uint32_t value;
+                    char bytes[sizeof(uint32_t)];
+                } color;
+
+                color.value = 0;
+
+                color.bytes[0] = sourceColorP[0];
+                color.bytes[1] = sourceColorP[1] & ((colorChannels > 1) * 255);
+
                 float* floatCloudColorP = reinterpret_cast<float*>(cloudColorP);
-                floatCloudColorP[0] = static_cast<float>(color);
+                floatCloudColorP[0] = static_cast<float>(color.value);
             }
 
             cloudP += cloudStep;
             validPoints ++;
         }
 
-    cloud.row_step     = validPoints;
-    cloud.width        = validPoints;
+    if (!organized) {
+        cloud.row_step     = validPoints * cloudStep;
+        cloud.width        = validPoints;
+        cloud.height       = 1;
+    } else {
+        cloud.width = width;
+        cloud.height = height;
+        cloud.row_step = width * cloudStep;
+    }
+
     cloud.header.stamp = ros::Time(timeSeconds, 1000 * timeMicroSeconds);
     cloud.data.resize(validPoints * cloudStep);
     pub.publish(cloud);
@@ -362,7 +395,9 @@ Camera::Camera(Channel* driver,
     left_rect_frame_id_(0),
     left_rgb_rect_frame_id_(-1),
     luma_point_cloud_frame_id_(-1),
+    luma_organized_point_cloud_frame_id_(-1),
     color_point_cloud_frame_id_(-1),
+    color_organized_point_cloud_frame_id_(-1),
     raw_cam_data_(),
     version_info_(),
     device_info_(),
@@ -681,7 +716,6 @@ Camera::Camera(Channel* driver,
     luma_organized_point_cloud_.is_bigendian    = (htonl(1) == 1);
     luma_organized_point_cloud_.is_dense        = false;
     luma_organized_point_cloud_.point_step      = luma_cloud_step;
-    luma_organized_point_cloud_.height          = 1;
     luma_organized_point_cloud_.header.frame_id = frame_id_left_;
     luma_organized_point_cloud_.fields.resize(4);
     luma_organized_point_cloud_.fields[0].name     = "x";
@@ -704,7 +738,6 @@ Camera::Camera(Channel* driver,
     color_organized_point_cloud_.is_bigendian    = (htonl(1) == 1);
     color_organized_point_cloud_.is_dense        = false;
     color_organized_point_cloud_.point_step      = color_cloud_step;
-    color_organized_point_cloud_.height          = 1;
     color_organized_point_cloud_.header.frame_id = frame_id_left_;
     color_organized_point_cloud_.fields.resize(4);
     color_organized_point_cloud_.fields[0].name     = "x";
@@ -1148,7 +1181,7 @@ void Camera::rectCallback(const image::Header& header)
 
         publishPointCloud(left_rect_frame_id_,
                           points_buff_frame_id_,
-                          luma_point_cloud_frame_id_,
+                          luma_organized_point_cloud_frame_id_,
                           luma_organized_point_cloud_pub_,
                           luma_organized_point_cloud_,
                           header.width,
@@ -1242,8 +1275,14 @@ void Camera::depthCallback(const image::Header& header)
 
         //
         // Depth = focal_length*baseline/disparity
+        // From the Q matrix used to reproject disparity images using non-isotropic
+        // pixels we see that z = (fx*fy*Tx). Normalizing z so that
+        // the scale factor on the homogeneous cartesian coordinate is 1 results
+        // in z =  (fx*fy*Tx)/(-fy*d) or z = (fx*Tx)/(-d).
+        // The 4th element of the right camera projection matrix is defined
+        // as fx*Tx.
 
-        const double scale = (right_rect_cam_info_.P[3] * right_rect_cam_info_.P[0]);
+        const double scale = (-right_rect_cam_info_.P[3]);
         cv::divide(scale, disparity, depth);
 
         //
@@ -1265,13 +1304,20 @@ void Camera::depthCallback(const image::Header& header)
 
         //
         // Depth = focal_length*baseline/disparity
+        // From the Q matrix used to reproject disparity images using non-isotropic
+        // pixels we see that z = (fx*fy*Tx). Normalizing z so that
+        // the scale factor on the homogeneous cartesian coordinate is 1 results
+        // in z =  (fx*fy*Tx)/(-fy*d) or z = (fx*Tx)/(-d). Because our disparity
+        // image is 16 bits we must also divide by 16 making z = (fx*Tx*16)/(-d)
+        // The 4th element of the right camera projection matrix is defined
+        // as fx*Tx.
 
-        const float scale = ((right_rect_cam_info_.P[3] * right_rect_cam_info_.P[0]) / -16.0f);
+
+        const float scale = (right_rect_cam_info_.P[3] * -16.0f);
         cv::divide(scale, disparity, depth);
 
         //
         // Mark all 0 disparity points as NaNs
-
         const uint16_t *disparityImageP = reinterpret_cast<const uint16_t*>(header.imageDataP);
 
         for(uint32_t i=0; i<imageSize; ++i)
@@ -1385,7 +1431,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 
     publishPointCloud(left_rect_frame_id_,
                       points_buff_frame_id_,
-                      luma_point_cloud_frame_id_,
+                      luma_organized_point_cloud_frame_id_,
                       luma_organized_point_cloud_pub_,
                       luma_organized_point_cloud_,
                       header.width,
@@ -1402,7 +1448,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 
     publishPointCloud(left_rgb_rect_frame_id_,
                       points_buff_frame_id_,
-                      color_point_cloud_frame_id_,
+                      color_organized_point_cloud_frame_id_,
                       color_organized_point_cloud_pub_,
                       color_organized_point_cloud_,
                       header.width,
@@ -1638,7 +1684,7 @@ void Camera::colorImageCallback(const image::Header& header)
 
                     publishPointCloud(left_rgb_rect_frame_id_,
                                       points_buff_frame_id_,
-                                      color_point_cloud_frame_id_,
+                                      color_organized_point_cloud_frame_id_,
                                       color_organized_point_cloud_pub_,
                                       color_organized_point_cloud_,
                                       left_luma_image_.width,

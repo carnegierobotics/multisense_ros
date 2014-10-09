@@ -182,7 +182,9 @@ private:
     int64_t                    left_rect_frame_id_;
     int64_t                    left_rgb_rect_frame_id_;
     int64_t                    luma_point_cloud_frame_id_;
+    int64_t                    luma_organized_point_cloud_frame_id_;
     int64_t                    color_point_cloud_frame_id_;
+    int64_t                    color_organized_point_cloud_frame_id_;
     multisense_ros::RawCamData raw_cam_data_;
 
     //

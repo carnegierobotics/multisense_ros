@@ -34,6 +34,8 @@
 #include <multisense_ros/pps.h>
 #include <std_msgs/Time.h>
 
+#include <multisense_ros/StampedPps.h>
+
 using namespace crl::multisense;
 
 namespace multisense_ros {
@@ -41,7 +43,7 @@ namespace multisense_ros {
 namespace { // anonymous
 
 //
-// Shim for C-style driver callbacks 
+// Shim for C-style driver callbacks
 
 void ppsCB(const pps::Header& header, void* userDataP)
 { reinterpret_cast<Pps*>(userDataP)->ppsCallback(header); }
@@ -53,6 +55,7 @@ Pps::Pps(Channel* driver) :
     driver_(driver),
     device_nh_(""),
     pps_pub_(),
+    stamped_pps_pub_(),
     subscribers_(0)
 {
     system::DeviceInfo deviceInfo;
@@ -83,6 +86,10 @@ Pps::Pps(Channel* driver) :
         pps_pub_ = device_nh_.advertise<std_msgs::Time>("pps", 5,
                                                         boost::bind(&Pps::connect, this),
                                                         boost::bind(&Pps::disconnect, this));
+
+        stamped_pps_pub_ = device_nh_.advertise<multisense_ros::StampedPps>("stamped_pps", 5,
+                                                        boost::bind(&Pps::connect, this),
+                                                        boost::bind(&Pps::disconnect, this));
         driver_->addIsolatedCallback(ppsCB, this);
     }
 }
@@ -93,16 +100,26 @@ Pps::~Pps()
 }
 
 void Pps::ppsCallback(const pps::Header& header)
-{    
+{
     if (subscribers_ <= 0)
         return;
 
     std_msgs::Time pps_msg;
 
+    multisense_ros::StampedPps stamped_pps_msg;
+
     pps_msg.data = ros::Time(header.sensorTime / 1000000000ll,
                              header.sensorTime % 1000000000ll);
 
+
+    stamped_pps_msg.data = pps_msg.data;
+
+    stamped_pps_msg.host_time = ros::Time(header.timeSeconds,
+                                          1000 * header.timeMicroSeconds);
+
     pps_pub_.publish(pps_msg);
+
+    stamped_pps_pub_.publish(stamped_pps_msg);
 }
 
 void Pps::connect()

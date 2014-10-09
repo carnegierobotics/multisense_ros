@@ -67,6 +67,8 @@ private:
 
     ros::Publisher pps_pub_;
 
+    ros::Publisher stamped_pps_pub_;
+
     //
     // Publish control
 

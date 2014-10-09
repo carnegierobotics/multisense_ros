@@ -275,7 +275,7 @@ void Laser::pointCloudCallback(const lidar::Header& header)
         return;
 
     point_cloud_.data.resize(laser_cloud_step * header.pointCount);
-    point_cloud_.row_step     = header.pointCount;
+    point_cloud_.row_step     = header.pointCount * laser_cloud_step;
     point_cloud_.width        = header.pointCount;
     point_cloud_.header.stamp = ros::Time(header.timeStartSeconds,
                                           1000 * header.timeStartMicroSeconds);

@@ -21,10 +21,8 @@ find_package(catkin REQUIRED COMPONENTS roscpp
                                         image_geometry
                                         message_generation)
 
-set(CMAKE_C_FLAGS "-O3")
-set(CMAKE_CXX_FLAGS "-O3")
-add_definitions(-mavx)
-add_definitions(-msse4)
+set(CMAKE_C_FLAGS "-O2")
+set(CMAKE_CXX_FLAGS "-O2")
 
 generate_dynamic_reconfigure_options(cfg/multisense.cfg)
 
@@ -37,7 +35,8 @@ add_message_files(DIRECTORY msg
                   RawCamCal.msg
                   RawCamData.msg
                   RawLidarCal.msg
-                  Histogram.msg)
+                  Histogram.msg
+                  StampedPps.msg)
 
 generate_messages(DEPENDENCIES sensor_msgs)
 
