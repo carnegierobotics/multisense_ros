@@ -24,4 +24,11 @@
      <param name="tf_prefix"   value="/$(arg namespace)" />
   </node>
 
+  <!-- Color Laser PointCloud Publisher -->
+   <node pkg="multisense_ros" ns="$(arg namespace)" type="color_laser_publisher" name="color_laser_publisher" output="screen">
+      <remap from="image_rect_color" to="/$(arg namespace)/left/image_rect_color" />
+      <remap from="lidar_points2" to="/$(arg namespace)/lidar_points2" />
+      <remap from="camera_info" to="/$(arg namespace)/left/image_rect_color/camera_info" />
+  </node>
+
 </launch>

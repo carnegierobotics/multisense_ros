@@ -50,13 +50,11 @@ namespace multisense_ros {
 class Laser {
 public:
     Laser(crl::multisense::Channel* driver,
-          const std::string& tf_prefix,
-          const std::string& robot_desc);
+          const std::string& tf_prefix);
     ~Laser();
 
     void scanCallback(const crl::multisense::lidar::Header& header);
     void pointCloudCallback(const crl::multisense::lidar::Header& header);
-    void pointCloudCallbackT(const crl::multisense::lidar::Header& header);
 
     static const float EXPECTED_RATE;
 

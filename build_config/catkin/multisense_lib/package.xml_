@@ -1,17 +1,19 @@
 <?xml version="1.0"?>
 <package>
   <name>multisense_lib</name>
-  <version>3.3.1</version>
+  <version>3.3.2</version>
   <description>multisense_lib</description>
   <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
   <license>BSD</license>
 
   <url type="website">https://bitbucket.org/crl/multisense_ros</url>
 
-  <build_depend>libpng12-dev</build_depend>
-
   <buildtool_depend>catkin</buildtool_depend>
 
+  <build_depend>libpng12-dev</build_depend>
+  <build_depend>cv_bridge</build_depend>
+
   <run_depend>libpng12-dev</run_depend>
+  <run_depend>cv_bridge</run_depend>
 
 </package>

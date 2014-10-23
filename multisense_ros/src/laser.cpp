@@ -93,12 +93,12 @@ void pCB(const lidar::Header&        header,
 }; // anonymous
 
 Laser::Laser(Channel* driver,
-             const std::string& tf_prefix,
-             const std::string& robot_desc) :
+             const std::string& tf_prefix):
     driver_(driver),
     subscribers_(0),
     spindle_angle_(0.0),
     previous_scan_time_(0.0)
+
 {
 
     //
@@ -356,15 +356,6 @@ void Laser::scanCallback(const lidar::Header& header)
         previous_scan_time_ = start_absolute_time;
     }
 
-    //
-    // Check that our laser data is being published at the EXPECTED_RATE within
-    // a 10% margin
-
-    const float laser_period = scan_time.toSec() + (start_absolute_time - previous_scan_time_).toSec();
-    if ( 1.0/laser_period < (EXPECTED_RATE - EXPECTED_RATE * 0.1)) {
-        ROS_WARN("The laser scan frequency %f is less than the expected frequency of %f",
-                1.0/laser_period, EXPECTED_RATE);
-    }
 
     //
     // Compute the velocity between our last scan and the start of our current

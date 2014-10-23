@@ -4,13 +4,15 @@ project(multisense_lib)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED COMPONENTS cv_bridge)
+
 
 catkin_destinations()  # get catkin variable defines for destinations
 set(BASE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 set(SOURCE_DIRECTORY /sensor_api)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION})
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION})
+set (OpenCV_LIBS ${catkin_LIBRARIES})
 
 # Copy our .hh files to the devel include directory (later install to target).
 execute_process(COMMAND mkdir -p ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_INCLUDE_DESTINATION})
@@ -22,7 +24,8 @@ execute_process(COMMAND cp ${BASE_DIRECTORY}/sensor_api/source/LibMultiSense/Mul
 include_directories(${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_INCLUDE_DESTINATION}/include)
 
 ## Declare a catkin package
-catkin_package(LIBRARIES MultiSense)
+catkin_package(CATKIN_DEPENDS cv_bridge
+               LIBRARIES MultiSense)
 
 # Build the libraries
 add_subdirectory(sensor_api)

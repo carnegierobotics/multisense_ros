@@ -50,15 +50,10 @@ int main(int    argc,
     //
     // Get parameters from ROS/command-line
 
-    std::string robot_desc_string;
     std::string sensor_ip;
     std::string tf_prefix;
     int         sensor_mtu;
 
-    if (!nh_private_.getParam("robot_description", robot_desc_string)) {
-        ROS_ERROR("multisense_ros: could not find URDF at [robot_description]. Exiting\n");
-        return -1;
-    }
 
     nh_private_.param<std::string>("sensor_ip", sensor_ip, "10.66.171.21");
     nh_private_.param<std::string>("tf_prefix", tf_prefix, "multisense");
@@ -86,7 +81,7 @@ int main(int    argc,
         //
         // Anonymous namespace so objects can deconstruct before channel is destroyed
         {
-            multisense_ros::Laser        laser(d, tf_prefix, robot_desc_string);
+            multisense_ros::Laser        laser(d, tf_prefix);
             multisense_ros::Camera       camera(d, tf_prefix);
             multisense_ros::Pps          pps(d);
             multisense_ros::Imu          imu(d);

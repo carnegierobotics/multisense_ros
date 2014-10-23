@@ -1,11 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(multisense_ros)
 
-include(FindPkgConfig)
-if (PKG_CONFIG_FOUND)
-  pkg_check_modules(opencv2 opencv2) # is this patch needed in Hydro
-endif (PKG_CONFIG_FOUND)
-find_package(OpenCV REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread)
 
 find_package(catkin REQUIRED COMPONENTS roscpp
@@ -17,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp
                                         sensor_msgs
                                         image_transport
                                         angles
+                                        cv_bridge
                                         dynamic_reconfigure
                                         image_geometry
                                         message_generation)
@@ -49,6 +45,7 @@ catkin_package(INCLUDE_DIRS   include
                               rosbag
                               sensor_msgs
                               angles
+                              cv_bridge
                               dynamic_reconfigure
                               image_geometry
                               image_transport
@@ -62,17 +59,20 @@ include_directories(include
                     ${Boost_INCLUDE_DIRS}
                     ${multisense_lib_INCLUDE_DIRS})
 
+## Multisense Library
+
 
 add_library(${PROJECT_NAME} src/camera.cpp
                           src/imu.cpp
                           src/laser.cpp
                           src/pps.cpp
                           src/reconfigure.cpp)
+
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_generate_messages_cpp)
 add_dependencies(${PROJECT_NAME} multisense_lib)
+
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES}
-                                      ${OpenCV_LIBS}
                                       ${Boost_LIBRARIES}
                                       ${multisense_lib_LIBRARIES})
 
@@ -83,25 +83,36 @@ set_target_properties(${PROJECT_NAME}
 set_target_properties(${PROJECT_NAME}
   PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/source/LibMultiSense")
 
+## ROS Driver
+
 add_executable(ros_driver src/ros_driver.cpp)
-target_link_libraries(ros_driver ${PROJECT_NAME})
-target_link_libraries(ros_driver yaml-cpp 
+target_link_libraries(ros_driver ${PROJECT_NAME}
                                  turbojpeg)
 set_target_properties(ros_driver
   PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/source/LibMultiSense")
 
 add_dependencies(ros_driver ${PROJECT_NAME}_generate_messages_cpp)
 
+
+## Raw Snapshot
+
 add_executable(raw_snapshot src/raw_snapshot.cpp)
 add_dependencies(raw_snapshot ${PROJECT_NAME}_generate_messages_cpp)
 add_dependencies(raw_snapshot multisense_lib)
 target_link_libraries(raw_snapshot ${catkin_LIBRARIES}
-                                   ${OpenCV_LIBS}
                                    ${Boost_LIBRARIES}
                                    ${multisense_lib_LIBRARIES})
 
 set_target_properties(raw_snapshot
   PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/source/LibMultiSense")
+
+
+## Color Laser Point Cloud
+
+
+add_executable(color_laser_publisher src/color_laser.cpp)
+target_link_libraries(color_laser_publisher ${catkin_LIBRARIES}
+                                            ${Boost_LIBRARIES})
 
 ## Install
 ## Mark executables and/or libraries for installation
