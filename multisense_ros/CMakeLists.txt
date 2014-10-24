@@ -77,7 +77,6 @@ target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES}
                                       ${multisense_lib_LIBRARIES})
 
 
-target_link_libraries(${PROJECT_NAME} MultiSense)
 set_target_properties(${PROJECT_NAME}
   PROPERTIES LINK_FLAGS "-L${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/bin/")
 set_target_properties(${PROJECT_NAME}
@@ -116,7 +115,7 @@ target_link_libraries(color_laser_publisher ${catkin_LIBRARIES}
 
 ## Install
 ## Mark executables and/or libraries for installation
-install(TARGETS ${PROJECT_NAME} ros_driver raw_snapshot
+install(TARGETS ${PROJECT_NAME} ros_driver raw_snapshot color_laser_publisher
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
