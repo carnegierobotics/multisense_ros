@@ -2,8 +2,8 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.3 (2014-10-24)
+------------------
 * Updated CMakeLists.txt to resolve linker errors with Jenkins.
 * Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
 
