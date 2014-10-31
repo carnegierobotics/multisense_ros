@@ -38,6 +38,8 @@
 #include <boost/thread.hpp>
 #include <ros/ros.h>
 
+#include <sensor_msgs/Imu.h>
+
 #include <multisense_lib/MultiSenseChannel.hh>
 
 namespace multisense_ros {
@@ -45,7 +47,7 @@ namespace multisense_ros {
 class Imu {
 public:
 
-    Imu(crl::multisense::Channel* driver);
+    Imu(crl::multisense::Channel* driver, std::string tf_prefix);
     ~Imu();
 
     void imuCallback(const crl::multisense::imu::Header& header);
@@ -70,16 +72,20 @@ private:
     ros::Publisher gyroscope_pub_;
     ros::Publisher magnetometer_pub_;
 
+    ros::Publisher imu_pub_;
+
+    //
+    // IMU message
+    sensor_msgs::Imu imu_message_;
+
     //
     // Publish control
 
     boost::mutex sub_lock_;
-    int32_t accel_subscribers_;
-    int32_t gyro_subscribers_;
-    int32_t mag_subscribers_;
     int32_t total_subscribers_;
-    void connect(crl::multisense::imu::Sample::Type type);
-    void disconnect(crl::multisense::imu::Sample::Type type);
+    void startStreams();
+    void stopStreams();
+
 };
 
 }

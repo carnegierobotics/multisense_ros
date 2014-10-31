@@ -84,7 +84,7 @@ int main(int    argc,
             multisense_ros::Laser        laser(d, tf_prefix);
             multisense_ros::Camera       camera(d, tf_prefix);
             multisense_ros::Pps          pps(d);
-            multisense_ros::Imu          imu(d);
+            multisense_ros::Imu          imu(d, tf_prefix);
             multisense_ros::Reconfigure  rec(d, boost::bind(&multisense_ros::Camera::resolutionChanged, &camera));
             ros::spin();
         }

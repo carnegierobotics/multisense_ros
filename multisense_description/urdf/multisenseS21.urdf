@@ -65,29 +65,33 @@
 
     <link name="top_left_rear_mount"/>
 
-    <joint name="accelerometer_joint" type="fixed">
-        <origin xyz="0.0045 0.029 -0.0135" rpy="-1.57079632679 0.0 -1.57079632679"/>
+    <!--Note the locations of the accel/mag and gyro differ from those shown
+        in CAD. The S21 firmware switches axis on the accel/mag and gyro to
+        match the S7/S7S/SL MultiSense configurations -->
+
+    <joint name="accel_joint" type="fixed">
+        <origin xyz="0.0045 0.029 -0.0135" rpy="0.0 1.57079632679 0.0"/>
         <parent link="head"/>
-        <child link="accelerometer"/>
+        <child link="accel"/>
     </joint>
 
-    <link name="accelerometer"/>
+    <link name="accel"/>
 
-    <joint name="magnetometer_joint" type="fixed">
-        <origin xyz="0.0045 0.029 -0.0135" rpy="-1.57079632679 0.0 -1.57079632679"/>
+    <joint name="mag_joint" type="fixed">
+        <origin xyz="0.0045 0.029 -0.0135" rpy="0.0 1.57079632679 0.0"/>
         <parent link="head"/>
-        <child link="magnetometer"/>
+        <child link="mag"/>
     </joint>
 
-    <link name="magnetometer"/>
+    <link name="mag"/>
 
-    <joint name="gyroscope_joint" type="fixed">
-        <origin xyz="-0.00219539 0.03758 -0.014" rpy="0.0 1.57079632679 3.14159"/>
+    <joint name="gyro_joint" type="fixed">
+        <origin xyz="-0.00219539 0.03758 -0.014" rpy="-1.57079632679 0 -1.57079632679"/>
         <parent link="head"/>
-        <child link="gyroscope"/>
+        <child link="gyro"/>
     </joint>
 
-    <link name="gyroscope"/>
+    <link name="gyro"/>
 
 </robot>
 

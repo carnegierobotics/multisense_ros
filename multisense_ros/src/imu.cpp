@@ -42,7 +42,7 @@ namespace multisense_ros {
 namespace { // anonymous
 
 //
-// Shim for C-style driver callbacks 
+// Shim for C-style driver callbacks
 
 void imuCB(const imu::Header& header, void* userDataP)
 { reinterpret_cast<Imu*>(userDataP)->imuCallback(header); }
@@ -50,19 +50,52 @@ void imuCB(const imu::Header& header, void* userDataP)
 
 }; // anonymous
 
-Imu::Imu(Channel* driver) :
+Imu::Imu(Channel* driver, std::string tf_prefix) :
     driver_(driver),
     device_nh_(""),
     imu_nh_(device_nh_, "imu"),
     accelerometer_pub_(),
     gyroscope_pub_(),
     magnetometer_pub_(),
+    imu_pub_(),
+    imu_message_(),
     sub_lock_(),
-    accel_subscribers_(0),
-    gyro_subscribers_(0),
-    mag_subscribers_(0),
     total_subscribers_(0)
 {
+
+    //
+    // Initialize the sensor_msgs::Imu topic
+    // We will publish the data in the accelerometer frame applying the
+    // transform from the /gyro to the /accel frame to the gyroscope data
+
+    imu_message_.header.frame_id = tf_prefix + "/accel";
+
+    //
+    // Covariance matrix for linear acceleration and angular velocity were
+    // generated using 2 minutes of logged data with the default imu
+    // settings. Note the angular velocity covariance has the nominal gyro
+    // to accelerometer transform applied to it
+
+    imu_message_.linear_acceleration_covariance[0] = 6.98179077e-04;
+    imu_message_.linear_acceleration_covariance[1] = 2.46789341e-06;
+    imu_message_.linear_acceleration_covariance[2] =-2.50549745e-06;
+    imu_message_.linear_acceleration_covariance[3] = 2.46789341e-06;
+    imu_message_.linear_acceleration_covariance[4] = 5.02177646e-04;
+    imu_message_.linear_acceleration_covariance[5] = 5.26265558e-05;
+    imu_message_.linear_acceleration_covariance[6] =-2.50549745e-06;
+    imu_message_.linear_acceleration_covariance[7] = 5.26265558e-05;
+    imu_message_.linear_acceleration_covariance[8] = 9.22796937e-04;
+
+    imu_message_.angular_velocity_covariance[0] = 8.79376936e-06;
+    imu_message_.angular_velocity_covariance[1] = -3.56007627e-07;
+    imu_message_.angular_velocity_covariance[2] = 2.22611968e-07;
+    imu_message_.angular_velocity_covariance[3] = -3.56007627e-07;
+    imu_message_.angular_velocity_covariance[4] = 8.78939245e-06;
+    imu_message_.angular_velocity_covariance[5] = -8.08367486e-07;
+    imu_message_.angular_velocity_covariance[6] = 1.33981577e-05;
+    imu_message_.angular_velocity_covariance[7] = 2.22611968e-07;
+    imu_message_.angular_velocity_covariance[8] = -8.08367486e-07;
+
     //
     // Get device info
 
@@ -87,6 +120,7 @@ Imu::Imu(Channel* driver) :
         return;
     }
 
+
     if (v.sensorFirmwareVersion < 0x0203)
         ROS_WARN("IMU support requires sensor firmware v2.3 or greater (sensor is running v%d.%d)",
                  v.sensorFirmwareVersion >> 8, v.sensorFirmwareVersion & 0xFF);
@@ -98,14 +132,18 @@ Imu::Imu(Channel* driver) :
         driver_->stopStreams(Source_Imu);
 
         accelerometer_pub_ = imu_nh_.advertise<multisense_ros::RawImuData>("accelerometer", 20,
-                                               boost::bind(&Imu::connect, this, imu::Sample::Type_Accelerometer),
-                                               boost::bind(&Imu::disconnect, this, imu::Sample::Type_Accelerometer));
+                                               boost::bind(&Imu::startStreams, this),
+                                               boost::bind(&Imu::stopStreams, this));
         gyroscope_pub_     = imu_nh_.advertise<multisense_ros::RawImuData>("gyroscope", 20,
-                                               boost::bind(&Imu::connect, this, imu::Sample::Type_Gyroscope),
-                                               boost::bind(&Imu::disconnect, this, imu::Sample::Type_Gyroscope));
+                                               boost::bind(&Imu::startStreams, this),
+                                               boost::bind(&Imu::stopStreams, this));
         magnetometer_pub_  = imu_nh_.advertise<multisense_ros::RawImuData>("magnetometer", 20,
-                                               boost::bind(&Imu::connect, this, imu::Sample::Type_Magnetometer),
-                                               boost::bind(&Imu::disconnect, this, imu::Sample::Type_Magnetometer));
+                                               boost::bind(&Imu::startStreams, this),
+                                               boost::bind(&Imu::stopStreams, this));
+        imu_pub_           = imu_nh_.advertise<sensor_msgs::Imu>("imu_data", 20,
+                                               boost::bind(&Imu::startStreams, this),
+                                               boost::bind(&Imu::stopStreams, this));
+
         driver_->addIsolatedCallback(imuCB, this);
     }
 }
@@ -117,11 +155,16 @@ Imu::~Imu()
 }
 
 void Imu::imuCallback(const imu::Header& header)
-{    
+{
     std::vector<imu::Sample>::const_iterator it = header.samples.begin();
 
+    uint32_t accel_subscribers = accelerometer_pub_.getNumSubscribers();
+    uint32_t gyro_subscribers = gyroscope_pub_.getNumSubscribers();
+    uint32_t mag_subscribers = magnetometer_pub_.getNumSubscribers();
+    uint32_t imu_subscribers = imu_pub_.getNumSubscribers();
+
     for(; it != header.samples.end(); ++it) {
-        
+
         const imu::Sample& s = *it;
 
         multisense_ros::RawImuData msg;
@@ -132,40 +175,57 @@ void Imu::imuCallback(const imu::Header& header)
         msg.y = s.y;
         msg.z = s.z;
 
+        imu_message_.header.stamp = msg.time_stamp;
+
         switch(s.type) {
         case imu::Sample::Type_Accelerometer:
+            //
+            // Convert from g to m/s^2
 
-            if (accel_subscribers_ > 0)
+            imu_message_.linear_acceleration.x = s.x * 9.80665;
+            imu_message_.linear_acceleration.y = s.y * 9.80665;
+            imu_message_.linear_acceleration.z = s.z * 9.80665;
+
+            if (accel_subscribers > 0)
                 accelerometer_pub_.publish(msg);
+
+            if (imu_subscribers > 0)
+                imu_pub_.publish(imu_message_);
 
             break;
         case imu::Sample::Type_Gyroscope:
 
-            if (gyro_subscribers_ > 0)
+            //
+            // Convert from deg/sec to rad/sec and apply the nominal
+            // calibration from the gyro to the accelerometer. Since all points
+            // on a rigid body have the same angular velocity only the rotation
+            // about the z axis of 90 degrees needs to be applied. (i.e.
+            // new_x = orig_y ; new_y = -orig_x)
+
+            imu_message_.angular_velocity.x = s.y * M_PI/180.;
+            imu_message_.angular_velocity.y = -s.x * M_PI/180.;
+            imu_message_.angular_velocity.z = s.z * M_PI/180.;
+
+            if (gyro_subscribers > 0)
                 gyroscope_pub_.publish(msg);
+
+            if (imu_subscribers > 0)
+                imu_pub_.publish(imu_message_);
 
             break;
         case imu::Sample::Type_Magnetometer:
 
-            if (mag_subscribers_ > 0)
+            if (mag_subscribers > 0)
                 magnetometer_pub_.publish(msg);
 
             break;
         }
-    }        
+    }
 }
 
-void Imu::connect(imu::Sample::Type type)
+
+void Imu::startStreams()
 {
-    boost::mutex::scoped_lock lock(sub_lock_);
-
-    switch(type) {
-    case imu::Sample::Type_Accelerometer: accel_subscribers_++;   break;
-    case imu::Sample::Type_Gyroscope:     gyro_subscribers_ ++;   break;
-    case imu::Sample::Type_Magnetometer:  mag_subscribers_  ++;   break;
-    default: ROS_WARN("unknown IMU subscription type: %d", type); return;
-    }
-
     if (0 == total_subscribers_) {
         Status status = driver_->startStreams(Source_Imu);
         if (Status_Ok != status)
@@ -173,21 +233,18 @@ void Imu::connect(imu::Sample::Type type)
                       Channel::statusString(status));
     }
 
-    total_subscribers_ = accel_subscribers_ + gyro_subscribers_ + mag_subscribers_;
+    total_subscribers_ = accelerometer_pub_.getNumSubscribers()
+                       + gyroscope_pub_.getNumSubscribers()
+                       + magnetometer_pub_.getNumSubscribers()
+                       + imu_pub_.getNumSubscribers();
 }
 
-void Imu::disconnect(imu::Sample::Type type)
+void Imu::stopStreams()
 {
-    boost::mutex::scoped_lock lock(sub_lock_);
-
-    switch(type) {
-    case imu::Sample::Type_Accelerometer: accel_subscribers_ --;  break;
-    case imu::Sample::Type_Gyroscope:     gyro_subscribers_  --;  break;
-    case imu::Sample::Type_Magnetometer:  mag_subscribers_   --;  break;
-    default: ROS_WARN("unknown IMU subscription type: %d", type); return;
-    }
-
-    total_subscribers_ = accel_subscribers_ + gyro_subscribers_ + mag_subscribers_;
+    total_subscribers_ = accelerometer_pub_.getNumSubscribers()
+                       + gyroscope_pub_.getNumSubscribers()
+                       + magnetometer_pub_.getNumSubscribers()
+                       + imu_pub_.getNumSubscribers();
 
     if (total_subscribers_ <= 0){
         Status status = driver_->stopStreams(Source_Imu);
