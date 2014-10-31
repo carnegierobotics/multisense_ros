@@ -2,6 +2,9 @@
 Changelog for package multisense_lib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.3.3 (2014-10-24)
 ------------------
 * Updated CMakeLists.txt to resolve linker errors with Jenkins.

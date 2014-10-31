@@ -2,6 +2,11 @@
 Changelog for package multisense_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Added sensor_msgs::Imu message publishing. No orientation information is published. Updated URDF models to have consistent accelerometer, magnetometer, and gyroscope frame_ids.
+* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
+
 3.3.3 (2014-10-24)
 ------------------
 
