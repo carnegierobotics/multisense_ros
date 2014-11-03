@@ -20,3 +20,8 @@ install(FILES
   multisense.launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
 )
+
+install(PROGRAMS
+  configureNetwork.sh
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
