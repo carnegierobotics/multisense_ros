@@ -2,6 +2,11 @@
 Changelog for package multisense_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Added catkin installation rule for configureNetwork.sh script.
+* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
+
 3.3.4 (2014-10-31)
 ------------------
 * Added sensor_msgs::Imu message publishing. No orientation information is published. Updated URDF models to have consistent accelerometer, magnetometer, and gyroscope frame_ids.
