@@ -2,6 +2,9 @@
 Changelog for package multisense_cal_check
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.3.5 (2014-11-03)
 ------------------
 

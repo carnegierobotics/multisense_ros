@@ -2,6 +2,11 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Added libturbojpeg dependency to multisense_ros. Based on pull request https://bitbucket.org/crl/multisense_ros/pull-request/5/added-libturbojpeg-to-dependencies-for/diff
+* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
+
 3.3.5 (2014-11-03)
 ------------------
 
