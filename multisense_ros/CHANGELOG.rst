@@ -2,6 +2,11 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Added support for the MultiSense Moncular camera.
+* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
+
 3.3.6 (2014-11-10)
 ------------------
 * Added libturbojpeg dependency to multisense_ros. Based on pull request https://bitbucket.org/crl/multisense_ros/pull-request/5/added-libturbojpeg-to-dependencies-for/diff
