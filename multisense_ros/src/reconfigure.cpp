@@ -92,6 +92,29 @@ Reconfigure::Reconfigure(Channel* driver,
                 new dynamic_reconfigure::Server<multisense_ros::st21_sgm_vga_imuConfig>(device_nh_));
         server_st21_vga_->setCallback(boost::bind(&Reconfigure::callback_st21_vga, this, _1, _2));
 
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == deviceInfo.hardwareRevision) {
+
+        switch(deviceInfo.imagerType) {
+        case system::DeviceInfo::IMAGER_TYPE_CMV2000_GREY:
+        case system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR:
+
+            server_mono_cmv2000_ =
+                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv2000Config> > (
+                    new dynamic_reconfigure::Server<multisense_ros::mono_cmv2000Config>(device_nh_));
+            server_mono_cmv2000_->setCallback(boost::bind(&Reconfigure::callback_mono_cmv2000, this, _1, _2));
+
+            break;
+        case system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY:
+        case system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR:
+
+            server_mono_cmv4000_ =
+                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv4000Config> > (
+                    new dynamic_reconfigure::Server<multisense_ros::mono_cmv4000Config>(device_nh_));
+            server_mono_cmv4000_->setCallback(boost::bind(&Reconfigure::callback_mono_cmv4000, this, _1, _2));
+
+            break;
+        }
+
     } else if (versionInfo.sensorFirmwareVersion <= 0x0202) {
 
         switch(deviceInfo.imagerType) {
@@ -489,6 +512,8 @@ void Reconfigure::callback_sl_bm_cmv4000      (multisense_ros::sl_bm_cmv4000Conf
 void Reconfigure::callback_sl_bm_cmv4000_imu  (multisense_ros::sl_bm_cmv4000_imuConfig&  dyn, uint32_t level) { SL_BM_IMU();   };
 void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU();  };
 void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU();  };
+void Reconfigure::callback_mono_cmv2000       (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { SL_BM_IMU();   };
+void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { SL_BM_IMU();   };
 
 //
 // BCAM (Sony IMX104)

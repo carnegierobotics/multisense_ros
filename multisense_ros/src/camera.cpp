@@ -453,14 +453,15 @@ Camera::Camera(Channel* driver,
     raw_cam_config_pub_ = calibration_nh.advertise<multisense_ros::RawCamConfig>("raw_cam_config", 1, true);
     histogram_pub_      = device_nh_.advertise<multisense_ros::Histogram>("histogram", 5);
 
-
     //
     // Change the way the luma pointcloud is published for ST21 sensors
+
     if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 == device_info_.hardwareRevision) {
 
         //
         // Luma images are 16 bit so when copying to the point cloud
         // structure copy 2 bytes
+
         luma_color_depth_ = 2;
     }
 
@@ -473,6 +474,8 @@ Camera::Camera(Channel* driver,
                               boost::bind(&Camera::connectStream, this, Source_Luma_Left),
                               boost::bind(&Camera::disconnectStream, this, Source_Luma_Left));
         /*
+          EMK: Why is this commented out?
+
         left_rect_cam_pub_  = left_rect_transport_.advertiseCamera("image_rect", 5,
                               boost::bind(&Camera::connectStream, this, Source_Luma_Left),
                               boost::bind(&Camera::disconnectStream, this, Source_Luma_Left));
@@ -490,7 +493,29 @@ Camera::Camera(Channel* driver,
         left_rgb_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>("image_rect_color/camera_info", 1, true);
 
 
-    } else {  // all MultiSense-S* variations
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == device_info_.hardwareRevision) {
+
+        // monocular variation
+
+        left_mono_cam_pub_  = left_mono_transport_.advertise("image_mono", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left));
+        left_rect_cam_pub_  = left_rect_transport_.advertiseCamera("image_rect", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
+        left_rgb_cam_pub_   = left_rgb_transport_.advertise("image_color", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
+                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+        left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera("image_rect_color", 5,
+                                 boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
+                                 boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+
+        left_mono_cam_info_pub_     = left_nh_.advertise<sensor_msgs::CameraInfo>("image_mono/camera_info", 1, true);
+        left_rect_cam_info_pub_     = left_nh_.advertise<sensor_msgs::CameraInfo>("image_rect/camera_info", 1, true);
+        left_rgb_cam_info_pub_      = left_nh_.advertise<sensor_msgs::CameraInfo>("image_color/camera_info", 1, true);
+        left_rgb_rect_cam_info_pub_ = left_nh_.advertise<sensor_msgs::CameraInfo>("image_rect_color/camera_info", 1, true);
+
+    } else {  // all other MultiSense-S* variations
 
 
         left_mono_cam_pub_  = left_mono_transport_.advertise("image_mono", 5,
