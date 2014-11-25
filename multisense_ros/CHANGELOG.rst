@@ -2,8 +2,8 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.7 (2014-11-25)
+------------------
 * Added support for the MultiSense Moncular camera.
 * Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
 

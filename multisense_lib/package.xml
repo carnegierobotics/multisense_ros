@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>multisense_lib</name>
-  <version>3.3.6</version>
+  <version>3.3.7</version>
   <description>multisense_lib</description>
   <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
   <license>BSD</license>
