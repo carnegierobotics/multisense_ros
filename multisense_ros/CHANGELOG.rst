@@ -2,8 +2,8 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.8 (2014-12-02)
+------------------
 * Added stereo_msgs/DisparityImage publishing for both left and right disparity images. Added latched default camera_info publishing for all image topics. Updated rosbuild multisense_ros CMakeLists.txt to build color_laser_publisher.
 * Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
 
