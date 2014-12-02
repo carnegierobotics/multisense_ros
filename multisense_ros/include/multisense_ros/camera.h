@@ -39,6 +39,7 @@
 #include <ros/ros.h>
 #include <multisense_ros/RawCamData.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <stereo_msgs/DisparityImage.h>
 #include <image_geometry/stereo_camera_model.h>
 #include <image_transport/image_transport.h>
 #include <image_transport/camera_publisher.h>
@@ -146,6 +147,9 @@ private:
     image_transport::Publisher       right_disparity_pub_;
     image_transport::Publisher       left_disparity_cost_pub_;
 
+    ros::Publisher                   left_stereo_disparity_pub_;
+    ros::Publisher                   right_stereo_disparity_pub_;
+
     //
     // Raw data publishers
 
@@ -175,6 +179,9 @@ private:
     sensor_msgs::Image         left_disparity_image_;
     sensor_msgs::Image         left_disparity_cost_image_;
     sensor_msgs::Image         right_disparity_image_;
+
+    stereo_msgs::DisparityImage left_stereo_disparity_;
+    stereo_msgs::DisparityImage right_stereo_disparity_;
 
     bool                       got_raw_cam_left_;
     bool                       got_left_luma_;
@@ -218,6 +225,12 @@ private:
     uint32_t                      pc_border_clip_;
     float                         pc_max_range_;
     bool                          pc_color_frame_sync_;
+
+
+    //
+    // Current maximum number of disparities
+
+    uint32_t                      disparities_;
 
     //
     // Stream subscriptions

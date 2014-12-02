@@ -16,10 +16,8 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-set(CMAKE_C_FLAGS "-O3")
-set(CMAKE_CXX_FLAGS "-O3")
-add_definitions(-mavx)
-add_definitions(-msse4)
+set(CMAKE_C_FLAGS "-O2")
+set(CMAKE_CXX_FLAGS "-O2")
 
 rosbuild_find_ros_package(dynamic_reconfigure)
 include(${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake)
@@ -54,3 +52,7 @@ rosbuild_add_executable(raw_snapshot src/raw_snapshot.cpp)
 target_link_libraries(raw_snapshot ${PROJECT_NAME})
 set_target_properties(raw_snapshot
   PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/source/LibMultiSense")
+
+add_executable(color_laser_publisher src/color_laser.cpp)
+target_link_libraries(color_laser_publisher ${PROJECT_NAME})
+
