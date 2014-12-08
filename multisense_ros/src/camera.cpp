@@ -144,7 +144,6 @@ bool publishPointCloud(int64_t                       imageFrameId,
                        const std::vector<cv::Vec3f>& points,
                        const uint8_t*                imageP,
                        const uint32_t                colorChannels,
-                       const uint32_t                borderClip,
                        const float                   maxRange,
                        bool                          writeColorPacked,
                        bool                          organized)
@@ -173,41 +172,36 @@ bool publishPointCloud(int64_t                       imageFrameId,
                        std::numeric_limits<float>::quiet_NaN(),
                        std::numeric_limits<float>::quiet_NaN());
 
-    //
-    // When publishing organized pointclouds the number of points in the
-    // pointcloud should be equal to the size of the disparity image. The
-    // default border clip logic does not publish points which are not
-    // in the border region. We want to modify the logic to publish Nan
-    // points in the border regions meaning we need to iterate over the entire
-    // reprojected image.
-    const uint32_t clipRegion = organized ? 0 : borderClip;
 
-    for(uint32_t i=clipRegion; i<(height - clipRegion); ++i)
-        for(uint32_t j=clipRegion; j<(width - clipRegion); ++j) {
+    for(uint32_t i=0; i<height; ++i)
+        for(uint32_t j=0; j<width; ++j) {
 
             const uint32_t index = i * width + j;
 
             const uint32_t* pointP = reinterpret_cast<const uint32_t*>(&points[index]);
             uint32_t* targetCloudP = reinterpret_cast<uint32_t*>(cloudP);
 
-            if (organized) {
-                //
-                // If the point is in a border region or it is invalid publish
-                // a Nan point
-                if (i < borderClip || i > height - borderClip ||
-                    j < borderClip || j > width - borderClip ||
-                    false == isValidPoint(points[index], maxRange)) {
 
+            //
+            // When creating an organized pointcloud replace invalid points
+            // with NaN points
+
+            if (false == isValidPoint(points[index], maxRange))
+            {
+                if (organized)
+                {
                     pointP = reinterpret_cast<const uint32_t*>(&nanPoint[0]);
                 }
-
-            } else {
-                if (false == isValidPoint(points[index], maxRange))
+                else
+                {
                     continue;
+                }
             }
+
 
             //
             // Directly copy points to eliminate memcpy
+
             targetCloudP[0] = pointP[0];
             targetCloudP[1] = pointP[1];
             targetCloudP[2] = pointP[2];
@@ -220,6 +214,7 @@ bool publishPointCloud(int64_t                       imageFrameId,
             // Write the poincloud packed if specified or the color image
             // is BGR. Copying is optimized to eliminate memcpy operations
             // increasing overall speed
+
             if (writeColorPacked || colorChannels > 2)
             {
                 switch(colorChannels)
@@ -242,6 +237,10 @@ bool publishPointCloud(int64_t                       imageFrameId,
                 } color;
 
                 color.value = 0;
+
+                //
+                // We only need to copy 2 values since this case only
+                // applies for images with color channels of 1 or 2 bytes
 
                 color.bytes[0] = sourceColorP[0];
                 color.bytes[1] = sourceColorP[1] & ((colorChannels > 1) * 255);
@@ -416,7 +415,6 @@ Camera::Camera(Channel* driver,
     points_buff_(),
     points_buff_frame_id_(-1),
     q_matrix_(4, 4, 0.0),
-    pc_border_clip_(10),
     pc_max_range_(15.0f),
     pc_color_frame_sync_(true),
     disparities_(0),
@@ -424,7 +422,10 @@ Camera::Camera(Channel* driver,
     stream_map_(),
     last_frame_id_(-1),
     luma_color_depth_(1),
-    write_pc_color_packed_(false)
+    write_pc_color_packed_(false),
+    border_clip_type_(0),
+    border_clip_value_(0.0),
+    border_clip_lock_()
 {
     //
     // Query device and version information from sensor
@@ -818,17 +819,6 @@ Camera::Camera(Channel* driver,
 
     driver_->addIsolatedCallback(histCB, allImageSources, this);
 
-    //
-    // Get the border clip, if any
-
-    const char *pcBorderClipEnvStringP = getenv("MULTISENSE_ROS_PC_BORDER_CLIP");
-    if (NULL != pcBorderClipEnvStringP) {
-        int32_t tmp = atoi(pcBorderClipEnvStringP);
-        if (tmp > 0) {
-            pc_border_clip_ = atoi(pcBorderClipEnvStringP);
-            ROS_INFO("pc_border_clip: %d", pc_border_clip_);
-        }
-    }
 
     //
     // Disable color point cloud strict frame syncing, if desired
@@ -1300,7 +1290,6 @@ void Camera::rectCallback(const image::Header& header)
                           luma_cloud_step,
                           points_buff_,
                           &(left_rect_image_.data[0]), luma_color_depth_,
-                          pc_border_clip_,
                           pc_max_range_,
                           write_pc_color_packed_,
                           false);
@@ -1317,7 +1306,6 @@ void Camera::rectCallback(const image::Header& header)
                           luma_cloud_step,
                           points_buff_,
                           &(left_rect_image_.data[0]), luma_color_depth_,
-                          pc_border_clip_,
                           pc_max_range_,
                           write_pc_color_packed_,
                           true);
@@ -1472,6 +1460,8 @@ void Camera::pointCloudCallback(const image::Header& header)
         0 == color_organized_point_cloud_pub_.getNumSubscribers())
         return;
 
+    boost::mutex::scoped_lock lock(border_clip_lock_);
+
     const bool      handle_missing = true;
     const uint32_t  imageSize      = header.height * header.width;
 
@@ -1514,6 +1504,16 @@ void Camera::pointCloudCallback(const image::Header& header)
     }
 
     //
+    // Apply the border clip mask making all the points in the border clip region
+    // invalid. Only do this if we have selected a border clip value
+
+    if ( border_clip_value_ > 0)
+    {
+        points.setTo(cv::Vec3f(10000.0, 10000.0, 10000.0), border_clip_mask_);
+    }
+
+
+    //
     // Store the disparity frame ID
 
     points_buff_frame_id_ = header.frameId;
@@ -1533,7 +1533,6 @@ void Camera::pointCloudCallback(const image::Header& header)
                       luma_cloud_step,
                       points_buff_,
                       &(left_rect_image_.data[0]), luma_color_depth_,
-                      pc_border_clip_,
                       pc_max_range_,
                       write_pc_color_packed_,
                       false);
@@ -1550,7 +1549,6 @@ void Camera::pointCloudCallback(const image::Header& header)
                       color_cloud_step,
                       points_buff_,
                       &(left_rgb_rect_image_.data[0]), 3,
-                      pc_border_clip_,
                       pc_max_range_,
                       write_pc_color_packed_,
                       false);
@@ -1567,7 +1565,6 @@ void Camera::pointCloudCallback(const image::Header& header)
                       luma_cloud_step,
                       points_buff_,
                       &(left_rect_image_.data[0]), luma_color_depth_,
-                      pc_border_clip_,
                       pc_max_range_,
                       write_pc_color_packed_,
                       true);
@@ -1584,7 +1581,6 @@ void Camera::pointCloudCallback(const image::Header& header)
                       color_cloud_step,
                       points_buff_,
                       &(left_rgb_rect_image_.data[0]), 3,
-                      pc_border_clip_,
                       pc_max_range_,
                       write_pc_color_packed_,
                       true);
@@ -1803,7 +1799,6 @@ void Camera::colorImageCallback(const image::Header& header)
                                       color_cloud_step,
                                       points_buff_,
                                       &(left_rgb_rect_image_.data[0]), 3,
-                                      pc_border_clip_,
                                       pc_max_range_,
                                       write_pc_color_packed_,
                                       false);
@@ -1820,7 +1815,6 @@ void Camera::colorImageCallback(const image::Header& header)
                                       color_cloud_step,
                                       points_buff_,
                                       &(left_rgb_rect_image_.data[0]), 3,
-                                      pc_border_clip_,
                                       pc_max_range_,
                                       write_pc_color_packed_,
                                       true);
@@ -2069,6 +2063,84 @@ void Camera::queryConfig()
     cfg.yaw   = c.yaw();
 
     raw_cam_config_pub_.publish(cfg);
+
+    generateBorderClip(border_clip_type_, border_clip_value_, c.height(), c.width());
+}
+
+void Camera::borderClipChanged(int borderClipType, double borderClipValue)
+{
+    //
+    // This assumes the image resolution did not change and will just use
+    // the current mask size as width and height arguments
+
+    generateBorderClip(borderClipType, borderClipValue, border_clip_mask_.rows, border_clip_mask_.cols);
+
+}
+
+void Camera::generateBorderClip(int borderClipType, double borderClipValue, uint32_t height, uint32_t width)
+{
+
+    boost::mutex::scoped_lock lock(border_clip_lock_);
+
+    border_clip_type_ = borderClipType;
+    border_clip_value_ = borderClipValue;
+
+    //
+    // Reset the border clip mask
+
+    border_clip_mask_ = cv::Mat_<uint8_t>(height, width, static_cast<uint8_t>(255));
+
+    //
+    // Manually generate our disparity border clipping mask. Points with
+    // a value of 255 are excluded from the pointcloud. Points with a value of 0
+    // are included
+
+    double halfWidth = static_cast<double>(width)/2.0;
+    double halfHeight = static_cast<double>(height)/2.0;
+
+    //
+    // Precompute the maximum radius from the center of the image for a point
+    // to be considered in the circle
+
+    double radius = sqrt( pow( halfWidth, 2) + pow( halfHeight, 2) );
+    radius -= borderClipValue;
+
+    for (uint32_t u = 0 ; u < width ; ++u)
+    {
+        for (uint32_t v = 0 ; v < height ; ++v)
+        {
+            switch (borderClipType)
+            {
+                case RECTANGULAR:
+                {
+                    if ( u >= borderClipValue && u <= width - borderClipValue &&
+                         v >= borderClipValue && v <= height - borderClipValue)
+                    {
+                        border_clip_mask_(v, u) = 0;
+                    }
+
+                    break;
+                }
+                case CIRCULAR:
+                {
+                    double vector = sqrt( pow( halfWidth - u, 2) +
+                                          pow( halfHeight - v, 2) );
+
+                    if ( vector < radius)
+                    {
+                        border_clip_mask_(v, u) = 0;
+                    }
+
+                    break;
+                }
+                default:
+                {
+                    ROS_WARN("Unknown border clip type.");
+                    return;
+                }
+            }
+        }
+    }
 }
 
 void Camera::stop()

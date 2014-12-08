@@ -58,7 +58,8 @@ class Reconfigure {
 public:
 
     Reconfigure(crl::multisense::Channel* driver,
-                boost::function<void ()> resolutionChangeCallback=0);
+                boost::function<void ()> resolutionChangeCallback=0,
+                boost::function<void (int, int)> borderClipChangeCallback=0);
 
     ~Reconfigure();
 
@@ -88,6 +89,7 @@ private:
     template<class T> void configureSgm(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureCamera(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureImu(const T& dyn);
+    template<class T> void configureBorderClip(const T& dyn);
 
     //
     // CRL sensor API
@@ -131,6 +133,20 @@ private:
 
     bool lighting_supported_;
     bool motor_supported_;
+
+    //
+    // Cached value for the boarder clip. These are used to determine if we
+    // should regenerate our border clipping mask
+
+    enum clip_ {RECTANGULAR, CIRCULAR};
+
+    int border_clip_type_;
+    double border_clip_value_;
+
+    //
+    // Border clip change callback
+
+    boost::function<void (int, int)> border_clip_change_callback_;
 };
 
 } // multisense_ros

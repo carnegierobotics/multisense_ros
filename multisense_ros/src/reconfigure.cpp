@@ -38,7 +38,8 @@ using namespace crl::multisense;
 namespace multisense_ros {
 
 Reconfigure::Reconfigure(Channel* driver,
-                         boost::function<void ()> resolutionChangeCallback) :
+                         boost::function<void ()> resolutionChangeCallback,
+                         boost::function<void (int, int)> borderClipChangeCallback) :
     driver_(driver),
     resolution_change_callback_(resolutionChangeCallback),
     device_nh_(""),
@@ -54,7 +55,10 @@ Reconfigure::Reconfigure(Channel* driver,
     server_bcam_imx104_(),
     server_st21_vga_(),
     lighting_supported_(true),
-    motor_supported_(true)
+    motor_supported_(true),
+    border_clip_type_(RECTANGULAR),
+    border_clip_value_(0.0),
+    border_clip_change_callback_(borderClipChangeCallback)
 {
     system::DeviceInfo  deviceInfo;
     system::VersionInfo versionInfo;
@@ -474,6 +478,32 @@ template<class T> void Reconfigure::configureImu(const T& dyn)
     }
 }
 
+template<class T> void Reconfigure::configureBorderClip(const T& dyn)
+{
+    bool regenerate = false;
+
+    if (dyn.border_clip_type != border_clip_type_)
+    {
+        border_clip_type_ = dyn.border_clip_type;
+        regenerate = true;
+    }
+
+    if (dyn.border_clip_value != border_clip_value_)
+    {
+        border_clip_value_ = dyn.border_clip_value;
+        regenerate = true;
+    }
+
+    if (regenerate)
+    {
+        if (false == border_clip_change_callback_.empty())
+        {
+            border_clip_change_callback_(dyn.border_clip_type, dyn.border_clip_value);
+        }
+    }
+}
+
+
 #define GET_CONFIG()                                                    \
     image::Config cfg;                                                  \
     Status status = driver_->getImageConfig(cfg);                       \
@@ -486,12 +516,14 @@ template<class T> void Reconfigure::configureImu(const T& dyn)
 #define SL_BM()  do {                                           \
         GET_CONFIG();                                           \
         configureCamera(cfg, dyn);                              \
+        configureBorderClip(dyn);                               \
     } while(0)
 
 #define SL_BM_IMU()  do {                                       \
         GET_CONFIG();                                           \
         configureCamera(cfg, dyn);                              \
         configureImu(dyn);                                      \
+        configureBorderClip(dyn);                               \
     } while(0)
 
 #define SL_SGM_IMU()  do {                                      \
@@ -499,6 +531,7 @@ template<class T> void Reconfigure::configureImu(const T& dyn)
         configureSgm(cfg, dyn);                                 \
         configureCamera(cfg, dyn);                              \
         configureImu(dyn);                                      \
+        configureBorderClip(dyn);                               \
     } while(0)
 
 
@@ -666,6 +699,8 @@ void Reconfigure::callback_st21_vga(multisense_ros::st21_sgm_vga_imuConfig& dyn,
             ROS_ERROR("Reconfigure: failed to restart streams after a resolution change: %s",
                       Channel::statusString(status));
     }
+
+    configureBorderClip(dyn);
 }
 
 } // namespace

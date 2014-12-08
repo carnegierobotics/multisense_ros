@@ -66,6 +66,8 @@ public:
     void jpegImageCallback(const crl::multisense::image::Header& header);
     void histogramCallback(const crl::multisense::image::Header& header);
 
+    void borderClipChanged(int borderClipType, double borderClipValue);
+
 private:
 
     //
@@ -79,6 +81,12 @@ private:
     // Query sensor status and calibration
 
     void queryConfig();
+
+    //
+    // Grenerate border clips for point clouds
+
+    void generateBorderClip(int borderClipType, double borderClipValue, uint32_t width, uint32_t height);
+
 
     //
     // CRL sensor API
@@ -222,7 +230,6 @@ private:
     std::vector<cv::Vec3f>        points_buff_;
     int64_t                       points_buff_frame_id_;
     cv::Mat_<double>              q_matrix_;
-    uint32_t                      pc_border_clip_;
     float                         pc_max_range_;
     bool                          pc_color_frame_sync_;
 
@@ -254,6 +261,21 @@ private:
     // it will be static_cast to a flat and interpreted literally
 
     bool write_pc_color_packed_;
+
+    //
+    // Enum to determine border clipping types
+
+    enum clip_type_ {RECTANGULAR, CIRCULAR};
+
+    int border_clip_type_;
+    double border_clip_value_;
+
+    //
+    // The mask used to perform the border clipping of the disparity image
+
+    cv::Mat_<uint8_t> border_clip_mask_;
+
+    boost::mutex border_clip_lock_;
 };
 
 }
