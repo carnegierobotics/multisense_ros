@@ -2,8 +2,8 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.9 (2014-12-08)
+------------------
 * Added reconfigurable border clipping options for the output pointclouds.
 * Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
 
