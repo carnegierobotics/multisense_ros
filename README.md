@@ -1,6 +1,6 @@
 # multisense_ros
 
-Wrappers, drivers, tools and additional API's for using MultiSense SL with ROS.
+Wrappers, drivers, tools and additional API's for using MultiSense SL, S7, S21, and other sensors from Carnegie Robotics with ROS.
 
 ### Installation, Documentation and Tutorials
 [Installing multisense_ros](http://docs.carnegierobotics.com/S21/install.html#install)
