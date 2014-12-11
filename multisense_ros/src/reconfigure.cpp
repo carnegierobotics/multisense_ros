@@ -327,6 +327,7 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     cfg.setAutoWhiteBalance(dyn.auto_white_balance);
     cfg.setAutoWhiteBalanceDecay(dyn.auto_white_balance_decay);
     cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
+    cfg.setHdr(dyn.hdr_enable);
 
     //
     // Apply, sensor enforces limits per setting.

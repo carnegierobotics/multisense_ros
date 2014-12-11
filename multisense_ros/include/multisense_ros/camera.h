@@ -83,6 +83,12 @@ private:
     void queryConfig();
 
     //
+    // Update camera info messages by publishing the most current messages
+    // Used whenever the resolution of the camera changes
+
+    void updateCameraInfo();
+
+    //
     // Grenerate border clips for point clouds
 
     void generateBorderClip(int borderClipType, double borderClipValue, uint32_t width, uint32_t height);

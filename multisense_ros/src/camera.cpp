@@ -1882,18 +1882,6 @@ void Camera::queryConfig()
     left_rgb_rect_cam_info_ = left_rect_cam_info_;
 
     //
-    // Publish our camera info here. The publishers are latching so the messages
-    // will persist until a new message is published in one of the driver
-    // callbacks. This makes it easier when a user is trying access a camera_info
-    // for a topic which they are not subscribed to
-
-    left_rect_cam_info_pub_.publish(left_rect_cam_info_);
-    right_rect_cam_info_pub_.publish(right_rect_cam_info_);
-    left_disp_cam_info_pub_.publish(left_disp_cam_info_);
-    left_cost_cam_info_pub_.publish(left_cost_cam_info_);
-    left_rect_cam_info_pub_.publish(left_rgb_cam_info_);
-
-    //
     // Compute the Q matrix here, as image_geometery::StereoCameraModel does
     // not allow for non-square pixels.
     //
@@ -2034,13 +2022,6 @@ void Camera::queryConfig()
     left_rgb_cam_info_ = left_mono_cam_info_;
 
     //
-    // Published our unrectified camera info topics
-
-    left_mono_cam_info_pub_.publish(left_mono_cam_info_);
-    right_mono_cam_info_pub_.publish(right_mono_cam_info_);
-    left_rgb_cam_info_pub_.publish(left_rgb_cam_info_);
-
-    //
     // Publish the "raw" config message
 
     multisense_ros::RawCamConfig cfg;
@@ -2064,7 +2045,61 @@ void Camera::queryConfig()
 
     raw_cam_config_pub_.publish(cfg);
 
+    //
+    // Update the border clipping mask since the resolution changed
+
     generateBorderClip(border_clip_type_, border_clip_value_, c.height(), c.width());
+
+    //
+    // Republish our camera info topics since the resolution changed
+
+    updateCameraInfo();
+}
+
+void Camera::updateCameraInfo()
+{
+
+    //
+    // Republish camera info messages outside of image callbacks.
+    // The camera info publishers are latching so the messages
+    // will persist until a new message is published in one of the image
+    // callbacks. This makes it easier when a user is trying access a camera_info
+    // for a topic which they are not subscribed to
+
+    if (system::DeviceInfo::HARDWARE_REV_BCAM == device_info_.hardwareRevision) {
+
+        left_mono_cam_info_pub_.publish(left_mono_cam_info_);
+        left_rgb_cam_info_pub_.publish(left_rgb_cam_info_);
+        left_rgb_rect_cam_info_pub_.publish(left_rgb_rect_cam_info_);
+
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == device_info_.hardwareRevision) {
+
+        left_mono_cam_info_pub_.publish(left_mono_cam_info_);
+        left_rect_cam_info_pub_.publish(left_rect_cam_info_);
+        left_rgb_cam_info_pub_.publish(left_rgb_cam_info_);
+        left_rgb_rect_cam_info_pub_.publish(left_rgb_rect_cam_info_);
+
+    } else {  // all other MultiSense-S* variations
+
+        if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision) {
+
+            left_rgb_cam_info_pub_.publish(left_rgb_cam_info_);
+            left_rgb_rect_cam_info_pub_.publish(left_rgb_rect_cam_info_);
+        }
+
+        if (version_info_.sensorFirmwareVersion >= 0x0300) {
+
+            right_disp_cam_info_pub_.publish(right_disp_cam_info_);
+            left_cost_cam_info_pub_.publish(left_cost_cam_info_);
+        }
+
+        left_mono_cam_info_pub_.publish(left_mono_cam_info_);
+        left_rect_cam_info_pub_.publish(left_rect_cam_info_);
+        right_mono_cam_info_pub_.publish(right_mono_cam_info_);
+        right_rect_cam_info_pub_.publish(right_rect_cam_info_);
+        left_disp_cam_info_pub_.publish(left_disp_cam_info_);
+
+    }
 }
 
 void Camera::borderClipChanged(int borderClipType, double borderClipValue)
