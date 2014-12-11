@@ -2,6 +2,11 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Updated LibMultiSense to version 3.5. Fixed camera_info publishing bug for non-standard cameras (BCAM, Multisense-M, ST21). Added HDR option to dynamic reconfigure.
+* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
+
 3.3.9 (2014-12-08)
 ------------------
 * Added reconfigurable border clipping options for the output pointclouds.
