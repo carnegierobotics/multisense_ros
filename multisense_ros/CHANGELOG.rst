@@ -2,8 +2,8 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.4.0 (2014-12-11)
+------------------
 * Updated LibMultiSense to version 3.5. Fixed camera_info publishing bug for non-standard cameras (BCAM, Multisense-M, ST21). Added HDR option to dynamic reconfigure.
 * Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
 
