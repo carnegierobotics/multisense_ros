@@ -43,6 +43,8 @@
 #include <image_geometry/stereo_camera_model.h>
 #include <image_transport/image_transport.h>
 #include <image_transport/camera_publisher.h>
+#include <sensor_msgs/distortion_models.h>
+
 
 #include <multisense_lib/MultiSenseChannel.hh>
 
@@ -83,13 +85,26 @@ private:
     void queryConfig();
 
     //
-    // Update camera info messages by publishing the most current messages
-    // Used whenever the resolution of the camera changes
+    // Update a specific camera info topic. This is used once the camera resolution has changed.
+    // Scale factors in x and y are applied to M and P camera matrices. M and P
+    // matrices are assumed to be full resolution
 
-    void updateCameraInfo();
+    void updateCameraInfo(sensor_msgs::CameraInfo& cameraInfo,
+                          const float M[3][3],
+                          const float R[3][3],
+                          const float P[3][4],
+                          const float D[8],
+                          double xScale=1,
+                          double yScale=1);
 
     //
-    // Grenerate border clips for point clouds
+    // Republish camera info messages by publishing the current messages
+    // Used whenever the resolution of the camera changes
+
+    void publishAllCameraInfo();
+
+    //
+    // Generate border clips for point clouds
 
     void generateBorderClip(int borderClipType, double borderClipValue, uint32_t width, uint32_t height);
 
@@ -132,12 +147,13 @@ private:
     sensor_msgs::CameraInfo          right_disp_cam_info_;
     sensor_msgs::CameraInfo          left_cost_cam_info_;
     sensor_msgs::CameraInfo          left_rgb_cam_info_;
+    sensor_msgs::CameraInfo          depth_cam_info_;
 
     image_transport::Publisher       left_mono_cam_pub_;
     image_transport::Publisher       right_mono_cam_pub_;
     image_transport::CameraPublisher left_rect_cam_pub_;
     image_transport::CameraPublisher right_rect_cam_pub_;
-    image_transport::CameraPublisher depth_cam_pub_;
+    image_transport::Publisher       depth_cam_pub_;
     image_transport::Publisher       left_rgb_cam_pub_;
     image_transport::CameraPublisher left_rgb_rect_cam_pub_;
 
@@ -150,6 +166,7 @@ private:
     ros::Publisher                   left_cost_cam_info_pub_;
     ros::Publisher                   left_rgb_cam_info_pub_;
     ros::Publisher                   left_rgb_rect_cam_info_pub_;
+    ros::Publisher                   depth_cam_info_pub_;
 
     ros::Publisher                   luma_point_cloud_pub_;
     ros::Publisher                   color_point_cloud_pub_;

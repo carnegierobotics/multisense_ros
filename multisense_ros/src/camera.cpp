@@ -345,6 +345,7 @@ Camera::Camera(Channel* driver,
     right_disp_cam_info_(),
     left_cost_cam_info_(),
     left_rgb_cam_info_(),
+    depth_cam_info_(),
     left_mono_cam_pub_(),
     right_mono_cam_pub_(),
     left_rect_cam_pub_(),
@@ -361,6 +362,7 @@ Camera::Camera(Channel* driver,
     left_cost_cam_info_pub_(),
     left_rgb_cam_info_pub_(),
     left_rgb_rect_cam_info_pub_(),
+    depth_cam_info_pub_(),
     luma_point_cloud_pub_(),
     color_point_cloud_pub_(),
     luma_organized_point_cloud_pub_(),
@@ -530,7 +532,7 @@ Camera::Camera(Channel* driver,
         right_rect_cam_pub_ = right_rect_transport_.advertiseCamera("image_rect", 5,
                               boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Right),
                               boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Right));
-        depth_cam_pub_      = depth_transport_.advertiseCamera("depth", 5,
+        depth_cam_pub_      = depth_transport_.advertise("depth", 5,
                               boost::bind(&Camera::connectStream, this, Source_Disparity),
                               boost::bind(&Camera::disconnectStream, this, Source_Disparity));
 
@@ -603,6 +605,7 @@ Camera::Camera(Channel* driver,
         left_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>("image_rect/camera_info", 1, true);
         right_rect_cam_info_pub_ = right_nh_.advertise<sensor_msgs::CameraInfo>("image_rect/camera_info", 1, true);
         left_disp_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>("disparity/camera_info", 1, true);
+        depth_cam_info_pub_ = device_nh_.advertise<sensor_msgs::CameraInfo>("depth/camera_info", 1, true);
     }
 
 
@@ -1443,7 +1446,10 @@ void Camera::depthCallback(const image::Header& header)
         return;
     }
 
-    depth_cam_pub_.publish(depth_image_, left_rect_cam_info_);
+    depth_cam_pub_.publish(depth_image_);
+
+    depth_cam_info_.header = depth_image_.header;
+    depth_cam_info_pub_.publish(depth_cam_info_);
 }
 
 void Camera::pointCloudCallback(const image::Header& header)
@@ -1856,30 +1862,44 @@ void Camera::queryConfig()
 
     left_rect_cam_info_.width  = c.width();
     left_rect_cam_info_.height = c.height();
-    left_rect_cam_info_.P[0]   = c.fx();       left_rect_cam_info_.P[1]   = 0.0;
-    left_rect_cam_info_.P[4]   = 0.0;          left_rect_cam_info_.P[5]   = c.fy();
-    left_rect_cam_info_.P[8]   = 0.0;          left_rect_cam_info_.P[9]   = 0.0;
-    left_rect_cam_info_.P[2]   = c.cx();       left_rect_cam_info_.P[3]   = 0.0;
-    left_rect_cam_info_.P[6]   = c.cy();       left_rect_cam_info_.P[7]   = 0.0;
-    left_rect_cam_info_.P[10]  = 1.0;          left_rect_cam_info_.P[11]  = 0.0;
 
-    right_rect_cam_info_.width  = c.width();
+    right_rect_cam_info_.width = c.width();
     right_rect_cam_info_.height = c.height();
-    right_rect_cam_info_.P[0]   = c.fx();      right_rect_cam_info_.P[1]  = 0.0;
-    right_rect_cam_info_.P[4]   = 0.0;         right_rect_cam_info_.P[5]  = c.fy();
-    right_rect_cam_info_.P[8]   = 0.0;         right_rect_cam_info_.P[9]  = 0.0;
-    right_rect_cam_info_.P[2]   = c.cx();      right_rect_cam_info_.P[3]  = c.tx() * c.fx();
-    right_rect_cam_info_.P[6]   = c.cy();      right_rect_cam_info_.P[7]  = 0.0;
-    right_rect_cam_info_.P[10]  = 1.0;         right_rect_cam_info_.P[11] = 0.0;
-
 
     //
-    // Populate our other camera_info topics (except mono topics)
+    // Calibration from sensor is for native resolution
+
+    image::Calibration cal = image_calibration_;
+
+    const float x_scale = 1.0f / ((static_cast<float>(device_info_.imagerWidth) /
+                                   static_cast<float>(c.width())));
+    const float y_scale = 1.0f / ((static_cast<float>(device_info_.imagerHeight) /
+                                   static_cast<float>(c.height())));
+
+    //
+    // Populate our rectified camera info topics
+
+    updateCameraInfo(left_rect_cam_info_, cal.left.M, cal.left.R, cal.left.P, cal.left.D, x_scale, y_scale);
+    updateCameraInfo(right_rect_cam_info_, cal.right.M, cal.right.R, cal.right.P, cal.right.D, x_scale, y_scale);
+
+    //
+    // Copy our rectified camera info topics to populate the other camera info.
 
     left_disp_cam_info_ = left_rect_cam_info_;
-    right_disp_cam_info_ = right_rect_cam_info_;
     left_cost_cam_info_ = left_rect_cam_info_;
     left_rgb_rect_cam_info_ = left_rect_cam_info_;
+    left_mono_cam_info_ = left_rect_cam_info_;
+    left_rgb_cam_info_ = left_rect_cam_info_;
+    depth_cam_info_ = left_rect_cam_info_;
+
+    right_mono_cam_info_ = right_rect_cam_info_;
+    right_disp_cam_info_ = right_rect_cam_info_;
+
+    //
+    // Update the frame ID's for the unrectified right image topics
+
+    right_mono_cam_info_.header.frame_id = frame_id_right_;
+    right_disp_cam_info_.header.frame_id = frame_id_right_;
 
     //
     // Compute the Q matrix here, as image_geometery::StereoCameraModel does
@@ -1899,8 +1919,7 @@ void Camera::queryConfig()
     q_matrix_(3,3) =  c.fy() * (right_rect_cam_info_.P[2] - left_rect_cam_info_.P[2]);
 
     //
-    // For local rectification of color images
-
+    // Create rectification maps for local rectification of color images
 
     if (calibration_map_left_1_)
         cvReleaseMat(&calibration_map_left_1_);
@@ -1909,16 +1928,6 @@ void Camera::queryConfig()
 
     calibration_map_left_1_ = cvCreateMat(c.height(), c.width(), CV_32F);
     calibration_map_left_2_ = cvCreateMat(c.height(), c.width(), CV_32F);
-
-    //
-    // Calibration from sensor is for native resolution
-
-    image::Calibration cal = image_calibration_;
-
-    const float x_scale = 1.0f / ((static_cast<float>(device_info_.imagerWidth) /
-                                   static_cast<float>(c.width())));
-    const float y_scale = 1.0f / ((static_cast<float>(device_info_.imagerHeight) /
-                                   static_cast<float>(c.height())));
 
     cal.left.M[0][0]  *= x_scale;  cal.left.M[1][1]  *= y_scale;
     cal.left.M[0][2]  *= x_scale;  cal.left.M[1][2]  *= y_scale;
@@ -1937,89 +1946,6 @@ void Camera::queryConfig()
                               calibration_map_left_1_,
                               calibration_map_left_2_);
 
-    //
-    // Populate the left and right mono camera_info messages after our
-    // P matrices for the left and right cameras have been scaled
-
-    left_mono_cam_info_.header = left_rect_cam_info_.header;
-    left_mono_cam_info_.width = left_rect_cam_info_.width;
-    left_mono_cam_info_.height = left_rect_cam_info_.height;
-    left_mono_cam_info_.K[0] = cal.left.M[0][0];    left_mono_cam_info_.K[1] = cal.left.M[0][1];
-    left_mono_cam_info_.K[2] = cal.left.M[0][2];    left_mono_cam_info_.K[3] = cal.left.M[1][0];
-    left_mono_cam_info_.K[4] = cal.left.M[1][1];    left_mono_cam_info_.K[5] = cal.left.M[1][2];
-    left_mono_cam_info_.K[6] = cal.left.M[2][0];    left_mono_cam_info_.K[7] = cal.left.M[2][1];
-    left_mono_cam_info_.K[8] = cal.left.M[2][2];
-
-    //
-    // Distortion coefficients follow OpenCV's convention.
-    // k1, k2, p1, p2, k3, k4, k5, k6
-
-    left_mono_cam_info_.D.resize(8);
-    for (uint8_t i=0 ; i < 8 ; ++i) {
-        left_mono_cam_info_.D[i] = cal.left.D[i];
-    }
-
-
-    //
-    // MultiSense cameras support both the full 8 parameter rational_polynomial
-    // model and the simplified 5 parameter plum_bob model. If the last 3
-    // parameters of the distortion model are 0 then the camera is using
-    // the simplified plumb_bob model
-
-    if (cal.left.D[7] == 0.0 && cal.left.D[6] == 0.0 && cal.left.D[5] == 0.0) {
-        left_mono_cam_info_.distortion_model = sensor_msgs::distortion_models::PLUMB_BOB;
-    } else {
-        left_mono_cam_info_.distortion_model = sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL;
-    }
-
-    left_mono_cam_info_.R[0] = cal.left.R[0][0];     left_mono_cam_info_.R[1] = cal.left.R[0][1];
-    left_mono_cam_info_.R[2] = cal.left.R[0][2];     left_mono_cam_info_.R[3] = cal.left.R[1][0];
-    left_mono_cam_info_.R[4] = cal.left.R[1][1];     left_mono_cam_info_.R[5] = cal.left.R[1][2];
-    left_mono_cam_info_.R[6] = cal.left.R[2][0];     left_mono_cam_info_.R[7] = cal.left.R[2][1];
-    left_mono_cam_info_.R[8] = cal.left.R[2][2];
-
-    right_mono_cam_info_.header.stamp = left_mono_cam_info_.header.stamp;
-    right_mono_cam_info_.header.frame_id = frame_id_right_;
-    right_mono_cam_info_.width = left_rect_cam_info_.width;
-    right_mono_cam_info_.height = left_rect_cam_info_.height;
-
-    right_mono_cam_info_.K[0] = cal.right.M[0][0];    right_mono_cam_info_.K[1] = cal.right.M[0][1];
-    right_mono_cam_info_.K[2] = cal.right.M[0][2];    right_mono_cam_info_.K[3] = cal.right.M[1][0];
-    right_mono_cam_info_.K[4] = cal.right.M[1][1];    right_mono_cam_info_.K[5] = cal.right.M[1][2];
-    right_mono_cam_info_.K[6] = cal.right.M[2][0];    right_mono_cam_info_.K[7] = cal.right.M[2][1];
-    right_mono_cam_info_.K[8] = cal.right.M[2][2];
-
-    //
-    // Distortion coefficients follow OpenCV's convention.
-    // k1, k2, p1, p2, k3, k4, k5, k6
-
-    right_mono_cam_info_.D.resize(8);
-    for (uint8_t i=0 ; i < 8 ; ++i) {
-        right_mono_cam_info_.D[i] = cal.right.D[i];
-    }
-
-    //
-    // MultiSense cameras support both the full 8 parameter rational_polynomial
-    // model and the simplified 5 parameter plum_bob model. If the last 3
-    // parameters of the distortion model are 0 then the camera is using
-    // the simplified plumb_bob model
-
-    if (cal.right.D[7] == 0.0 && cal.right.D[6] == 0.0 && cal.right.D[5] == 0.0) {
-        right_mono_cam_info_.distortion_model = "plumb_bob";
-    } else {
-        right_mono_cam_info_.distortion_model = "rational_polynomial";
-    }
-
-    right_mono_cam_info_.R[0] = cal.right.R[0][0];     right_mono_cam_info_.R[1] = cal.right.R[0][1];
-    right_mono_cam_info_.R[2] = cal.right.R[0][2];     right_mono_cam_info_.R[3] = cal.right.R[1][0];
-    right_mono_cam_info_.R[4] = cal.right.R[1][1];     right_mono_cam_info_.R[5] = cal.right.R[1][2];
-    right_mono_cam_info_.R[6] = cal.right.R[2][0];     right_mono_cam_info_.R[7] = cal.right.R[2][1];
-    right_mono_cam_info_.R[8] = cal.right.R[2][2];
-
-    //
-    // Populate the unrectified color image camera_info
-
-    left_rgb_cam_info_ = left_mono_cam_info_;
 
     //
     // Publish the "raw" config message
@@ -2053,10 +1979,62 @@ void Camera::queryConfig()
     //
     // Republish our camera info topics since the resolution changed
 
-    updateCameraInfo();
+    publishAllCameraInfo();
 }
 
-void Camera::updateCameraInfo()
+void Camera::updateCameraInfo(sensor_msgs::CameraInfo& cameraInfo,
+                              const float M[3][3],
+                              const float R[3][3],
+                              const float P[3][4],
+                              const float D[8],
+                              double xScale,
+                              double yScale
+)
+{
+    cameraInfo.P[0]   = P[0][0] * xScale;      cameraInfo.P[1]   = P[0][1];
+    cameraInfo.P[2]   = P[0][2] * xScale;      cameraInfo.P[3]   = P[0][3] * xScale;
+    cameraInfo.P[4]   = P[1][0];               cameraInfo.P[5]   = P[1][1] * yScale;
+    cameraInfo.P[6]   = P[1][2] * yScale;      cameraInfo.P[7]   = P[1][3];
+    cameraInfo.P[8]   = P[2][0];               cameraInfo.P[9]   = P[2][1];
+    cameraInfo.P[10]  = P[2][2];               cameraInfo.P[11]  = P[2][3];
+
+    cameraInfo.K[0]   = M[0][0] * xScale;      cameraInfo.K[1]   = M[0][1];
+    cameraInfo.K[2]   = M[0][2] * xScale;      cameraInfo.K[3]   = M[1][0];
+    cameraInfo.K[4]   = M[1][1] * yScale;      cameraInfo.K[5]   = M[1][2] * yScale;
+    cameraInfo.K[6]   = M[2][0];               cameraInfo.K[7]   = M[2][1];
+    cameraInfo.K[8]   = M[2][2];
+
+    cameraInfo.R[0] = R[0][0];                 cameraInfo.R[1] = R[0][1];
+    cameraInfo.R[2] = R[0][2];                 cameraInfo.R[3] = R[1][0];
+    cameraInfo.R[4] = R[1][1];                 cameraInfo.R[5] = R[1][2];
+    cameraInfo.R[6] = R[2][0];                 cameraInfo.R[7] = R[2][1];
+    cameraInfo.R[8] = R[2][2];
+
+    //
+    // Distortion coefficients follow OpenCV's convention.
+    // k1, k2, p1, p2, k3, k4, k5, k6
+
+    cameraInfo.D.resize(8);
+    for (uint8_t i=0 ; i < 8 ; ++i) {
+        cameraInfo.D[i] = D[i];
+    }
+
+    //
+    // MultiSense cameras support both the full 8 parameter rational_polynomial
+    // model and the simplified 5 parameter plum_bob model. If the last 3
+    // parameters of the distortion model are 0 then the camera is using
+    // the simplified plumb_bob model
+
+    if (D[7] == 0.0 && D[6] == 0.0 && D[5] == 0.0) {
+        cameraInfo.distortion_model = sensor_msgs::distortion_models::PLUMB_BOB;
+    } else {
+        cameraInfo.distortion_model = sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL;
+    }
+
+}
+
+
+void Camera::publishAllCameraInfo()
 {
 
     //
@@ -2098,6 +2076,7 @@ void Camera::updateCameraInfo()
         right_mono_cam_info_pub_.publish(right_mono_cam_info_);
         right_rect_cam_info_pub_.publish(right_rect_cam_info_);
         left_disp_cam_info_pub_.publish(left_disp_cam_info_);
+        depth_cam_info_pub_.publish(depth_cam_info_);
 
     }
 }
