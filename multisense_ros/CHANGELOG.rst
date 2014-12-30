@@ -2,8 +2,8 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.4.1 (2014-12-30)
+------------------
 * Populated all camera_info matrices for all camera_info topics. Added a /multisense/depth/camera_info topic. Re-factored camera_info population code.
 * Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
 
