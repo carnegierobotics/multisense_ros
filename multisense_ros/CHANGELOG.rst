@@ -2,6 +2,11 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Populated all camera_info matrices for all camera_info topics. Added a /multisense/depth/camera_info topic. Re-factored camera_info population code.
+* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
+
 3.4.0 (2014-12-11)
 ------------------
 * Updated LibMultiSense to version 3.5. Fixed camera_info publishing bug for non-standard cameras (BCAM, Multisense-M, ST21). Added HDR option to dynamic reconfigure.
