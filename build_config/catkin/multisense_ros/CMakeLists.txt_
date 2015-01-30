@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp
                                         multisense_lib
                                         rosbag
                                         sensor_msgs
+                                        geometry_msgs
                                         image_transport
                                         angles
                                         cv_bridge

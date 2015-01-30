@@ -58,9 +58,16 @@ Imu::Imu(Channel* driver, std::string tf_prefix) :
     gyroscope_pub_(),
     magnetometer_pub_(),
     imu_pub_(),
+    accelerometer_vector_pub_(),
+    gyroscope_vector_pub_(),
+    magnetometer_vector_pub_(),
     imu_message_(),
     sub_lock_(),
-    total_subscribers_(0)
+    total_subscribers_(0),
+    tf_prefix_(tf_prefix),
+    accel_frameId_(tf_prefix_ + "/accel"),
+    gyro_frameId_(tf_prefix_ + "/gyro"),
+    mag_frameId_(tf_prefix_ + "/mag")
 {
 
     //
@@ -68,7 +75,7 @@ Imu::Imu(Channel* driver, std::string tf_prefix) :
     // We will publish the data in the accelerometer frame applying the
     // transform from the /gyro to the /accel frame to the gyroscope data
 
-    imu_message_.header.frame_id = tf_prefix + "/accel";
+    imu_message_.header.frame_id = accel_frameId_;
 
     //
     // Covariance matrix for linear acceleration and angular velocity were
@@ -144,6 +151,16 @@ Imu::Imu(Channel* driver, std::string tf_prefix) :
                                                boost::bind(&Imu::startStreams, this),
                                                boost::bind(&Imu::stopStreams, this));
 
+        accelerometer_vector_pub_ = imu_nh_.advertise<geometry_msgs::Vector3Stamped>("accelerometer_vector", 20,
+                                                      boost::bind(&Imu::startStreams, this),
+                                                      boost::bind(&Imu::stopStreams, this));
+        gyroscope_vector_pub_     = imu_nh_.advertise<geometry_msgs::Vector3Stamped>("gyroscope_vector", 20,
+                                                      boost::bind(&Imu::startStreams, this),
+                                                      boost::bind(&Imu::stopStreams, this));
+        magnetometer_vector_pub_  = imu_nh_.advertise<geometry_msgs::Vector3Stamped>("magnetometer_vector", 20,
+                                                      boost::bind(&Imu::startStreams, this),
+                                                      boost::bind(&Imu::stopStreams, this));
+
         driver_->addIsolatedCallback(imuCB, this);
     }
 }
@@ -162,18 +179,27 @@ void Imu::imuCallback(const imu::Header& header)
     uint32_t gyro_subscribers = gyroscope_pub_.getNumSubscribers();
     uint32_t mag_subscribers = magnetometer_pub_.getNumSubscribers();
     uint32_t imu_subscribers = imu_pub_.getNumSubscribers();
+    uint32_t accel_vector_subscribers = accelerometer_vector_pub_.getNumSubscribers();
+    uint32_t gyro_vector_subscribers = gyroscope_vector_pub_.getNumSubscribers();
+    uint32_t mag_vector_subscribers = magnetometer_vector_pub_.getNumSubscribers();
 
     for(; it != header.samples.end(); ++it) {
 
         const imu::Sample& s = *it;
 
         multisense_ros::RawImuData msg;
+        geometry_msgs::Vector3Stamped vector_msg;
 
         msg.time_stamp = ros::Time(s.timeSeconds,
                                    1000 * s.timeMicroSeconds);
         msg.x = s.x;
         msg.y = s.y;
         msg.z = s.z;
+
+        vector_msg.header.stamp = msg.time_stamp;
+        vector_msg.vector.x = s.x;
+        vector_msg.vector.y = s.y;
+        vector_msg.vector.z = s.z;
 
         imu_message_.header.stamp = msg.time_stamp;
 
@@ -186,11 +212,17 @@ void Imu::imuCallback(const imu::Header& header)
             imu_message_.linear_acceleration.y = s.y * 9.80665;
             imu_message_.linear_acceleration.z = s.z * 9.80665;
 
+
             if (accel_subscribers > 0)
                 accelerometer_pub_.publish(msg);
 
             if (imu_subscribers > 0)
                 imu_pub_.publish(imu_message_);
+
+            if (accel_vector_subscribers > 0) {
+                vector_msg.header.frame_id = accel_frameId_;
+                accelerometer_vector_pub_.publish(vector_msg);
+            }
 
             break;
         case imu::Sample::Type_Gyroscope:
@@ -206,17 +238,29 @@ void Imu::imuCallback(const imu::Header& header)
             imu_message_.angular_velocity.y = -s.x * M_PI/180.;
             imu_message_.angular_velocity.z = s.z * M_PI/180.;
 
+
             if (gyro_subscribers > 0)
                 gyroscope_pub_.publish(msg);
 
             if (imu_subscribers > 0)
                 imu_pub_.publish(imu_message_);
 
+            if (gyro_vector_subscribers > 0) {
+                vector_msg.header.frame_id = gyro_frameId_;
+                gyroscope_vector_pub_.publish(vector_msg);
+            }
+
             break;
         case imu::Sample::Type_Magnetometer:
 
+
             if (mag_subscribers > 0)
                 magnetometer_pub_.publish(msg);
+
+            if (mag_vector_subscribers > 0) {
+                vector_msg.header.frame_id = mag_frameId_;
+                magnetometer_vector_pub_.publish(vector_msg);
+            }
 
             break;
         }

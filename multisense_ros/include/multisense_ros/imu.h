@@ -39,6 +39,7 @@
 #include <ros/ros.h>
 
 #include <sensor_msgs/Imu.h>
+#include <geometry_msgs/Vector3Stamped.h>
 
 #include <multisense_lib/MultiSenseChannel.hh>
 
@@ -66,13 +67,21 @@ private:
     ros::NodeHandle imu_nh_;
 
     //
-    // IMU publishers
+    // multisense_ros/RawImuData publishers
 
     ros::Publisher accelerometer_pub_;
     ros::Publisher gyroscope_pub_;
     ros::Publisher magnetometer_pub_;
 
+    //
+    // sensor_msgs/Imu publisher
     ros::Publisher imu_pub_;
+
+    //
+    // geometry_msgs/Vector3Stamped publishers
+    ros::Publisher accelerometer_vector_pub_;
+    ros::Publisher gyroscope_vector_pub_;
+    ros::Publisher magnetometer_vector_pub_;
 
     //
     // IMU message
@@ -85,6 +94,13 @@ private:
     int32_t total_subscribers_;
     void startStreams();
     void stopStreams();
+
+    //
+    // TF prefix and frame ID's
+    const std::string tf_prefix_;
+    const std::string accel_frameId_;
+    const std::string gyro_frameId_;
+    const std::string mag_frameId_;
 
 };
 

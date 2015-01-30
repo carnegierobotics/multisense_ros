@@ -22,6 +22,7 @@
   <build_depend>multisense_lib</build_depend>
   <build_depend>rosbag</build_depend>
   <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
   <build_depend>image_transport</build_depend>
   <build_depend>angles</build_depend>
   <build_depend>dynamic_reconfigure</build_depend>
@@ -39,6 +40,7 @@
   <run_depend>multisense_lib</run_depend>
   <run_depend>rosbag</run_depend>
   <run_depend>sensor_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
   <run_depend>image_transport</run_depend>
   <run_depend>angles</run_depend>
   <run_depend>dynamic_reconfigure</run_depend>
