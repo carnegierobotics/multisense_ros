@@ -162,7 +162,7 @@ bool publishPointCloud(int64_t                       imageFrameId,
     if (points.size() != imageSize)
         return false;
 
-    cloud.data.reserve(imageSize * cloudStep);
+    cloud.data.resize(imageSize * cloudStep);
 
     uint8_t       *cloudP      = reinterpret_cast<uint8_t*>(&cloud.data[0]);
     const uint32_t pointSize   = 3 * sizeof(float); // x, y, z
