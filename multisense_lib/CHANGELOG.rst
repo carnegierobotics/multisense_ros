@@ -2,6 +2,9 @@
 Changelog for package multisense_lib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.4.2 (2015-01-30)
 ------------------
 * Added launch_robot_state_publisher argument to multisense_bringup/multisense.launch. Added geometry_msgs/Vector3Stamped publishers for accelerometer, gyroscope, and magnetometer data. Updated LibMultiSense.

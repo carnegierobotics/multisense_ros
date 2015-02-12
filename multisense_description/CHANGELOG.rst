@@ -2,6 +2,11 @@
 Changelog for package multisense_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Removed URDF and xacro dependency from multisense_description. Fixed bitbucket issue #36 relating to point cloud size allocation.
+* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
+
 3.4.2 (2015-01-30)
 ------------------
 
