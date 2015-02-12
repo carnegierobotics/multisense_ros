@@ -1,6 +1,6 @@
 <package>
   <name>multisense</name>
-  <version>3.4.2</version>
+  <version>3.4.3</version>
   <description>multisense catkin driver</description>
   <maintainer email="support@carnegierobotics.com">Maintained by Carnegie Robotics LLC</maintainer>
 
