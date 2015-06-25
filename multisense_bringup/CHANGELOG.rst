@@ -2,6 +2,11 @@
 Changelog for package multisense_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Populated the effort field for the motor_joint joint_states message (issue #48). Updated image encodings to fix display issues with rqt_image_view. Added a openni_depth topic which follows the OpenNI depth image convention (issue #50). Updated the depth image computation logic to improve efficiency.
+* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
+
 3.4.3 (2015-02-12)
 ------------------
 
