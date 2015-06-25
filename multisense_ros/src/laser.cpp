@@ -233,9 +233,11 @@ Laser::Laser(Channel* driver,
     joint_states_.name.resize(1);
     joint_states_.position.resize(1);
     joint_states_.velocity.resize(1);
+    joint_states_.effort.resize(1);
     joint_states_.name[0] = "motor_joint";
     joint_states_.position[0] = 0.0;
     joint_states_.velocity[0] = 0.0;
+    joint_states_.effort[0] = 0.0;
 
     //
     // Create a joint state publisher

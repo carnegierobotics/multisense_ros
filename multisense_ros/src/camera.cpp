@@ -38,6 +38,7 @@
 #include <multisense_ros/Histogram.h>
 
 #include <sensor_msgs/distortion_models.h>
+#include <sensor_msgs/image_encodings.h>
 
 #include <multisense_lib/MultiSenseChannel.hh>
 
@@ -333,6 +334,7 @@ Camera::Camera(Channel* driver,
     left_rgb_transport_(left_nh_),
     left_rgb_rect_transport_(left_nh_),
     depth_transport_(device_nh_),
+    ni_depth_transport_(device_nh_),
     disparity_left_transport_(left_nh_),
     disparity_right_transport_(right_nh_),
     disparity_cost_transport_(left_nh_),
@@ -351,6 +353,7 @@ Camera::Camera(Channel* driver,
     left_rect_cam_pub_(),
     right_rect_cam_pub_(),
     depth_cam_pub_(),
+    ni_depth_cam_pub_(),
     left_rgb_cam_pub_(),
     left_rgb_rect_cam_pub_(),
     left_mono_cam_info_pub_(),
@@ -533,6 +536,9 @@ Camera::Camera(Channel* driver,
                               boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Right),
                               boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Right));
         depth_cam_pub_      = depth_transport_.advertise("depth", 5,
+                              boost::bind(&Camera::connectStream, this, Source_Disparity),
+                              boost::bind(&Camera::disconnectStream, this, Source_Disparity));
+        ni_depth_cam_pub_   = ni_depth_transport_.advertise("openni_depth", 5,
                               boost::bind(&Camera::connectStream, this, Source_Disparity),
                               boost::bind(&Camera::disconnectStream, this, Source_Disparity));
 
@@ -1035,11 +1041,11 @@ void Camera::disparityImageCallback(const image::Header& header)
 
             switch(header.bitsPerPixel) {
                 case 8:
-                    imageP->encoding = "mono8";
+                    imageP->encoding = sensor_msgs::image_encodings::TYPE_8UC1;
                     imageP->step     = header.width;
                     break;
                 case 16:
-                    imageP->encoding = "mono16";
+                    imageP->encoding = sensor_msgs::image_encodings::TYPE_16UC1;
                     imageP->step     = header.width * 2;
                     break;
             }
@@ -1139,7 +1145,7 @@ void Camera::disparityImageCallback(const image::Header& header)
         left_disparity_cost_image_.height          = header.height;
         left_disparity_cost_image_.width           = header.width;
 
-        left_disparity_cost_image_.encoding        = "mono8";
+        left_disparity_cost_image_.encoding        = sensor_msgs::image_encodings::TYPE_8UC1;
         left_disparity_cost_image_.is_bigendian    = false;
         left_disparity_cost_image_.step            = header.width;
 
@@ -1177,11 +1183,11 @@ void Camera::monoCallback(const image::Header& header)
 
         switch(header.bitsPerPixel) {
             case 8:
-                left_mono_image_.encoding = "mono8";
+                left_mono_image_.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
                 left_mono_image_.step     = header.width;
                 break;
             case 16:
-                left_mono_image_.encoding = "mono16";
+                left_mono_image_.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
                 left_mono_image_.step     = header.width * 2;
                 break;
         }
@@ -1208,11 +1214,11 @@ void Camera::monoCallback(const image::Header& header)
 
         switch(header.bitsPerPixel) {
             case 8:
-                right_mono_image_.encoding = "mono8";
+                right_mono_image_.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
                 right_mono_image_.step     = header.width;
                 break;
             case 16:
-                right_mono_image_.encoding = "mono16";
+                right_mono_image_.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
                 right_mono_image_.step     = header.width * 2;
                 break;
         }
@@ -1258,12 +1264,12 @@ void Camera::rectCallback(const image::Header& header)
 
         switch(header.bitsPerPixel) {
             case 8:
-                left_rect_image_.encoding = "mono8";
+                left_rect_image_.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
                 left_rect_image_.step     = header.width;
 
                 break;
             case 16:
-                left_rect_image_.encoding = "mono16";
+                left_rect_image_.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
                 left_rect_image_.step     = header.width * 2;
 
                 break;
@@ -1326,11 +1332,11 @@ void Camera::rectCallback(const image::Header& header)
 
         switch(header.bitsPerPixel) {
             case 8:
-                right_rect_image_.encoding = "mono8";
+                right_rect_image_.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
                 right_rect_image_.step     = header.width;
                 break;
             case 16:
-                right_rect_image_.encoding = "mono16";
+                right_rect_image_.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
                 right_rect_image_.step     = header.width * 2;
                 break;
         }
@@ -1359,11 +1365,15 @@ void Camera::depthCallback(const image::Header& header)
         return;
     }
 
-    if (0 == depth_cam_pub_.getNumSubscribers())
+    uint32_t niDepthSubscribers = ni_depth_cam_pub_.getNumSubscribers();
+    uint32_t depthSubscribers = depth_cam_pub_.getNumSubscribers();
+    if (0 == niDepthSubscribers &&
+        0 == depthSubscribers)
         return;
 
     const float    bad_point = std::numeric_limits<float>::quiet_NaN();
     const uint32_t depthSize = header.height * header.width * sizeof(float);
+    const uint32_t niDepthSize = header.height * header.width * sizeof(uint16_t);
     const uint32_t imageSize = header.width * header.height;
 
     depth_image_.header.stamp    = ros::Time(header.timeSeconds,
@@ -1371,24 +1381,26 @@ void Camera::depthCallback(const image::Header& header)
     depth_image_.header.frame_id = frame_id_left_;
     depth_image_.height          = header.height;
     depth_image_.width           = header.width;
-    depth_image_.encoding        = "32FC1";
     depth_image_.is_bigendian    = (htonl(1) == 1);
+
+    ni_depth_image_ = depth_image_;
+
+    ni_depth_image_.encoding           = "16UC1";
+    ni_depth_image_.step               = header.width * 2;
+
+    depth_image_.encoding        = "32FC1";
     depth_image_.step            = header.width * 4;
 
     depth_image_.data.resize(depthSize);
+    ni_depth_image_.data.resize(niDepthSize);
 
     float *depthImageP = reinterpret_cast<float*>(&depth_image_.data[0]);
-
-    cv::Mat_<float> depth(header.height, header.width,
-                          reinterpret_cast<float*>(&depth_image_.data[0]));
+    uint16_t *niDepthImageP = reinterpret_cast<uint16_t*>(&ni_depth_image_.data[0]);
 
     //
     // Disparity is in 32-bit floating point
 
     if (32 == header.bitsPerPixel) {
-
-        cv::Mat_<float> disparity(header.height, header.width,
-                                  const_cast<float*>(reinterpret_cast<const float*>(header.imageDataP)));
 
         //
         // Depth = focal_length*baseline/disparity
@@ -1400,24 +1412,27 @@ void Camera::depthCallback(const image::Header& header)
         // as fx*Tx.
 
         const double scale = (-right_rect_cam_info_.P[3]);
-        cv::divide(scale, disparity, depth);
-
-        //
-        // Mark all 0 disparity points as NaNs
 
         const float *disparityImageP = reinterpret_cast<const float*>(header.imageDataP);
 
-        for(uint32_t i=0; i<imageSize; ++i)
-            if (0.0 == disparityImageP[i])
+        for (uint32_t i = 0 ; i < imageSize ; ++i)
+        {
+            if (0.0 >= disparityImageP[i])
+            {
                 depthImageP[i] = bad_point;
+                niDepthImageP[i] = 0;
+            }
+            else
+            {
+                depthImageP[i] = scale / disparityImageP[i];
+                niDepthImageP[i] = static_cast<uint16_t>(depthImageP[i] * 1000);
+            }
+        }
 
     //
     // Disparity is in 1/16th pixel, unsigned integer
 
     } else if (16 == header.bitsPerPixel) {
-
-        cv::Mat_<uint16_t> disparity(header.height, header.width,
-                                     const_cast<uint16_t*>(reinterpret_cast<const uint16_t*>(header.imageDataP)));
 
         //
         // Depth = focal_length*baseline/disparity
@@ -1431,22 +1446,37 @@ void Camera::depthCallback(const image::Header& header)
 
 
         const float scale = (right_rect_cam_info_.P[3] * -16.0f);
-        cv::divide(scale, disparity, depth);
 
-        //
-        // Mark all 0 disparity points as NaNs
         const uint16_t *disparityImageP = reinterpret_cast<const uint16_t*>(header.imageDataP);
 
-        for(uint32_t i=0; i<imageSize; ++i)
+        for (uint32_t i = 0 ; i < imageSize ; ++i)
+        {
             if (0 == disparityImageP[i])
+            {
                 depthImageP[i] = bad_point;
+                niDepthImageP[i] = 0;
+            }
+            else
+            {
+                depthImageP[i] = scale / disparityImageP[i];
+                niDepthImageP[i] = static_cast<uint16_t>(depthImageP[i] * 1000);
+            }
+        }
 
     } else {
         ROS_ERROR("Camera: unsupported disparity bpp: %d", header.bitsPerPixel);
         return;
     }
 
-    depth_cam_pub_.publish(depth_image_);
+    if (0 != niDepthSubscribers)
+    {
+        ni_depth_cam_pub_.publish(ni_depth_image_);
+    }
+
+    if (0 != depthSubscribers)
+    {
+        depth_cam_pub_.publish(depth_image_);
+    }
 
     depth_cam_info_.header = depth_image_.header;
     depth_cam_info_pub_.publish(depth_cam_info_);
