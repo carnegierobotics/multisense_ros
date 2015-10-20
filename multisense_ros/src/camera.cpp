@@ -1041,11 +1041,11 @@ void Camera::disparityImageCallback(const image::Header& header)
 
             switch(header.bitsPerPixel) {
                 case 8:
-                    imageP->encoding = sensor_msgs::image_encodings::TYPE_8UC1;
+                    imageP->encoding = sensor_msgs::image_encodings::MONO8;
                     imageP->step     = header.width;
                     break;
                 case 16:
-                    imageP->encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+                    imageP->encoding = sensor_msgs::image_encodings::MONO16;
                     imageP->step     = header.width * 2;
                     break;
             }
@@ -1145,7 +1145,7 @@ void Camera::disparityImageCallback(const image::Header& header)
         left_disparity_cost_image_.height          = header.height;
         left_disparity_cost_image_.width           = header.width;
 
-        left_disparity_cost_image_.encoding        = sensor_msgs::image_encodings::TYPE_8UC1;
+        left_disparity_cost_image_.encoding        = sensor_msgs::image_encodings::MONO8;
         left_disparity_cost_image_.is_bigendian    = false;
         left_disparity_cost_image_.step            = header.width;
 
@@ -1183,11 +1183,11 @@ void Camera::monoCallback(const image::Header& header)
 
         switch(header.bitsPerPixel) {
             case 8:
-                left_mono_image_.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
+                left_mono_image_.encoding = sensor_msgs::image_encodings::MONO8;
                 left_mono_image_.step     = header.width;
                 break;
             case 16:
-                left_mono_image_.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+                left_mono_image_.encoding = sensor_msgs::image_encodings::MONO16;
                 left_mono_image_.step     = header.width * 2;
                 break;
         }
@@ -1214,11 +1214,11 @@ void Camera::monoCallback(const image::Header& header)
 
         switch(header.bitsPerPixel) {
             case 8:
-                right_mono_image_.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
+                right_mono_image_.encoding = sensor_msgs::image_encodings::MONO8;
                 right_mono_image_.step     = header.width;
                 break;
             case 16:
-                right_mono_image_.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+                right_mono_image_.encoding = sensor_msgs::image_encodings::MONO16;
                 right_mono_image_.step     = header.width * 2;
                 break;
         }
@@ -1264,12 +1264,12 @@ void Camera::rectCallback(const image::Header& header)
 
         switch(header.bitsPerPixel) {
             case 8:
-                left_rect_image_.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
+                left_rect_image_.encoding = sensor_msgs::image_encodings::MONO8;
                 left_rect_image_.step     = header.width;
 
                 break;
             case 16:
-                left_rect_image_.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+                left_rect_image_.encoding = sensor_msgs::image_encodings::MONO16;
                 left_rect_image_.step     = header.width * 2;
 
                 break;
@@ -1332,11 +1332,11 @@ void Camera::rectCallback(const image::Header& header)
 
         switch(header.bitsPerPixel) {
             case 8:
-                right_rect_image_.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
+                right_rect_image_.encoding = sensor_msgs::image_encodings::MONO8;
                 right_rect_image_.step     = header.width;
                 break;
             case 16:
-                right_rect_image_.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+                right_rect_image_.encoding = sensor_msgs::image_encodings::MONO16;
                 right_rect_image_.step     = header.width * 2;
                 break;
         }
@@ -1385,10 +1385,10 @@ void Camera::depthCallback(const image::Header& header)
 
     ni_depth_image_ = depth_image_;
 
-    ni_depth_image_.encoding           = "16UC1";
+    ni_depth_image_.encoding           = sensor_msgs::image_encodings::MONO16;
     ni_depth_image_.step               = header.width * 2;
 
-    depth_image_.encoding        = "32FC1";
+    depth_image_.encoding        = sensor_msgs::image_encodings::TYPE_32FC1;
     depth_image_.step            = header.width * 4;
 
     depth_image_.data.resize(depthSize);
