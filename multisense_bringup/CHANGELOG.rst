@@ -2,6 +2,9 @@
 Changelog for package multisense_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.4.5 (2015-10-20)
 ------------------
 

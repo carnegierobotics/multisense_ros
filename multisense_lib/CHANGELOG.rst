@@ -2,6 +2,9 @@
 Changelog for package multisense_lib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.4.5 (2015-10-20)
 ------------------
 

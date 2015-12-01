@@ -2,6 +2,9 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.4.5 (2015-10-20)
 ------------------
 * Changed the image encoding types from 8UC1/16UC1 to mono8/mono16.
