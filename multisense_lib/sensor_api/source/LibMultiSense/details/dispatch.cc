@@ -53,13 +53,17 @@
 
 #include "details/wire/LedStatusMessage.h"
 
+#include "details/wire/LedSensorStatusMessage.h"
+
 #include "details/wire/SysMtuMessage.h"
 #include "details/wire/SysNetworkMessage.h"
 #include "details/wire/SysFlashResponseMessage.h"
 #include "details/wire/SysDeviceInfoMessage.h"
 #include "details/wire/SysCameraCalibrationMessage.h"
+#include "details/wire/SysSensorCalibrationMessage.h"
 #include "details/wire/SysLidarCalibrationMessage.h"
 #include "details/wire/SysDeviceModesMessage.h"
+#include "details/wire/SysExternalCalibrationMessage.h"
 
 #include "details/wire/SysPpsMessage.h"
 
@@ -122,7 +126,6 @@ void impl::dispatchLidar(utility::BufferStream& buffer,
         it ++)
         (*it)->dispatch(buffer, header);
 }
-
 //
 // Publish a PPS event
 
@@ -333,6 +336,7 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
         header.gain             = metaP->gain;
         header.framesPerSecond  = metaP->framesPerSecond;
         header.imageDataP       = image.dataP;
+        header.imageLength      = static_cast<uint32_t>(std::ceil(((double) wire::Disparity::API_BITS_PER_PIXEL / 8.0) * image.width * image.height));
 
         dispatchImage(buffer, header);
 
@@ -404,6 +408,9 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
     case MSG_ID(wire::LedStatus::ID):
         m_messages.store(wire::LedStatus(stream, version));
         break;
+    case MSG_ID(wire::LedSensorStatus::ID):
+        m_messages.store(wire::LedSensorStatus(stream, version));
+        break;
     case MSG_ID(wire::SysFlashResponse::ID):
         m_messages.store(wire::SysFlashResponse(stream, version));
         break;
@@ -412,6 +419,9 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
         break;
     case MSG_ID(wire::SysCameraCalibration::ID):
         m_messages.store(wire::SysCameraCalibration(stream, version));
+        break;
+    case MSG_ID(wire::SysSensorCalibration::ID):
+        m_messages.store(wire::SysSensorCalibration(stream, version));
         break;
     case MSG_ID(wire::SysLidarCalibration::ID):
         m_messages.store(wire::SysLidarCalibration(stream, version));
@@ -442,6 +452,9 @@ void impl::dispatch(utility::BufferStreamWriter& buffer)
         break;
     case MSG_ID(wire::SysDirectedStreams::ID):
         m_messages.store(wire::SysDirectedStreams(stream, version));
+        break;
+    case MSG_ID(wire::SysExternalCalibration::ID):
+        m_messages.store(wire::SysExternalCalibration(stream, version));
         break;
     default:
 

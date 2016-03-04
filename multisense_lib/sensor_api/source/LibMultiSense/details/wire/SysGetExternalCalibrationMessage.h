@@ -1,9 +1,9 @@
 /**
- * @file LibMultiSense/SysCameraCalibrationMessage.h
+ * @file LibMultiSense/SysGetExternalCalibrationMessage.h
  *
- * This message contains camera calibration
+ * This message contains general device information
  *
- * Copyright 2013
+ * Copyright 2016
  * Carnegie Robotics, LLC
  * 4501 Hatfield Street, Pittsburgh, PA 15201
  * http://www.carnegierobotics.com
@@ -33,11 +33,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Significant history (date, user, job code, action):
- *   2013-05-23, ekratzer@carnegierobotics.com, PR1044, created file.
+ *   2016-02-01, malvarado@carnegierobotics.com, PR1044, created file.
  **/
 
-#ifndef LibMultiSense_SysCameraCalibrationMessage
-#define LibMultiSense_SysCameraCalibrationMessage
+#ifndef LibMultiSense_SysGetExternalCalibrationMessage
+#define LibMultiSense_SysGetExternalCalibrationMessage
 
 #include "details/utility/Portability.hh"
 
@@ -45,55 +45,30 @@ namespace crl {
 namespace multisense {
 namespace details {
 namespace wire {
-    
-class CameraCalData {
+
+class SysGetExternalCalibration {
 public:
+    static CRL_CONSTEXPR IdType      ID      = ID_CMD_SYS_GET_EXTERNAL_CAL;
     static CRL_CONSTEXPR VersionType VERSION = 1;
-
-    float M[3][3];
-    float D[8];
-    float R[3][3];
-    float P[3][4];
-
-    template<class Archive>
-        void serialize(Archive&          message,
-                       const VersionType version)
-    {
-        SER_ARRAY_2(M, 3, 3);
-        SER_ARRAY_1(D, 8);
-        SER_ARRAY_2(R, 3, 3);
-        SER_ARRAY_2(P, 3, 4);
-    };
-};
-
-class SysCameraCalibration {
-public:
-    static CRL_CONSTEXPR IdType      ID      = ID_DATA_SYS_CAMERA_CAL;
-    static CRL_CONSTEXPR VersionType VERSION = 1;
-
-    //
-    // 2 MPix 
-
-    CameraCalData left;
-    CameraCalData right;
 
     //
     // Constructors
 
-    SysCameraCalibration(utility::BufferStreamReader&r, VersionType v) {serialize(r,v);};
-    SysCameraCalibration() {};
+    SysGetExternalCalibration(utility::BufferStreamReader&r, VersionType v) {serialize(r,v);};
+    SysGetExternalCalibration() {};
 
     //
     // Serialization routine
-    
+
     template<class Archive>
         void serialize(Archive&          message,
                        const VersionType version)
     {
-        left.serialize(message, version);
-        right.serialize(message, version);
+        // nothing yet
     }
 };
+
 }}}}; // namespaces
 
 #endif
+

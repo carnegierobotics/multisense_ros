@@ -35,6 +35,7 @@
 #include <multisense_ros/camera.h>
 #include <multisense_ros/pps.h>
 #include <multisense_ros/imu.h>
+#include <multisense_ros/status.h>
 #include <multisense_ros/reconfigure.h>
 #include <ros/ros.h>
 
@@ -85,6 +86,7 @@ int main(int    argc,
             multisense_ros::Camera       camera(d, tf_prefix);
             multisense_ros::Pps          pps(d);
             multisense_ros::Imu          imu(d, tf_prefix);
+            multisense_ros::Status       status(d);
             multisense_ros::Reconfigure  rec(d,
                                              boost::bind(&multisense_ros::Camera::resolutionChanged, &camera),
                                              boost::bind(&multisense_ros::Camera::borderClipChanged, &camera, _1, _2));

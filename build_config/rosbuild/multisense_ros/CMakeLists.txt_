@@ -33,6 +33,7 @@ rosbuild_add_library(${PROJECT_NAME} src/laser.cpp
                                      src/camera.cpp
                                      src/pps.cpp
                                      src/imu.cpp
+                                     src/status.cpp
                                      src/reconfigure.cpp)
 set_target_properties(${PROJECT_NAME}
   PROPERTIES LINK_FLAGS "-L${PROJECT_SOURCE_DIR}/../multisense_lib/sensor_api/bin/")

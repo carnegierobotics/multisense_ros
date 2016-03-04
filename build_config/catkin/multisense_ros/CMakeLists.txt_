@@ -33,6 +33,7 @@ add_message_files(DIRECTORY msg
                   RawCamData.msg
                   RawLidarCal.msg
                   Histogram.msg
+                  DeviceStatus.msg
                   StampedPps.msg)
 
 generate_messages(DEPENDENCIES sensor_msgs)
@@ -67,6 +68,7 @@ add_library(${PROJECT_NAME} src/camera.cpp
                           src/imu.cpp
                           src/laser.cpp
                           src/pps.cpp
+                          src/status.cpp
                           src/reconfigure.cpp)
 
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)

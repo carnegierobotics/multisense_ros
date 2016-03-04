@@ -2,59 +2,6 @@
 Changelog for package multisense_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-3.4.6 (2015-12-01)
-------------------
-* Removed unused Atlas textures from the MultiSense ROS driver as per M. Fallon’s request on bitbucket issue #54.
-* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
-
-3.4.5 (2015-10-20)
-------------------
-
-3.4.4 (2015-06-25)
-------------------
-
-3.4.3 (2015-02-12)
-------------------
-* Removed URDF and xacro dependency from multisense_description. Fixed bitbucket issue #36 relating to point cloud size allocation.
-* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
-
-3.4.2 (2015-01-30)
-------------------
-
-3.4.1 (2014-12-30)
-------------------
-
-3.4.0 (2014-12-11)
-------------------
-
-3.3.9 (2014-12-08)
-------------------
-
-3.3.8 (2014-12-02)
-------------------
-
-3.3.7 (2014-11-25)
-------------------
-
-3.3.6 (2014-11-10)
-------------------
-
-3.3.5 (2014-11-03)
-------------------
-
-3.3.4 (2014-10-31)
-------------------
-* Added sensor_msgs::Imu message publishing. No orientation information is published. Updated URDF models to have consistent accelerometer, magnetometer, and gyroscope frame_ids.
-* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
-
-3.3.3 (2014-10-24)
-------------------
-
-3.3.2 (2014-10-23)
-------------------
-* Added colorized laser point cloud topic. Removed LIDAR streaming frequency warning. Updated build dependencies for Bloom. General interface cleanup.
-* Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
-
 3.3.0 (2014-09-30)
 ------------------
 * Updated LibMultiSense to build under C++11. Added URDF for the MultiSense S7/S7S and BCAM. Added support for 16 bit mono images. Added support for the MultiSense ST21 thermal stereo camera. Added organized pointcloud publishing. Changed laser and camera pointcloud color fields to FLOAT32 for PCL compatibility. Changed default color image encoding to BGR8. Added spindle joint publishing via the ROS joint_state_publisher. Updated multisense_cal_check to handle various serial number entires. Added the launch-file sensor parameter to load different URDF’s on startup. Published camera info topics for each image topic (for unrectified topics K, D, and R are populated). Added default laser transform publishing to keep the laser TF tree valid even when there are no subscriptions to laser topics.

@@ -1,9 +1,7 @@
 /**
- * @file LibMultiSense/SysCameraCalibrationMessage.h
+ * @file status.h
  *
- * This message contains camera calibration
- *
- * Copyright 2013
+ * Copyright 2016
  * Carnegie Robotics, LLC
  * 4501 Hatfield Street, Pittsburgh, PA 15201
  * http://www.carnegierobotics.com
@@ -31,69 +29,63 @@
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * Significant history (date, user, job code, action):
- *   2013-05-23, ekratzer@carnegierobotics.com, PR1044, created file.
  **/
 
-#ifndef LibMultiSense_SysCameraCalibrationMessage
-#define LibMultiSense_SysCameraCalibrationMessage
+#ifndef MULTISENSE_ROS_STATUS_H
+#define MULTISENSE_ROS_STATUS_H
 
-#include "details/utility/Portability.hh"
+#include <boost/shared_ptr.hpp>
+#include <boost/thread.hpp>
+#include <ros/ros.h>
 
-namespace crl {
-namespace multisense {
-namespace details {
-namespace wire {
-    
-class CameraCalData {
+#include <multisense_lib/MultiSenseChannel.hh>
+
+namespace multisense_ros {
+
+class Status {
 public:
-    static CRL_CONSTEXPR VersionType VERSION = 1;
 
-    float M[3][3];
-    float D[8];
-    float R[3][3];
-    float P[3][4];
+    Status(crl::multisense::Channel* driver);
+    ~Status();
 
-    template<class Archive>
-        void serialize(Archive&          message,
-                       const VersionType version)
-    {
-        SER_ARRAY_2(M, 3, 3);
-        SER_ARRAY_1(D, 8);
-        SER_ARRAY_2(R, 3, 3);
-        SER_ARRAY_2(P, 3, 4);
-    };
+private:
+
+    //
+    // CRL sensor API
+
+    crl::multisense::Channel* driver_;
+
+    //
+    // Driver nodes
+
+    ros::NodeHandle device_nh_;
+
+    //
+    // Device Status publisher
+
+    ros::Publisher status_pub_;
+
+    //
+    // A timer to query our device status at a fixed rate
+
+    ros::Timer status_timer_;
+
+    //
+    // The callback used to query the device status in the timer routine
+
+    void queryStatus(const ros::TimerEvent& event);
+
+
+    //
+    // Publish control
+
+    int32_t subscribers_;
+    void connect();
+    void disconnect();
+
 };
 
-class SysCameraCalibration {
-public:
-    static CRL_CONSTEXPR IdType      ID      = ID_DATA_SYS_CAMERA_CAL;
-    static CRL_CONSTEXPR VersionType VERSION = 1;
-
-    //
-    // 2 MPix 
-
-    CameraCalData left;
-    CameraCalData right;
-
-    //
-    // Constructors
-
-    SysCameraCalibration(utility::BufferStreamReader&r, VersionType v) {serialize(r,v);};
-    SysCameraCalibration() {};
-
-    //
-    // Serialization routine
-    
-    template<class Archive>
-        void serialize(Archive&          message,
-                       const VersionType version)
-    {
-        left.serialize(message, version);
-        right.serialize(message, version);
-    }
-};
-}}}}; // namespaces
+}
 
 #endif
+

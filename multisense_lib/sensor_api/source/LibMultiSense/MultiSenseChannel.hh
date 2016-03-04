@@ -498,9 +498,6 @@ public:
 
     virtual Status maxDirectedStreams (uint32_t& maximum) = 0;
 
-
-
-
     /**
      * Set a new image trigger source. This is used to specify which source
      * is used to trigger a image capture.
@@ -556,6 +553,14 @@ public:
      */
 
     virtual Status setLightingConfig   (const lighting::Config& c)          = 0;
+
+    /**
+     * Get the status of the sensors attached to the external lighting platform
+     *
+     * @param status The status of the external lighting sensors returned by
+     * reference
+     */
+    virtual Status getLightingSensorStatus (lighting::SensorStatus& status) = 0;
 
     /**
      * Get the API version of the sensor firmware.
@@ -644,6 +649,31 @@ public:
      */
 
     virtual Status setImageCalibration (const image::Calibration& c)        = 0;
+
+    /**
+     * Query the current device imager calibration. This is the DC imager gain
+     * and black level offset used to match the left and right imagers to improve
+     * stereo matching performance.
+     *
+     * @param c The sensor calibration instance which will be returned by
+     * reference
+     *
+     * @return A crl::multisense::Status indicating if the imager calibration
+     * was successfully queried
+     */
+    virtual Status getSensorCalibration (image::SensorCalibration& c)              = 0;
+
+    /**
+     * Set the devices imager calibration. This is used to adjust the DC imager
+     * gains and the black level offsets so that both imagers match one another.
+     * This calibration is stored in flash and only needs to be set once
+     *
+     * @param c The sensor calibration instance to write to flash memory
+     *
+     * @return A crl::multisense::Status indicating if the imager calibration
+     * was successfully received by the sensor
+     */
+	virtual Status setSensorCalibration (const image::SensorCalibration& c)        = 0;
 
     /**
      * Query the current laser calibration.
@@ -790,6 +820,37 @@ public:
 
     virtual Status setDeviceInfo       (const std::string& key,
                                         const system::DeviceInfo& i)        = 0;
+
+    /**
+     * Get the current status of the device. Status is updated at 1Hz and should
+     * not be queried at a higher frequency.
+     *
+     * @param status The status of the attached device returned by reference
+     *
+     * @return A crl::multisense::Status indicating if the status was successfully
+     * queried
+     */
+    virtual Status getDeviceStatus     (system::StatusMessage& status) = 0;
+
+    /**
+     * Get the external calibration associated with the MultiSense device
+     *
+     * @param calibration The external calibration object to query from non-volatile flash
+     *
+     * @return A crl::multisense::Status indicating if the calibration was successfully
+     * queried
+     */
+    virtual Status getExternalCalibration (system::ExternalCalibration& calibration) = 0;
+
+    /**
+     * Set the external calibration associated with the MultiSense device
+     *
+     * @param calibration The external calibration object to write to non-volatile flash
+     *
+     * @return A crl::multisense::Status indicating if the calibration was successfully
+     * set
+     */
+    virtual Status setExternalCalibration (const system::ExternalCalibration& calibration) = 0;
 
     /**
      * Flash a new FPGA bitstream file to the sensor.
