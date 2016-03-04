@@ -2,7 +2,7 @@
 <package>
 
   <name>multisense_ros</name>
-  <version>3.4.6</version>
+  <version>3.4.7</version>
   <description>multisense_ros</description>
   <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
   <license>BSD</license>

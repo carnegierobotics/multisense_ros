@@ -2,8 +2,8 @@
 Changelog for package multisense_cal_check
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.4.7 (2016-03-04)
+------------------
 * Add in support for MultiSense DeviceStatus messages. Revised the cal_check utility to remove the Matlab dependency.
 * Contributors: Matt Alvarado <malvarado@carnegierobotics.com>
 
