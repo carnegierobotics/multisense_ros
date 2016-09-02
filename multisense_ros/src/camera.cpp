@@ -942,7 +942,7 @@ void Camera::jpegImageCallback(const image::Header& header)
             ROS_ERROR("Camera: undistort maps not initialized");
         else {
 
-            const CvScalar outlierColor = {{0.0}};
+            const CvScalar outlierColor = cv::Scalar_<double>(0.0);
 
             left_rgb_rect_image_.data.resize(rgbLength);
 
@@ -1782,7 +1782,7 @@ void Camera::colorImageCallback(const image::Header& header)
                     ROS_ERROR("Camera: undistort maps not initialized");
                 else {
 
-                    const CvScalar outlierColor = {{0.0}};
+                    const CvScalar outlierColor = cv::Scalar_<double>(0.0);
 
                     left_rgb_rect_image_.data.resize(imageSize);
 
