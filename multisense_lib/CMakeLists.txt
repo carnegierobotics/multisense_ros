@@ -14,28 +14,24 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_D
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION})
 set (OpenCV_LIBS ${catkin_LIBRARIES})
 
-# Copy our .hh files to the devel include directory (later install to target).
-execute_process(COMMAND mkdir -p ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_INCLUDE_DESTINATION})
-execute_process(COMMAND cp ${BASE_DIRECTORY}/sensor_api/source/LibMultiSense/MultiSenseChannel.hh
-                           ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_INCLUDE_DESTINATION})
-execute_process(COMMAND cp ${BASE_DIRECTORY}/sensor_api/source/LibMultiSense/MultiSenseTypes.hh
-                           ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+## Mark cpp header files for installation
+file(GLOB LIBMULTISENSE_HEADERS
+  "sensor_api/source/LibMultiSense/*.hh"
+)
 
-include_directories(${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_INCLUDE_DESTINATION}/include)
+file(MAKE_DIRECTORY ${BASE_DIRECTORY}/include/${PROJECT_NAME})
+file(INSTALL ${LIBMULTISENSE_HEADERS} DESTINATION ${BASE_DIRECTORY}/include/${PROJECT_NAME})
+include_directories(include)
+
 
 ## Declare a catkin package
-catkin_package(CATKIN_DEPENDS cv_bridge
+catkin_package(INCLUDE_DIRS include
+               CATKIN_DEPENDS cv_bridge
                LIBRARIES MultiSense)
 
 # Build the libraries
 add_subdirectory(sensor_api)
 
-## Mark cpp header files for installation
-install(DIRECTORY sensor_api/source/LibMultiSense/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-  FILES_MATCHING PATTERN "*.hh"
-  PATTERN ".svn" EXCLUDE
-)
 
 # install utilities
 # TODO: how to move install target of bin into devel?
@@ -52,3 +48,7 @@ install(PROGRAMS
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
+install(DIRECTORY include/${PROJECT_NAME}/
+        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+        FILES_MATCHING PATTERN "*.hh"
+)
