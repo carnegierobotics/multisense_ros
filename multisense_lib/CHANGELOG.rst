@@ -2,6 +2,12 @@
 Changelog for package multisense_lib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Got rid of unused function.
+* Modified header file management to be consistent with ROS package conventions.
+* Contributors: Ryan Keating <rkeating@carnegierobotics.com>
+
 3.4.8 (2016-09-02)
 ------------------
 * Fixed compatibility issue with OpenCV 3.1

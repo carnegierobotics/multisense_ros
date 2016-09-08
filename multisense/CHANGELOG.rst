@@ -2,6 +2,9 @@
 Changelog for package multisense
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.4.8 (2016-09-02)
 ------------------
 * Fixed compatibility issue with OpenCV 3.1
