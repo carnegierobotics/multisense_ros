@@ -2,8 +2,8 @@
 Changelog for package multisense_lib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.4.9 (2016-09-08)
+------------------
 * Got rid of unused function.
 * Modified header file management to be consistent with ROS package conventions.
 * Contributors: Ryan Keating <rkeating@carnegierobotics.com>
