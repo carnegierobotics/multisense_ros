@@ -1,0 +1,92 @@
+<?xml version="1.0" ?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+    <xacro:macro name="multisenseS21" params="name">
+
+        <link name="${name}/head">
+            <visual>
+                <origin xyz="0 0 0" rpy="1.57079632679 0 1.57079632679" />
+                <geometry>
+                    <mesh filename="package://multisense_description/meshes/multisense_s21.STL"/>
+                </geometry>
+                <material name="">
+                    <color rgba="0.9098 0.44314 0.031373 1" />
+                </material>
+            </visual>
+        </link>
+
+
+        <!-- Note the origin of model is 37.3854mm from the rear mounting plane
+             in the x axis -->
+
+        <joint name="${name}/left_camera_joint" type="fixed">
+            <origin xyz="0.0 0.105 0.0"/>
+            <parent link="${name}/head"/>
+            <child link="${name}/left_camera_frame"/>
+        </joint>
+
+        <link name="${name}/left_camera_frame"/>
+
+        <joint name="${name}/right_camera_joint" type="fixed">
+            <origin xyz="0.0 -0.105 0.0"/>
+            <parent link="${name}/head"/>
+            <child link="${name}/right_camera_frame"/>
+        </joint>
+
+        <link name="${name}/right_camera_frame"/>
+
+        <joint name="${name}/left_camera_optical_joint" type="fixed">
+            <origin xyz="0.0052046 0 0" rpy="-1.57079632679 0.0 -1.57079632679"/>
+            <parent link="${name}/left_camera_frame"/>
+            <child link="${name}/left_camera_optical_frame"/>
+        </joint>
+
+        <link name="${name}/left_camera_optical_frame"/>
+
+        <joint name="${name}/right_camera_optical_joint" type="fixed">
+            <origin xyz="0.0052046 0 0" rpy="-1.57079632679 0.0 -1.57079632679"/>
+            <parent link="${name}/right_camera_frame"/>
+            <child link="${name}/right_camera_optical_frame"/>
+        </joint>
+
+        <link name="${name}/right_camera_optical_frame"/>
+
+        <joint name="${name}/top_left_rear_mount_joint" type="fixed">
+            <origin xyz="-0.0373854 0.1 0.014" rpy="0 0 3.14159"/>
+            <parent link="${name}/head"/>
+            <child link="${name}/top_left_rear_mount"/>
+        </joint>
+
+        <link name="${name}/top_left_rear_mount"/>
+
+        <!--Note the locations of the accel/mag and gyro differ from those shown
+            in CAD. The S21 firmware switches axis on the accel/mag and gyro to
+            match the S7/S7S/SL MultiSense configurations -->
+
+        <joint name="${name}/accel_joint" type="fixed">
+            <origin xyz="0.0045 0.029 -0.0135" rpy="0.0 1.57079632679 0.0"/>
+            <parent link="${name}/head"/>
+            <child link="${name}/accel"/>
+        </joint>
+
+        <link name="${name}/accel"/>
+
+        <joint name="${name}/mag_joint" type="fixed">
+            <origin xyz="0.0045 0.029 -0.0135" rpy="0.0 1.57079632679 0.0"/>
+            <parent link="${name}/head"/>
+            <child link="${name}/mag"/>
+        </joint>
+
+        <link name="${name}/mag"/>
+
+        <joint name="${name}/gyro_joint" type="fixed">
+            <origin xyz="-0.00219539 0.03758 -0.014" rpy="-1.57079632679 0 -1.57079632679"/>
+            <parent link="${name}/head"/>
+            <child link="${name}/gyro"/>
+        </joint>
+
+        <link name="${name}/gyro"/>
+
+    </xacro:macro>
+
+</robot>
+

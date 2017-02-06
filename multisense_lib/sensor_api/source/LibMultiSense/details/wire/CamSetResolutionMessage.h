@@ -50,7 +50,7 @@ namespace wire {
 class CamSetResolution {
 public:
     static CRL_CONSTEXPR IdType      ID      = ID_CMD_CAM_SET_RESOLUTION;
-    static CRL_CONSTEXPR VersionType VERSION = 2;
+    static CRL_CONSTEXPR VersionType VERSION = 3;
 
     //
     // Parameters
@@ -64,11 +64,16 @@ public:
     int32_t disparities;
 
     //
+    // Version 3 additions
+    int camMode;
+    int offset;
+
+    //
     // Constructors
 
     CamSetResolution(utility::BufferStreamReader&r, VersionType v) {serialize(r,v);};
-    CamSetResolution(uint32_t w=0, uint32_t h=0, int32_t d=-1) :
-                     width(w), height(h), disparities(d) {};
+    CamSetResolution(uint32_t w=0, uint32_t h=0, int32_t d=-1, int m=0, int o=0) :
+                     width(w), height(h), disparities(d), camMode(m), offset(o) {};
 
     //
     // Serialization routine
@@ -84,6 +89,14 @@ public:
             message & disparities;
         else
             disparities = 0;
+
+        if (version >= 3){
+            message & camMode;
+            message & offset;
+        }else{
+        	camMode = 0;
+        	offset = -1;
+        }
     }
 };
 

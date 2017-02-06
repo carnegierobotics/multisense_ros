@@ -53,8 +53,7 @@ catkin_package(INCLUDE_DIRS   include
                               image_transport
                               message_runtime
                               message_generation
-               LIBRARIES      ${PROJECT_NAME}
-               DEPENDS        system_lib)
+               LIBRARIES      ${PROJECT_NAME})
 
 include_directories(include
                     ${catkin_INCLUDE_DIRS}

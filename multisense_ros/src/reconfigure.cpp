@@ -54,11 +54,12 @@ Reconfigure::Reconfigure(Channel* driver,
     server_sl_sgm_cmv4000_imu_(),
     server_bcam_imx104_(),
     server_st21_vga_(),
-    lighting_supported_(true),
-    motor_supported_(true),
+    lighting_supported_(false),
+    motor_supported_(false),
     border_clip_type_(RECTANGULAR),
     border_clip_value_(0.0),
-    border_clip_change_callback_(borderClipChangeCallback)
+    border_clip_change_callback_(borderClipChangeCallback),
+    crop_mode_changed_(false)
 {
     system::DeviceInfo  deviceInfo;
     system::VersionInfo versionInfo;
@@ -77,6 +78,15 @@ Reconfigure::Reconfigure(Channel* driver,
         ROS_ERROR("Reconfigure: failed to query device info: %s",
                   Channel::statusString(status));
         return;
+    }
+
+    if (deviceInfo.lightingType != 0)
+    {
+        lighting_supported_ = true;
+    }
+    if (deviceInfo.motorType != 0)
+    {
+        motor_supported_ = true;
     }
 
     //
@@ -192,7 +202,6 @@ Reconfigure::Reconfigure(Channel* driver,
                 boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig>(device_nh_));
             server_sl_sgm_cmv4000_imu_->setCallback(boost::bind(&Reconfigure::callback_sl_sgm_cmv4000_imu, this, _1, _2));
-
             break;
         default:
 
@@ -260,7 +269,7 @@ bool Reconfigure::changeResolution(image::Config& cfg,
     }
 
     ROS_WARN("Reconfigure: changing sensor resolution to %dx%d (%d disparities), from %dx%d "
-	     "(%d disparities): reconfiguration may take up to 30 seconds",
+         "(%d disparities): reconfiguration may take up to 30 seconds",
              width, height, disparities,
              cfg.width(), cfg.height(), cfg.disparities());
 
@@ -268,6 +277,15 @@ bool Reconfigure::changeResolution(image::Config& cfg,
     cfg.setDisparities(disparities);
 
     return true;
+}
+
+template<class T> void Reconfigure::configureCropMode(crl::multisense::image::Config& cfg, const T& dyn)
+{
+    cfg.setCamMode(dyn.crop_mode == 1 ? 2000 : 4000);
+    cfg.setOffset(dyn.crop_offset);
+    ROS_WARN("Reconfigure: changing cam mode to %s with offset %d: reconfiguration may take up to 30 seconds",
+             dyn.crop_mode == 1 ? "ON" : "OFF" , cfg.offset());
+    crop_mode_changed_ = true;
 }
 
 template<class T> void Reconfigure::configureSgm(image::Config& cfg, const T& dyn)
@@ -293,11 +311,10 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     //
     // If a resolution change is desired
 
-    if ((resolutionChange = changeResolution(cfg, width, height, disparities))) {
-
+    if ((resolutionChange = changeResolution(cfg, width, height, disparities) || crop_mode_changed_)) {
+        crop_mode_changed_ = false;
         //
         // Halt streams during the resolution change
-
         status = driver_->getEnabledStreams(streamsEnabled);
         if (Status_Ok != status) {
             ROS_ERROR("Reconfigure: failed to get enabled streams: %s",
@@ -341,7 +358,6 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     // If we are changing the resolution, let others know about it
 
     if (resolutionChange) {
-
         if (false == resolution_change_callback_.empty())
             resolution_change_callback_();
 
@@ -406,6 +422,16 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     // Enabled by default.
 
     driver_->networkTimeSynchronization(dyn.network_time_sync);
+
+    //
+    // Set our transmit delay
+    image::TransmitDelay d;
+    d.delay = dyn.desired_transmit_delay;
+    status = driver_->setTransmitDelay(d);
+    if (Status_Ok != status) {
+        ROS_ERROR("Reconfigure: failed to set transmit delay: %s",
+                  Channel::statusString(status));
+    }
 }
 
 template<class T> void Reconfigure::configureImu(const T& dyn)
@@ -464,7 +490,7 @@ template<class T> void Reconfigure::configureImu(const T& dyn)
         static_cast<int>(imu_samples_per_message_) != dyn.imu_samples_per_message) {
 
         ROS_WARN("Reconfigure: IMU configuration changes will take effect after all IMU "
-		 "topic subscriptions have been closed.");
+         "topic subscriptions have been closed.");
 
         imu_samples_per_message_ = dyn.imu_samples_per_message;
 
@@ -535,6 +561,15 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
         configureBorderClip(dyn);                               \
     } while(0)
 
+#define SL_SGM_IMU_CMV4000()  do {                              \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        configureCropMode(cfg, dyn);                            \
+        configureCamera(cfg, dyn);                              \
+        configureImu(dyn);                                      \
+        configureBorderClip(dyn);                               \
+    } while(0)
+
 
 
 //
@@ -545,7 +580,7 @@ void Reconfigure::callback_sl_bm_cmv2000_imu  (multisense_ros::sl_bm_cmv2000_imu
 void Reconfigure::callback_sl_bm_cmv4000      (multisense_ros::sl_bm_cmv4000Config&      dyn, uint32_t level) { SL_BM();       };
 void Reconfigure::callback_sl_bm_cmv4000_imu  (multisense_ros::sl_bm_cmv4000_imuConfig&  dyn, uint32_t level) { SL_BM_IMU();   };
 void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU();  };
-void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU();  };
+void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU_CMV4000();  };
 void Reconfigure::callback_mono_cmv2000       (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { SL_BM_IMU();   };
 void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { SL_BM_IMU();   };
 

@@ -1,0 +1,39 @@
+<?xml version="1.0" ?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <!-- Simple URDF for BCAM -->
+
+    <xacro:macro name="multisenseBCAM" params="name">
+        <link name="${name}/head">
+            <visual>
+                <origin xyz="0 -0.052 -0.052" rpy="1.57079632679 0 1.57079632679" />
+                <geometry>
+                    <mesh filename="package://multisense_description/meshes/BCAM.STL" scale="0.001 0.001 0.001"/>
+                </geometry>
+                <material name="">
+                    <color rgba="0.9098 0.44314 0.031373 1" />
+                </material>
+            </visual>
+        </link>
+
+        <joint name="${name}/left_camera_joint" type="fixed">
+            <origin xyz="0.03 0 0.0"/>
+            <parent link="${name}/head"/>
+            <child link="${name}/left_camera_frame"/>
+        </joint>
+
+        <link name="${name}/left_camera_frame"/>
+
+
+        <joint name="${name}/left_camera_optical_joint" type="fixed">
+            <origin xyz="0 0 0" rpy="-1.57079632679 0.0 -1.57079632679"/>
+            <parent link="${name}/left_camera_frame"/>
+            <child link="${name}/left_camera_optical_frame"/>
+        </joint>
+
+        <link name="${name}/left_camera_optical_frame"/>
+
+    </xacro:macro>
+
+</robot>
+

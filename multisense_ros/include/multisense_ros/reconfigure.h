@@ -88,6 +88,7 @@ private:
                           int32_t width, int32_t height, int32_t disparities);
     template<class T> void configureSgm(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureCamera(crl::multisense::image::Config& cfg, const T& dyn);
+    template<class T> void configureCropMode(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureImu(const T& dyn);
     template<class T> void configureBorderClip(const T& dyn);
 
@@ -133,6 +134,7 @@ private:
 
     bool lighting_supported_;
     bool motor_supported_;
+    bool crop_mode_changed_;
 
     //
     // Cached value for the boarder clip. These are used to determine if we
