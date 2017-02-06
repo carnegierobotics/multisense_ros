@@ -2,8 +2,8 @@
 Changelog for package multisense_cal_check
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.0 (2017-02-06)
+------------------
 * Added support for new firmware version 3.5 features.
   Rewrote urdf and launch files for ease of use.
 * Contributors: Ryan Keating <rkeating@carnegierobotics.com>
