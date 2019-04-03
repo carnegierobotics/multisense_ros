@@ -168,7 +168,11 @@ public:
 
 private:
 
+#if __cplusplus >= 201103
     static constexpr double SCAN_COLLECT_TIMEOUT = 20.0; // seconds
+#else
+    static const double SCAN_COLLECT_TIMEOUT = 20.0; // seconds
+#endif
 
     bool motion_started_;
     ros::CallbackQueue queue_;
