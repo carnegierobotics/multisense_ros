@@ -2,8 +2,8 @@
 Changelog for package multisense_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.2 (2019-04-03)
+------------------
 * added C++98 compatibility
 * Contributors: Quentin Torgerson <qtorgerson@carnegierobotics.com>
 
