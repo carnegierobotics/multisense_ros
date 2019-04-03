@@ -2,8 +2,8 @@
 Changelog for package multisense_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.1 (2019-04-03)
+------------------
 * fixed compile issue for Melodic support
 * Contributors: Quentin Torgerson <qtorgerson@carnegierobotics.com>
 
