@@ -2,6 +2,12 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* undo early commit
+* incremented package.xml version numbers for next release
+* Contributors: Quentin Torgerson <qtorgerson@carnegierobotics.com>
+
 4.0.2 (2019-04-03)
 ------------------
 * added C++98 compatibility

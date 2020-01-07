@@ -2,6 +2,14 @@
 Changelog for package multisense_lib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* undo early commit
+* incremented package.xml version numbers for next release
+* libturbo in multisense_ros
+* updated libpng; added libturbojpeg to package.xml
+* Contributors: Kevin Nickels <knickels@trinity.edu>, Quentin Torgerson <qtorgerson@carnegierobotics.com>
+
 4.0.2 (2019-04-03)
 ------------------
 * added C++98 compatibility
