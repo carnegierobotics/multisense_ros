@@ -2,8 +2,8 @@
 Changelog for package multisense_lib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.3 (2020-01-07)
+------------------
 * undo early commit
 * incremented package.xml version numbers for next release
 * libturbo in multisense_ros
