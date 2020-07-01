@@ -2,6 +2,9 @@
 Changelog for package multisense_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 4.0.3 (2020-01-07)
 ------------------
 * undo early commit
