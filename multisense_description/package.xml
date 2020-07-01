@@ -7,7 +7,7 @@
   <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
   <license>BSD</license>
 
-  <url type="website">https://bitbucket.org/crl/multisense_ros</url>
+  <url type="website">https://github.com/carnegierobotics/multisense_ros</url>
 
   <buildtool_depend>catkin</buildtool_depend>
 
