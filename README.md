@@ -9,7 +9,7 @@ Wrappers, drivers, tools and additional API's for using MultiSense SL, S7, S7S, 
 
 See [Contribute](https://github.com/carnegierobotics/multisense_ros/blob/master/CONTRIBUTING.md) page.
 
-###Support
+### Support
 
 To report an issue with this library or request a new feature,
 please use the [GitHub issues system](https://github.com/carnegierobotics/multisense_ros/issues)
