@@ -2,8 +2,9 @@
 Changelog for package multisense_lib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.4 (2020-07-01)
+------------------
+* update release to reference github instead of bitbucket
 
 4.0.3 (2020-01-07)
 ------------------
