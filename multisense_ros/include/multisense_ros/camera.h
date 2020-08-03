@@ -240,8 +240,8 @@ private:
     // For local rectification of color images
 
     boost::mutex cal_lock_;
-    CvMat *calibration_map_left_1_;
-    CvMat *calibration_map_left_2_;
+    cv::Mat calibration_map_left_1_;
+    cv::Mat calibration_map_left_2_;
 
     //
     // The frame IDs
