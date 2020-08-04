@@ -412,8 +412,8 @@ Camera::Camera(Channel* driver,
     image_config_(),
     image_calibration_(),
     cal_lock_(),
-    calibration_map_left_1_(NULL),
-    calibration_map_left_2_(NULL),
+    calibration_map_left_1_(),
+    calibration_map_left_2_(),
     frame_id_left_(),
     frame_id_right_(),
     disparity_buff_(),
@@ -938,27 +938,15 @@ void Camera::jpegImageCallback(const image::Header& header)
             cal_lock_.unlock();
             queryConfig();
         }
-        else if (NULL == calibration_map_left_1_ || NULL == calibration_map_left_2_)
+        else if (calibration_map_left_1_.empty() || calibration_map_left_2_.empty())
             ROS_ERROR("Camera: undistort maps not initialized");
         else {
-
-            const CvScalar outlierColor = cv::Scalar_<double>(0.0);
-
             left_rgb_rect_image_.data.resize(rgbLength);
 
-            IplImage *sourceImageP  = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 3);
-            sourceImageP->imageData = reinterpret_cast<char*>(&(left_rgb_image_.data[0]));
-            IplImage *destImageP    = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 3);
-            destImageP->imageData   = reinterpret_cast<char*>(&(left_rgb_rect_image_.data[0]));
+            const cv::Mat rgb_image(height, width, CV_8UC3, &(left_rgb_image_.data[0]));
+            cv::Mat rect_rgb_image(height, width, CV_8UC3, &(left_rgb_rect_image_.data[0]));
 
-            cvRemap(sourceImageP, destImageP,
-                    calibration_map_left_1_,
-                    calibration_map_left_2_,
-                    CV_INTER_LINEAR+CV_WARP_FILL_OUTLIERS,
-                    outlierColor);
-
-            cvReleaseImageHeader(&sourceImageP);
-            cvReleaseImageHeader(&destImageP);
+            cv::remap(rgb_image, rect_rgb_image, calibration_map_left_1_, calibration_map_left_2_, cv::INTER_CUBIC);
 
             left_rgb_rect_image_.header.frame_id = frame_id_left_;
             left_rgb_rect_image_.header.stamp    = ros::Time(header.timeSeconds,
@@ -1778,27 +1766,18 @@ void Camera::colorImageCallback(const image::Header& header)
                     //ROS_ERROR("calibration/image size mismatch: image=%dx%d, calibration=%dx%d",
                     //width, height, image_config_.width(), image_config_.height());
                     ;
-                else if (NULL == calibration_map_left_1_ || NULL == calibration_map_left_2_)
+                else if (calibration_map_left_1_.empty() || calibration_map_left_2_.empty())
                     ROS_ERROR("Camera: undistort maps not initialized");
                 else {
-
-                    const CvScalar outlierColor = cv::Scalar_<double>(0.0);
-
                     left_rgb_rect_image_.data.resize(imageSize);
 
-                    IplImage *sourceImageP  = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 3);
-                    sourceImageP->imageData = reinterpret_cast<char*>(&(left_rgb_image_.data[0]));
-                    IplImage *destImageP    = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 3);
-                    destImageP->imageData   = reinterpret_cast<char*>(&(left_rgb_rect_image_.data[0]));
+                    const cv::Mat rgb_image(height, width, CV_8UC3, &(left_rgb_image_.data[0]));
+                    cv::Mat rect_rgb_image(height, width, CV_8UC3, &(left_rgb_rect_image_.data[0]));
 
-                    cvRemap(sourceImageP, destImageP,
+                    cv::remap(rgb_image, rect_rgb_image,
                             calibration_map_left_1_,
                             calibration_map_left_2_,
-                            CV_INTER_LINEAR+CV_WARP_FILL_OUTLIERS,
-                            outlierColor);
-
-                    cvReleaseImageHeader(&sourceImageP);
-                    cvReleaseImageHeader(&destImageP);
+                            cv::INTER_CUBIC);
 
                     left_rgb_rect_image_.header.frame_id = frame_id_left_;
                     left_rgb_rect_image_.header.stamp    = ros::Time(header.timeSeconds,
@@ -1951,13 +1930,8 @@ void Camera::queryConfig()
     //
     // Create rectification maps for local rectification of color images
 
-    if (calibration_map_left_1_)
-        cvReleaseMat(&calibration_map_left_1_);
-    if (calibration_map_left_2_)
-        cvReleaseMat(&calibration_map_left_2_);
-
-    calibration_map_left_1_ = cvCreateMat(c.height(), c.width(), CV_32F);
-    calibration_map_left_2_ = cvCreateMat(c.height(), c.width(), CV_32F);
+    calibration_map_left_1_ = cv::Mat(c.height(), c.width(), CV_32F);
+    calibration_map_left_2_ = cv::Mat(c.height(), c.width(), CV_32F);
 
     cal.left.M[0][0]  *= x_scale;  cal.left.M[1][1]  *= y_scale;
     cal.left.M[0][2]  *= x_scale;  cal.left.M[1][2]  *= y_scale;
@@ -1967,14 +1941,16 @@ void Camera::queryConfig()
     cal.left.P[0][2]  *= x_scale;  cal.left.P[1][2]  *= y_scale;
     cal.left.P[0][3]  *= x_scale;  cal.left.P[1][3]  *= y_scale;
 
-    CvMat M1 = cvMat(3, 3, CV_32F, &cal.left.M);
-    CvMat D1 = cvMat(1, 8, CV_32F, &cal.left.D);
-    CvMat R1 = cvMat(3, 3, CV_32F, &cal.left.R);
-    CvMat P1 = cvMat(3, 4, CV_32F, &cal.left.P);
+    cv::Mat M1 = cv::Mat(3, 3, CV_32F, &cal.left.M);
+    cv::Mat D1 = cv::Mat(1, 8, CV_32F, &cal.left.D);
+    cv::Mat R1 = cv::Mat(3, 3, CV_32F, &cal.left.R);
+    cv::Mat P1 = cv::Mat(3, 4, CV_32F, &cal.left.P);
 
-    cvInitUndistortRectifyMap(&M1, &D1, &R1, &P1,
-                              calibration_map_left_1_,
-                              calibration_map_left_2_);
+    cv::initUndistortRectifyMap(M1, D1, R1, P1,
+                                cv::Size(c.width(), c.height()),
+                                CV_32F,
+                                calibration_map_left_1_,
+                                calibration_map_left_2_);
 
 
     //
