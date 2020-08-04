@@ -2,6 +2,9 @@
 Changelog for package multisense_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 4.0.4 (2020-07-01)
 ------------------
 * update release to reference github instead of bitbucket
