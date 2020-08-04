@@ -2,8 +2,8 @@
 Changelog for package multisense_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.5 (2020-08-03)
+------------------
 * Update for OpenCV 4.2, and updated launch file for ROS Noetic compatibility (`#4 <https://github.com/QuentinTorg/multisense_ros/issues/4>`_)
 * Contributors: Quentin Torgerson
 

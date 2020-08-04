@@ -2,7 +2,7 @@
 <package>
 
   <name>multisense_cal_check</name>
-  <version>4.0.4</version>
+  <version>4.0.5</version>
   <description>multisense_cal_check</description>
   <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
   <license>BSD</license>
