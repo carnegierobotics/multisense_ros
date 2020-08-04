@@ -2,7 +2,7 @@
 <package>
 
   <name>multisense_description</name>
-  <version>4.0.4</version>
+  <version>4.0.5</version>
   <description>multisense_description</description>
   <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
   <license>BSD</license>
