@@ -129,14 +129,6 @@ Reconfigure::Reconfigure(Channel* driver,
             break;
         }
 
-    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
-               system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision) {
-
-            server_s27_AR0234_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
-                    new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
-            server_s27_AR0234_->setCallback(boost::bind(&Reconfigure::callback_s27_AR0234, this, _1, _2));
-
     } else if (versionInfo.sensorFirmwareVersion <= 0x0202) {
 
         switch(deviceInfo.imagerType) {
@@ -156,6 +148,15 @@ Reconfigure::Reconfigure(Channel* driver,
                 boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000Config>(device_nh_));
             server_sl_bm_cmv4000_->setCallback(boost::bind(&Reconfigure::callback_sl_bm_cmv4000, this, _1, _2));
+
+            break;
+        case system::DeviceInfo::IMAGER_TYPE_AR0239_COLOR:
+        case system::DeviceInfo::IMAGER_TYPE_AR0234_GREY:
+
+            server_s27_AR0234_ =
+                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
+                    new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
+            server_s27_AR0234_->setCallback(boost::bind(&Reconfigure::callback_s27_AR0234, this, _1, _2));
 
             break;
         default:
@@ -183,6 +184,15 @@ Reconfigure::Reconfigure(Channel* driver,
                 boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000_imuConfig> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000_imuConfig>(device_nh_));
             server_sl_bm_cmv4000_imu_->setCallback(boost::bind(&Reconfigure::callback_sl_bm_cmv4000_imu, this, _1, _2));
+
+            break;
+        case system::DeviceInfo::IMAGER_TYPE_AR0239_COLOR:
+        case system::DeviceInfo::IMAGER_TYPE_AR0234_GREY:
+
+            server_s27_AR0234_ =
+                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
+                    new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
+            server_s27_AR0234_->setCallback(boost::bind(&Reconfigure::callback_s27_AR0234, this, _1, _2));
 
             break;
         default:
@@ -242,7 +252,6 @@ bool Reconfigure::changeResolution(image::Config& cfg,
 {
     //
     // See if we need to change resolutions
-
     if (width       == static_cast<int32_t>(cfg.width())   &&
         height      == static_cast<int32_t>(cfg.height())  &&
         disparities == static_cast<int32_t>(cfg.disparities()))
