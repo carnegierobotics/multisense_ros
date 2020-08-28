@@ -129,6 +129,14 @@ Reconfigure::Reconfigure(Channel* driver,
             break;
         }
 
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
+               system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision) {
+
+            server_s27_AR0234_ =
+                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
+                    new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
+            server_s27_AR0234_->setCallback(boost::bind(&Reconfigure::callback_s27_AR0234, this, _1, _2));
+
     } else if (versionInfo.sensorFirmwareVersion <= 0x0202) {
 
         switch(deviceInfo.imagerType) {
@@ -202,6 +210,15 @@ Reconfigure::Reconfigure(Channel* driver,
                 boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig>(device_nh_));
             server_sl_sgm_cmv4000_imu_->setCallback(boost::bind(&Reconfigure::callback_sl_sgm_cmv4000_imu, this, _1, _2));
+            break;
+        case system::DeviceInfo::IMAGER_TYPE_AR0239_COLOR:
+        case system::DeviceInfo::IMAGER_TYPE_AR0234_GREY:
+
+            server_s27_AR0234_ =
+                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
+                    new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
+            server_s27_AR0234_->setCallback(boost::bind(&Reconfigure::callback_s27_AR0234, this, _1, _2));
+
             break;
         default:
 
@@ -368,48 +385,6 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     }
 
     //
-    // Send the desired motor speed
-
-    if (motor_supported_) {
-
-        const float radiansPerSecondToRpm = 9.54929659643;
-
-        status = driver_->setMotorSpeed(radiansPerSecondToRpm * dyn.motor_speed);
-        if (Status_Ok != status) {
-            if (Status_Unsupported == status)
-                motor_supported_ = false;
-            else
-                ROS_ERROR("Reconfigure: failed to set motor speed: %s",
-                          Channel::statusString(status));
-        }
-    }
-
-    //
-    // Send the desired lighting configuration
-
-    if (lighting_supported_) {
-
-        lighting::Config leds;
-
-        if (false == dyn.lighting) {
-            leds.setFlash(false);
-            leds.setDutyCycle(0.0);
-        } else {
-            leds.setFlash(dyn.flash);
-            leds.setDutyCycle(dyn.led_duty_cycle * 100.0);
-        }
-
-        status = driver_->setLightingConfig(leds);
-        if (Status_Ok != status) {
-            if (Status_Unsupported == status)
-                lighting_supported_ = false;
-            else
-                ROS_ERROR("Reconfigure: failed to set lighting config: %s",
-                          Channel::statusString(status));
-        }
-    }
-
-    //
     // Enable/disable network-based time synchronization.
     //
     // If enabled, sensor timestamps will be reported in the local
@@ -432,6 +407,56 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
         ROS_ERROR("Reconfigure: failed to set transmit delay: %s",
                   Channel::statusString(status));
     }
+}
+
+template<class T> void Reconfigure::configureMotor(const T& dyn)
+{
+    //
+    // Send the desired motor speed
+
+    if (motor_supported_) {
+
+        const float radiansPerSecondToRpm = 9.54929659643;
+
+        Status status = driver_->setMotorSpeed(radiansPerSecondToRpm * dyn.motor_speed);
+        if (Status_Ok != status) {
+            if (Status_Unsupported == status)
+                motor_supported_ = false;
+            else
+                ROS_ERROR("Reconfigure: failed to set motor speed: %s",
+                          Channel::statusString(status));
+        }
+    }
+
+}
+
+template<class T> void Reconfigure::configureLeds(const T& dyn)
+{
+    //
+    // Send the desired lighting configuration
+
+    if (lighting_supported_) {
+
+        lighting::Config leds;
+
+        if (false == dyn.lighting) {
+            leds.setFlash(false);
+            leds.setDutyCycle(0.0);
+        } else {
+            leds.setFlash(dyn.flash);
+            leds.setDutyCycle(dyn.led_duty_cycle * 100.0);
+        }
+
+        Status status = driver_->setLightingConfig(leds);
+        if (Status_Ok != status) {
+            if (Status_Unsupported == status)
+                lighting_supported_ = false;
+            else
+                ROS_ERROR("Reconfigure: failed to set lighting config: %s",
+                          Channel::statusString(status));
+        }
+    }
+
 }
 
 template<class T> void Reconfigure::configureImu(const T& dyn)
@@ -543,12 +568,16 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
 #define SL_BM()  do {                                           \
         GET_CONFIG();                                           \
         configureCamera(cfg, dyn);                              \
+        configureMotor(dyn);                               \
+        configureLeds(dyn);                               \
         configureBorderClip(dyn);                               \
     } while(0)
 
 #define SL_BM_IMU()  do {                                       \
         GET_CONFIG();                                           \
         configureCamera(cfg, dyn);                              \
+        configureMotor(dyn);                               \
+        configureLeds(dyn);                               \
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
     } while(0)
@@ -557,7 +586,16 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
         configureCamera(cfg, dyn);                              \
+        configureMotor(dyn);                               \
+        configureLeds(dyn);                               \
         configureImu(dyn);                                      \
+        configureBorderClip(dyn);                               \
+    } while(0)
+
+#define SL_SGM()  do {                                      \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
     } while(0)
 
@@ -566,6 +604,8 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
         configureSgm(cfg, dyn);                                 \
         configureCropMode(cfg, dyn);                            \
         configureCamera(cfg, dyn);                              \
+        configureMotor(dyn);                               \
+        configureLeds(dyn);                               \
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
     } while(0)
@@ -583,6 +623,7 @@ void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_im
 void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU_CMV4000();  };
 void Reconfigure::callback_mono_cmv2000       (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { SL_BM_IMU();   };
 void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { SL_BM_IMU();   };
+void Reconfigure::callback_s27_AR0234         (multisense_ros::s27_sgm_AR0234Config&     dyn, uint32_t level) { SL_SGM();   };
 
 //
 // BCAM (Sony IMX104)

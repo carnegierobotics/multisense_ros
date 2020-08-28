@@ -1,0 +1,3 @@
+[submodule "multisense_lib/sensor_api"]
+	path = multisense_lib/sensor_api
+	url = git@github.com:carnegierobotics/LibMultiSense.git
