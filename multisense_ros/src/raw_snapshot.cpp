@@ -168,7 +168,7 @@ public:
 
 private:
 
-    static const double SCAN_COLLECT_TIMEOUT = 20.0; // seconds
+    const double SCAN_COLLECT_TIMEOUT = 20.0; // seconds
 
     bool motion_started_;
     ros::CallbackQueue queue_;
