@@ -51,6 +51,7 @@
 #include <multisense_ros/st21_sgm_vga_imuConfig.h>
 #include <multisense_ros/mono_cmv2000Config.h>
 #include <multisense_ros/mono_cmv4000Config.h>
+#include <multisense_ros/s27_sgm_AR0234Config.h>
 
 namespace multisense_ros {
 
@@ -80,6 +81,7 @@ private:
     void callback_st21_vga          (multisense_ros::st21_sgm_vga_imuConfig&   config, uint32_t level);
     void callback_mono_cmv2000      (multisense_ros::mono_cmv2000Config&       config, uint32_t level);
     void callback_mono_cmv4000      (multisense_ros::mono_cmv4000Config&       config, uint32_t level);
+    void callback_s27_AR0234        (multisense_ros::s27_sgm_AR0234Config&       config, uint32_t level);
 
     //
     // Internal helper functions
@@ -89,6 +91,8 @@ private:
     template<class T> void configureSgm(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureCamera(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureCropMode(crl::multisense::image::Config& cfg, const T& dyn);
+    template<class T> void configureMotor(const T& dyn);
+    template<class T> void configureLeds(const T& dyn);
     template<class T> void configureImu(const T& dyn);
     template<class T> void configureBorderClip(const T& dyn);
 
@@ -127,6 +131,7 @@ private:
     boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::st21_sgm_vga_imuConfig> >   server_st21_vga_;
     boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv2000Config> >       server_mono_cmv2000_;
     boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv4000Config> >       server_mono_cmv4000_;
+    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> >     server_s27_AR0234_;
 
     //
     // Cached values for supported sub-systems (these may be unavailable on
