@@ -100,7 +100,6 @@ Laser::Laser(Channel* driver,
     previous_scan_time_(0.0)
 
 {
-
     //
     // Get device info
 
@@ -113,19 +112,7 @@ Laser::Laser(Channel* driver,
         return;
     }
 
-    switch(deviceInfo.hardwareRevision) {
-    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL:
-
-        if (deviceInfo.imagerType != system::DeviceInfo::IMAGER_TYPE_AR0239_COLOR &&
-            deviceInfo.imagerType != system::DeviceInfo::IMAGER_TYPE_AR0234_GREY)
-        {
-            ; // ok, this one has a laser
-
-            break;
-        }
-
-    default:
-
+    if (deviceInfo.hardwareRevision != system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL) {
         ROS_INFO("hardware does not support a laser");
         return;
     }

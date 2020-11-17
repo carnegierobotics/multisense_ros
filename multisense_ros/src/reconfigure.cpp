@@ -152,9 +152,10 @@ Reconfigure::Reconfigure(Channel* driver,
         case system::DeviceInfo::IMAGER_TYPE_AR0234_GREY:
 
             server_s27_AR0234_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
-            server_s27_AR0234_->setCallback(boost::bind(&Reconfigure::callback_s27_AR0234, this, _1, _2));
+            server_s27_AR0234_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234, this,
+                                                         std::placeholders::_1, std::placeholders::_2));
 
             break;
         default:
@@ -190,9 +191,10 @@ Reconfigure::Reconfigure(Channel* driver,
         case system::DeviceInfo::IMAGER_TYPE_AR0234_GREY:
 
             server_s27_AR0234_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
-            server_s27_AR0234_->setCallback(boost::bind(&Reconfigure::callback_s27_AR0234, this, _1, _2));
+            server_s27_AR0234_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234, this,
+                                                      std::placeholders::_1, std::placeholders::_2));
 
             break;
         default:
@@ -227,9 +229,10 @@ Reconfigure::Reconfigure(Channel* driver,
         case system::DeviceInfo::IMAGER_TYPE_AR0234_GREY:
 
             server_s27_AR0234_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
-            server_s27_AR0234_->setCallback(boost::bind(&Reconfigure::callback_s27_AR0234, this, _1, _2));
+            server_s27_AR0234_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234, this,
+                                                      std::placeholders::_1, std::placeholders::_2));
 
             break;
         default:
@@ -568,8 +571,8 @@ template<class T> void Reconfigure::configurePointCloudRange(const T& dyn)
 #define SL_BM()  do {                                           \
         GET_CONFIG();                                           \
         configureCamera(cfg, dyn);                              \
-        configureMotor(dyn);                               \
-        configureLeds(dyn);                               \
+        configureMotor(dyn);                                    \
+        configureLeds(dyn);                                     \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
     } while(0)
@@ -577,8 +580,8 @@ template<class T> void Reconfigure::configurePointCloudRange(const T& dyn)
 #define SL_BM_IMU()  do {                                       \
         GET_CONFIG();                                           \
         configureCamera(cfg, dyn);                              \
-        configureMotor(dyn);                               \
-        configureLeds(dyn);                               \
+        configureMotor(dyn);                                    \
+        configureLeds(dyn);                                     \
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
@@ -588,14 +591,14 @@ template<class T> void Reconfigure::configurePointCloudRange(const T& dyn)
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
         configureCamera(cfg, dyn);                              \
-        configureMotor(dyn);                               \
-        configureLeds(dyn);                               \
+        configureMotor(dyn);                                    \
+        configureLeds(dyn);                                     \
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
     } while(0)
 
-#define SL_SGM()  do {                                      \
+#define SL_SGM()  do {                                          \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
         configureCamera(cfg, dyn);                              \
@@ -607,8 +610,8 @@ template<class T> void Reconfigure::configurePointCloudRange(const T& dyn)
         configureSgm(cfg, dyn);                                 \
         configureCropMode(cfg, dyn);                            \
         configureCamera(cfg, dyn);                              \
-        configureMotor(dyn);                               \
-        configureLeds(dyn);                               \
+        configureMotor(dyn);                                    \
+        configureLeds(dyn);                                     \
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
@@ -627,7 +630,7 @@ void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_im
 void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { (void) level; SL_SGM_IMU_CMV4000();  }
 void Reconfigure::callback_mono_cmv2000       (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
 void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
-void Reconfigure::callback_s27_AR0234         (multisense_ros::s27_sgm_AR0234Config&     dyn, uint32_t level) { (void) SL_SGM();   };
+void Reconfigure::callback_s27_AR0234         (multisense_ros::s27_sgm_AR0234Config&     dyn, uint32_t level) { (void) level; SL_SGM();   }
 
 //
 // BCAM (Sony IMX104)
