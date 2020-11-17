@@ -49,7 +49,7 @@ void ppsCB(const pps::Header& header, void* userDataP)
 { reinterpret_cast<Pps*>(userDataP)->ppsCallback(header); }
 
 
-}; // anonymous
+} // anonymous
 
 Pps::Pps(Channel* driver) :
     driver_(driver),

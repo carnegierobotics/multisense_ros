@@ -34,10 +34,9 @@
 #ifndef MULTISENSE_ROS_COLOR_LASER_H
 #define MULTISENSE_ROS_COLOR_LASER_H
 
+#include <mutex>
 #include <string>
 #include <vector>
-
-#include <boost/thread.hpp>
 
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -51,11 +50,11 @@ class ColorLaser
     public:
 
         ColorLaser(
-            ros::NodeHandle& nh
+            ros::NodeHandle& nh,
+            const std::string &tf_prefix
         );
 
-        ~ColorLaser();
-
+        ~ColorLaser() = default;
 
         //
         // Callbacks for subscriptions to ROS topics
@@ -101,12 +100,17 @@ class ColorLaser
         //
         // Mutex to assure callbacks don't interfere with one another
 
-        boost::mutex data_lock_;
+        std::mutex data_lock_;
 
         //
         // The number of channels in our color image
 
         uint8_t image_channels_;
+
+        //
+        // The TF prefix to publish laser point clouds with
+
+        std::string tf_prefix_;
 };
 
 }// namespace

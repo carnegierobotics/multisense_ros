@@ -48,7 +48,7 @@ void imuCB(const imu::Header& header, void* userDataP)
 { reinterpret_cast<Imu*>(userDataP)->imuCallback(header); }
 
 
-}; // anonymous
+} // anonymous
 
 Imu::Imu(Channel* driver, std::string tf_prefix) :
     driver_(driver),

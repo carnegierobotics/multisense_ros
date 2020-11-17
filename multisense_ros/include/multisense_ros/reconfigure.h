@@ -34,8 +34,6 @@
 #ifndef MULTISENSE_ROS_RECONFIGURE_H
 #define MULTISENSE_ROS_RECONFIGURE_H
 
-#include <boost/shared_ptr.hpp>
-#include <boost/thread.hpp>
 #include <ros/ros.h>
 
 #include <multisense_lib/MultiSenseChannel.hh>
@@ -51,6 +49,7 @@
 #include <multisense_ros/st21_sgm_vga_imuConfig.h>
 #include <multisense_ros/mono_cmv2000Config.h>
 #include <multisense_ros/mono_cmv4000Config.h>
+#include <multisense_ros/camera_utilities.h>
 
 namespace multisense_ros {
 
@@ -58,8 +57,9 @@ class Reconfigure {
 public:
 
     Reconfigure(crl::multisense::Channel* driver,
-                boost::function<void ()> resolutionChangeCallback=0,
-                boost::function<void (int, int)> borderClipChangeCallback=0);
+                std::function<void (crl::multisense::image::Config)> resolutionChangeCallback,
+                std::function<void (BorderClip, double)> borderClipChangeCallback,
+                std::function<void (double)> maxPointCloudRangeCallback);
 
     ~Reconfigure();
 
@@ -91,16 +91,17 @@ private:
     template<class T> void configureCropMode(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureImu(const T& dyn);
     template<class T> void configureBorderClip(const T& dyn);
+    template<class T> void configurePointCloudRange(const T& dyn);
 
     //
     // CRL sensor API
 
-    crl::multisense::Channel* driver_;
+    crl::multisense::Channel* driver_ = nullptr;
 
     //
     // Resolution change callback
 
-    boost::function<void ()> resolution_change_callback_;
+    std::function<void (crl::multisense::image::Config)> resolution_change_callback_;
 
     //
     // Driver nodes
@@ -117,38 +118,41 @@ private:
     //
     // Dynamic reconfigure server variations
 
-    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv2000Config> >      server_sl_bm_cmv2000_;
-    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv2000_imuConfig> >  server_sl_bm_cmv2000_imu_;
-    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000Config> >      server_sl_bm_cmv4000_;
-    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000_imuConfig> >  server_sl_bm_cmv4000_imu_;
-    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv2000_imuConfig> > server_sl_sgm_cmv2000_imu_;
-    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig> > server_sl_sgm_cmv4000_imu_;
-    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::bcam_imx104Config> >        server_bcam_imx104_;
-    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::st21_sgm_vga_imuConfig> >   server_st21_vga_;
-    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv2000Config> >       server_mono_cmv2000_;
-    boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv4000Config> >       server_mono_cmv4000_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv2000Config> >      server_sl_bm_cmv2000_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv2000_imuConfig> >  server_sl_bm_cmv2000_imu_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000Config> >      server_sl_bm_cmv4000_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000_imuConfig> >  server_sl_bm_cmv4000_imu_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv2000_imuConfig> > server_sl_sgm_cmv2000_imu_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig> > server_sl_sgm_cmv4000_imu_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::bcam_imx104Config> >        server_bcam_imx104_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::st21_sgm_vga_imuConfig> >   server_st21_vga_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv2000Config> >       server_mono_cmv2000_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv4000Config> >       server_mono_cmv4000_;
 
     //
     // Cached values for supported sub-systems (these may be unavailable on
     // certain hardware variations: S7, S7S, M, etc.)
 
-    bool lighting_supported_;
-    bool motor_supported_;
-    bool crop_mode_changed_;
+    bool lighting_supported_ = false;
+    bool motor_supported_ = false;
+    bool crop_mode_changed_ = false;
 
     //
     // Cached value for the boarder clip. These are used to determine if we
     // should regenerate our border clipping mask
 
-    enum clip_ {RECTANGULAR, CIRCULAR};
-
-    int border_clip_type_;
-    double border_clip_value_;
+    BorderClip border_clip_type_ = BorderClip::NONE;
+    double border_clip_value_ = 0.0;
 
     //
     // Border clip change callback
 
-    boost::function<void (int, int)> border_clip_change_callback_;
+    std::function<void (BorderClip, double)> border_clip_change_callback_;
+
+    //
+    // Max point cloud range callback
+
+    std::function<void (double)> max_point_cloud_range_callback_;
 };
 
 } // multisense_ros

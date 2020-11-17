@@ -38,28 +38,20 @@ using namespace crl::multisense;
 namespace multisense_ros {
 
 Reconfigure::Reconfigure(Channel* driver,
-                         boost::function<void ()> resolutionChangeCallback,
-                         boost::function<void (int, int)> borderClipChangeCallback) :
+                         std::function<void (crl::multisense::image::Config)> resolutionChangeCallback,
+                         std::function<void (BorderClip, double)> borderClipChangeCallback,
+                         std::function<void (double)> maxPointCloudRangeCallback):
     driver_(driver),
     resolution_change_callback_(resolutionChangeCallback),
     device_nh_(""),
-    device_modes_(),
     imu_samples_per_message_(0),
-    imu_configs_(),
-    server_sl_bm_cmv2000_(),
-    server_sl_bm_cmv2000_imu_(),
-    server_sl_bm_cmv4000_(),
-    server_sl_bm_cmv4000_imu_(),
-    server_sl_sgm_cmv2000_imu_(),
-    server_sl_sgm_cmv4000_imu_(),
-    server_bcam_imx104_(),
-    server_st21_vga_(),
     lighting_supported_(false),
     motor_supported_(false),
-    border_clip_type_(RECTANGULAR),
+    crop_mode_changed_(false),
+    border_clip_type_(BorderClip::NONE),
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
-    crop_mode_changed_(false)
+    max_point_cloud_range_callback_(maxPointCloudRangeCallback)
 {
     system::DeviceInfo  deviceInfo;
     system::VersionInfo versionInfo;
@@ -95,16 +87,18 @@ Reconfigure::Reconfigure(Channel* driver,
     if (system::DeviceInfo::HARDWARE_REV_BCAM == deviceInfo.hardwareRevision) {
 
         server_bcam_imx104_ =
-            boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::bcam_imx104Config> > (
+            std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::bcam_imx104Config> > (
                 new dynamic_reconfigure::Server<multisense_ros::bcam_imx104Config>(device_nh_));
-        server_bcam_imx104_->setCallback(boost::bind(&Reconfigure::callback_bcam_imx104, this, _1, _2));
+        server_bcam_imx104_->setCallback(std::bind(&Reconfigure::callback_bcam_imx104, this,
+                                                   std::placeholders::_1, std::placeholders::_2));
 
     } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 == deviceInfo.hardwareRevision) {
 
         server_st21_vga_ =
-            boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::st21_sgm_vga_imuConfig> > (
+            std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::st21_sgm_vga_imuConfig> > (
                 new dynamic_reconfigure::Server<multisense_ros::st21_sgm_vga_imuConfig>(device_nh_));
-        server_st21_vga_->setCallback(boost::bind(&Reconfigure::callback_st21_vga, this, _1, _2));
+        server_st21_vga_->setCallback(std::bind(&Reconfigure::callback_st21_vga, this,
+                                                std::placeholders::_1, std::placeholders::_2));
 
     } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == deviceInfo.hardwareRevision) {
 
@@ -113,18 +107,20 @@ Reconfigure::Reconfigure(Channel* driver,
         case system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR:
 
             server_mono_cmv2000_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv2000Config> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv2000Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::mono_cmv2000Config>(device_nh_));
-            server_mono_cmv2000_->setCallback(boost::bind(&Reconfigure::callback_mono_cmv2000, this, _1, _2));
+            server_mono_cmv2000_->setCallback(std::bind(&Reconfigure::callback_mono_cmv2000, this,
+                                                        std::placeholders::_1, std::placeholders::_2));
 
             break;
         case system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY:
         case system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR:
 
             server_mono_cmv4000_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv4000Config> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv4000Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::mono_cmv4000Config>(device_nh_));
-            server_mono_cmv4000_->setCallback(boost::bind(&Reconfigure::callback_mono_cmv4000, this, _1, _2));
+            server_mono_cmv4000_->setCallback(std::bind(&Reconfigure::callback_mono_cmv4000, this,
+                                                        std::placeholders::_1, std::placeholders::_2));
 
             break;
         }
@@ -136,18 +132,20 @@ Reconfigure::Reconfigure(Channel* driver,
         case system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR:
 
             server_sl_bm_cmv2000_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv2000Config> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv2000Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv2000Config>(device_nh_));
-            server_sl_bm_cmv2000_->setCallback(boost::bind(&Reconfigure::callback_sl_bm_cmv2000, this, _1, _2));
+            server_sl_bm_cmv2000_->setCallback(std::bind(&Reconfigure::callback_sl_bm_cmv2000, this,
+                                                         std::placeholders::_1, std::placeholders::_2));
 
             break;
         case system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY:
         case system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR:
 
             server_sl_bm_cmv4000_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000Config> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000Config>(device_nh_));
-            server_sl_bm_cmv4000_->setCallback(boost::bind(&Reconfigure::callback_sl_bm_cmv4000, this, _1, _2));
+            server_sl_bm_cmv4000_->setCallback(std::bind(&Reconfigure::callback_sl_bm_cmv4000, this,
+                                                         std::placeholders::_1, std::placeholders::_2));
 
             break;
         default:
@@ -163,18 +161,20 @@ Reconfigure::Reconfigure(Channel* driver,
         case system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR:
 
             server_sl_bm_cmv2000_imu_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv2000_imuConfig> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv2000_imuConfig> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv2000_imuConfig>(device_nh_));
-            server_sl_bm_cmv2000_imu_->setCallback(boost::bind(&Reconfigure::callback_sl_bm_cmv2000_imu, this, _1, _2));
+            server_sl_bm_cmv2000_imu_->setCallback(std::bind(&Reconfigure::callback_sl_bm_cmv2000_imu, this,
+                                                             std::placeholders::_1, std::placeholders::_2));
 
             break;
         case system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY:
         case system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR:
 
             server_sl_bm_cmv4000_imu_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000_imuConfig> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000_imuConfig> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000_imuConfig>(device_nh_));
-            server_sl_bm_cmv4000_imu_->setCallback(boost::bind(&Reconfigure::callback_sl_bm_cmv4000_imu, this, _1, _2));
+            server_sl_bm_cmv4000_imu_->setCallback(std::bind(&Reconfigure::callback_sl_bm_cmv4000_imu, this,
+                                                             std::placeholders::_1, std::placeholders::_2));
 
             break;
         default:
@@ -190,18 +190,20 @@ Reconfigure::Reconfigure(Channel* driver,
         case system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR:
 
             server_sl_sgm_cmv2000_imu_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv2000_imuConfig> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv2000_imuConfig> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv2000_imuConfig>(device_nh_));
-            server_sl_sgm_cmv2000_imu_->setCallback(boost::bind(&Reconfigure::callback_sl_sgm_cmv2000_imu, this, _1, _2));
+            server_sl_sgm_cmv2000_imu_->setCallback(std::bind(&Reconfigure::callback_sl_sgm_cmv2000_imu, this,
+                                                              std::placeholders::_1, std::placeholders::_2));
 
             break;
         case system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY:
         case system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR:
 
             server_sl_sgm_cmv4000_imu_ =
-                boost::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig> > (
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_sgm_cmv4000_imuConfig>(device_nh_));
-            server_sl_sgm_cmv4000_imu_->setCallback(boost::bind(&Reconfigure::callback_sl_sgm_cmv4000_imu, this, _1, _2));
+            server_sl_sgm_cmv4000_imu_->setCallback(std::bind(&Reconfigure::callback_sl_sgm_cmv4000_imu, this,
+                                                              std::placeholders::_1, std::placeholders::_2));
             break;
         default:
 
@@ -358,9 +360,6 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     // If we are changing the resolution, let others know about it
 
     if (resolutionChange) {
-        if (false == resolution_change_callback_.empty())
-            resolution_change_callback_();
-
         status = driver_->startStreams(streamsEnabled);
         if (Status_Ok != status)
             ROS_ERROR("Reconfigure: failed to restart streams after a resolution change: %s",
@@ -507,27 +506,19 @@ template<class T> void Reconfigure::configureImu(const T& dyn)
 
 template<class T> void Reconfigure::configureBorderClip(const T& dyn)
 {
-    bool regenerate = false;
 
-    if (dyn.border_clip_type != border_clip_type_)
+    if (static_cast<BorderClip>(dyn.border_clip_type) != border_clip_type_ ||
+        dyn.border_clip_value != border_clip_value_)
     {
-        border_clip_type_ = dyn.border_clip_type;
-        regenerate = true;
-    }
-
-    if (dyn.border_clip_value != border_clip_value_)
-    {
+        border_clip_type_ = static_cast<BorderClip>(dyn.border_clip_type);
         border_clip_value_ = dyn.border_clip_value;
-        regenerate = true;
+        border_clip_change_callback_(border_clip_type_, border_clip_value_);
     }
+}
 
-    if (regenerate)
-    {
-        if (false == border_clip_change_callback_.empty())
-        {
-            border_clip_change_callback_(dyn.border_clip_type, dyn.border_clip_value);
-        }
-    }
+template<class T> void Reconfigure::configurePointCloudRange(const T& dyn)
+{
+    max_point_cloud_range_callback_(dyn.max_point_cloud_range);
 }
 
 
@@ -544,6 +535,7 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
         GET_CONFIG();                                           \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
+        configurePointCloudRange(dyn);                          \
     } while(0)
 
 #define SL_BM_IMU()  do {                                       \
@@ -551,6 +543,7 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
         configureCamera(cfg, dyn);                              \
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
+        configurePointCloudRange(dyn);                          \
     } while(0)
 
 #define SL_SGM_IMU()  do {                                      \
@@ -559,6 +552,7 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
         configureCamera(cfg, dyn);                              \
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
+        configurePointCloudRange(dyn);                          \
     } while(0)
 
 #define SL_SGM_IMU_CMV4000()  do {                              \
@@ -568,6 +562,7 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
         configureCamera(cfg, dyn);                              \
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
+        configurePointCloudRange(dyn);                          \
     } while(0)
 
 
@@ -575,14 +570,14 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
 //
 // The dynamic reconfigure callbacks (MultiSense S* variations)
 
-void Reconfigure::callback_sl_bm_cmv2000      (multisense_ros::sl_bm_cmv2000Config&      dyn, uint32_t level) { SL_BM();       };
-void Reconfigure::callback_sl_bm_cmv2000_imu  (multisense_ros::sl_bm_cmv2000_imuConfig&  dyn, uint32_t level) { SL_BM_IMU();   };
-void Reconfigure::callback_sl_bm_cmv4000      (multisense_ros::sl_bm_cmv4000Config&      dyn, uint32_t level) { SL_BM();       };
-void Reconfigure::callback_sl_bm_cmv4000_imu  (multisense_ros::sl_bm_cmv4000_imuConfig&  dyn, uint32_t level) { SL_BM_IMU();   };
-void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU();  };
-void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { SL_SGM_IMU_CMV4000();  };
-void Reconfigure::callback_mono_cmv2000       (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { SL_BM_IMU();   };
-void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { SL_BM_IMU();   };
+void Reconfigure::callback_sl_bm_cmv2000      (multisense_ros::sl_bm_cmv2000Config&      dyn, uint32_t level) { (void) level; SL_BM();       }
+void Reconfigure::callback_sl_bm_cmv2000_imu  (multisense_ros::sl_bm_cmv2000_imuConfig&  dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
+void Reconfigure::callback_sl_bm_cmv4000      (multisense_ros::sl_bm_cmv4000Config&      dyn, uint32_t level) { (void) level; SL_BM();       }
+void Reconfigure::callback_sl_bm_cmv4000_imu  (multisense_ros::sl_bm_cmv4000_imuConfig&  dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
+void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_imuConfig& dyn, uint32_t level) { (void) level; SL_SGM_IMU();  }
+void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { (void) level; SL_SGM_IMU_CMV4000();  }
+void Reconfigure::callback_mono_cmv2000       (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
+void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
 
 //
 // BCAM (Sony IMX104)
@@ -590,6 +585,8 @@ void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Confi
 void Reconfigure::callback_bcam_imx104(multisense_ros::bcam_imx104Config& dyn,
                                        uint32_t                           level)
 {
+    (void) level;
+
     GET_CONFIG();
     DataSource  streamsEnabled = 0;
     int32_t     width, height;
@@ -654,8 +651,7 @@ void Reconfigure::callback_bcam_imx104(multisense_ros::bcam_imx104Config& dyn,
 
     if (resolutionChange) {
 
-        if (false == resolution_change_callback_.empty())
-            resolution_change_callback_();
+        resolution_change_callback_(cfg);
 
         status = driver_->startStreams(streamsEnabled);
         if (Status_Ok != status)
@@ -672,7 +668,7 @@ void Reconfigure::callback_bcam_imx104(multisense_ros::bcam_imx104Config& dyn,
 void Reconfigure::callback_st21_vga(multisense_ros::st21_sgm_vga_imuConfig& dyn,
                                        uint32_t                           level)
 {
-
+    (void) level;
     DataSource    streamsEnabled = 0;
     int32_t       width, height, disparities;
     bool          resolutionChange=false;
@@ -727,8 +723,7 @@ void Reconfigure::callback_st21_vga(multisense_ros::st21_sgm_vga_imuConfig& dyn,
 
     if (resolutionChange) {
 
-        if (false == resolution_change_callback_.empty())
-            resolution_change_callback_();
+        resolution_change_callback_(cfg);
 
         status = driver_->startStreams(streamsEnabled);
         if (Status_Ok != status)
@@ -737,6 +732,7 @@ void Reconfigure::callback_st21_vga(multisense_ros::st21_sgm_vga_imuConfig& dyn,
     }
 
     configureBorderClip(dyn);
+    configurePointCloudRange(dyn);
 }
 
 } // namespace

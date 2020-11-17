@@ -57,6 +57,8 @@ Status::~Status()
 
 void Status::queryStatus(const ros::TimerEvent& event)
 {
+    (void) event;
+
     if (subscribers_ <= 0)
         return;
 

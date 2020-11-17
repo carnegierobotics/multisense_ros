@@ -34,19 +34,23 @@
 #ifndef MULTISENSE_ROS_CAMERA_H
 #define MULTISENSE_ROS_CAMERA_H
 
-#include <boost/shared_ptr.hpp>
-#include <boost/thread.hpp>
+#include <memory>
+#include <mutex>
+#include <thread>
+
 #include <ros/ros.h>
-#include <multisense_ros/RawCamData.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <stereo_msgs/DisparityImage.h>
+
 #include <image_geometry/stereo_camera_model.h>
 #include <image_transport/image_transport.h>
 #include <image_transport/camera_publisher.h>
 #include <sensor_msgs/distortion_models.h>
+#include <stereo_msgs/DisparityImage.h>
+#include <sensor_msgs/PointCloud2.h>
 
 
 #include <multisense_lib/MultiSenseChannel.hh>
+#include <multisense_ros/RawCamData.h>
+#include <multisense_ros/camera_utilities.h>
 
 namespace multisense_ros {
 
@@ -56,7 +60,7 @@ public:
            const std::string& tf_prefix);
     ~Camera();
 
-    void resolutionChanged() { queryConfig(); };
+    void updateConfig(const crl::multisense::image::Config& config);
 
     void monoCallback(const crl::multisense::image::Header& header);
     void rectCallback(const crl::multisense::image::Header& header);
@@ -68,9 +72,52 @@ public:
     void jpegImageCallback(const crl::multisense::image::Header& header);
     void histogramCallback(const crl::multisense::image::Header& header);
 
-    void borderClipChanged(int borderClipType, double borderClipValue);
+    void borderClipChanged(const BorderClip &borderClipType, double borderClipValue);
+
+    void maxPointCloudRangeChanged(double range);
 
 private:
+    //
+    // Node names
+
+    static constexpr char LEFT[] = "left";
+    static constexpr char RIGHT[] = "right";
+    static constexpr char CALIBRATION[] = "calibration";
+
+    //
+    // Frames
+
+    static constexpr char LEFT_OPTICAL_FAME[] = "/left_camera_optical_frame";
+    static constexpr char RIGHT_OPTICAL_FAME[] = "/right_camera_optical_frame";
+
+    //
+    // Topic names
+
+    static constexpr char DEVICE_INFO_TOPIC[] = "device_info";
+    static constexpr char RAW_CAM_CAL_TOPIC[] = "raw_cam_cal";
+    static constexpr char RAW_CAM_CONFIG_TOPIC[] = "raw_cam_config";
+    static constexpr char RAW_CAM_DATA_TOPIC[] = "raw_cam_data";
+    static constexpr char HISTOGRAM_TOPIC[] = "histogram";
+    static constexpr char MONO_TOPIC[] = "image_mono";
+    static constexpr char RECT_TOPIC[] = "image_rect";
+    static constexpr char DISPARITY_TOPIC[] = "disparity";
+    static constexpr char DISPARITY_IMAGE_TOPIC[] = "disparity_image";
+    static constexpr char DEPTH_TOPIC[] = "depth";
+    static constexpr char OPENNI_DEPTH_TOPIC[] = "openni_depth";
+    static constexpr char COST_TOPIC[] = "cost";
+    static constexpr char COLOR_TOPIC[] = "image_color";
+    static constexpr char RECT_COLOR_TOPIC[] = "image_rect_color";
+    static constexpr char POINTCLOUD_TOPIC[] = "image_points2";
+    static constexpr char COLOR_POINTCLOUD_TOPIC[] = "image_points2_color";
+    static constexpr char ORGANIZED_POINTCLOUD_TOPIC[] = "organized_image_points2";
+    static constexpr char COLOR_ORGANIZED_POINTCLOUD_TOPIC[] = "organized_image_points2_color";
+    static constexpr char MONO_CAMERA_INFO_TOPIC[] = "image_mono/camera_info";
+    static constexpr char RECT_CAMERA_INFO_TOPIC[] = "image_rect/camera_info";
+    static constexpr char COLOR_CAMERA_INFO_TOPIC[] = "image_color/camera_info";
+    static constexpr char RECT_COLOR_CAMERA_INFO_TOPIC[] = "image_rect_color/camera_info";
+    static constexpr char DEPTH_CAMERA_INFO_TOPIC[] = "depth/camera_info";
+    static constexpr char DISPARITY_CAMERA_INFO_TOPIC[] = "disparity/camera_info";
+    static constexpr char COST_CAMERA_INFO_TOPIC[] = "cost/camera_info";
 
     //
     // Device stream control
@@ -80,39 +127,15 @@ private:
     void stop();
 
     //
-    // Query sensor status and calibration
-
-    void queryConfig();
-
-    //
-    // Update a specific camera info topic. This is used once the camera resolution has changed.
-    // Scale factors in x and y are applied to M and P camera matrices. M and P
-    // matrices are assumed to be full resolution
-
-    void updateCameraInfo(sensor_msgs::CameraInfo& cameraInfo,
-                          const float M[3][3],
-                          const float R[3][3],
-                          const float P[3][4],
-                          const float D[8],
-                          double xScale=1,
-                          double yScale=1);
-
-    //
     // Republish camera info messages by publishing the current messages
     // Used whenever the resolution of the camera changes
 
     void publishAllCameraInfo();
 
     //
-    // Generate border clips for point clouds
-
-    void generateBorderClip(int borderClipType, double borderClipValue, uint32_t width, uint32_t height);
-
-
-    //
     // CRL sensor API
 
-    crl::multisense::Channel* driver_;
+    crl::multisense::Channel* driver_ = nullptr;
 
     //
     // Driver nodes
@@ -120,6 +143,7 @@ private:
     ros::NodeHandle device_nh_;
     ros::NodeHandle left_nh_;
     ros::NodeHandle right_nh_;
+    ros::NodeHandle calibration_nh_;
 
     //
     // Image transports
@@ -138,17 +162,6 @@ private:
 
     //
     // Data publishers
-
-    sensor_msgs::CameraInfo          left_mono_cam_info_;
-    sensor_msgs::CameraInfo          right_mono_cam_info_;
-    sensor_msgs::CameraInfo          left_rect_cam_info_;
-    sensor_msgs::CameraInfo          right_rect_cam_info_;
-    sensor_msgs::CameraInfo          left_rgb_rect_cam_info_;
-    sensor_msgs::CameraInfo          left_disp_cam_info_;
-    sensor_msgs::CameraInfo          right_disp_cam_info_;
-    sensor_msgs::CameraInfo          left_cost_cam_info_;
-    sensor_msgs::CameraInfo          left_rgb_cam_info_;
-    sensor_msgs::CameraInfo          depth_cam_info_;
 
     image_transport::Publisher       left_mono_cam_pub_;
     image_transport::Publisher       right_mono_cam_pub_;
@@ -217,31 +230,22 @@ private:
     stereo_msgs::DisparityImage left_stereo_disparity_;
     stereo_msgs::DisparityImage right_stereo_disparity_;
 
-    bool                       got_raw_cam_left_;
-    bool                       got_left_luma_;
-    int64_t                    left_luma_frame_id_;
-    int64_t                    left_rect_frame_id_;
-    int64_t                    left_rgb_rect_frame_id_;
-    int64_t                    luma_point_cloud_frame_id_;
-    int64_t                    luma_organized_point_cloud_frame_id_;
-    int64_t                    color_point_cloud_frame_id_;
-    int64_t                    color_organized_point_cloud_frame_id_;
     multisense_ros::RawCamData raw_cam_data_;
+
+    std::vector<uint8_t> pointcloud_color_buffer_;
+    std::vector<uint8_t> pointcloud_rect_color_buffer_;
 
     //
     // Calibration from sensor
 
     crl::multisense::system::VersionInfo version_info_;
     crl::multisense::system::DeviceInfo  device_info_;
-    crl::multisense::image::Config       image_config_;
-    crl::multisense::image::Calibration  image_calibration_;
+    std::vector<crl::multisense::system::DeviceMode> device_modes_;
 
     //
-    // For local rectification of color images
+    // Calibration manager
 
-    boost::mutex cal_lock_;
-    cv::Mat calibration_map_left_1_;
-    cv::Mat calibration_map_left_2_;
+    std::shared_ptr<StereoCalibrationManger> stereo_calibration_manager_;
 
     //
     // The frame IDs
@@ -249,59 +253,34 @@ private:
     std::string frame_id_left_;
     std::string frame_id_right_;
 
-    //
-    // For pointcloud generation
-
-    std::vector<float>            disparity_buff_;
-    std::vector<cv::Vec3f>        points_buff_;
-    int64_t                       points_buff_frame_id_;
-    cv::Mat_<double>              q_matrix_;
-    float                         pc_max_range_;
-    bool                          pc_color_frame_sync_;
-
-
-    //
-    // Current maximum number of disparities
-
-    uint32_t                      disparities_;
 
     //
     // Stream subscriptions
 
     typedef std::map<crl::multisense::DataSource, int32_t> StreamMapType;
-    boost::mutex stream_lock_;
+    std::mutex stream_lock_;
     StreamMapType stream_map_;
+
+    //
+    // Max distance from the camera for a point to be considered valid
+
+    double pointcloud_max_range_ = 15.0;
 
     //
     // Histogram tracking
 
-    int64_t last_frame_id_;
-
-    //
-    // Luma Color Depth
-
-    uint8_t luma_color_depth_;
-
-    //
-    // If the color pointcloud data should be written packed. If false
-    // it will be static_cast to a flat and interpreted literally
-
-    bool write_pc_color_packed_;
-
-    //
-    // Enum to determine border clipping types
-
-    enum clip_type_ {RECTANGULAR, CIRCULAR};
-
-    int border_clip_type_;
-    double border_clip_value_;
+    int64_t last_frame_id_ = -1;
 
     //
     // The mask used to perform the border clipping of the disparity image
 
-    cv::Mat_<uint8_t> border_clip_mask_;
+    BorderClip border_clip_type_ = BorderClip::NONE;
+    double border_clip_value_ = 0.0;
 
-    boost::mutex border_clip_lock_;
+    //
+    // Storage of images which we use for pointcloud colorizing
+
+    std::unordered_map<crl::multisense::DataSource, std::shared_ptr<BufferWrapper<crl::multisense::image::Header>>> image_buffers_;
 };
 
 }

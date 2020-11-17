@@ -31,6 +31,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+#include <functional>
+
 #include <multisense_ros/laser.h>
 #include <multisense_ros/camera.h>
 #include <multisense_ros/pps.h>
@@ -41,8 +43,7 @@
 
 using namespace crl::multisense;
 
-int main(int    argc,
-         char** argvPP)
+int main(int argc, char** argvPP)
 {
     ros::init(argc, argvPP, "multisense_driver");
     ros::NodeHandle nh;
@@ -88,8 +89,11 @@ int main(int    argc,
             multisense_ros::Imu          imu(d, tf_prefix);
             multisense_ros::Status       status(d);
             multisense_ros::Reconfigure  rec(d,
-                                             boost::bind(&multisense_ros::Camera::resolutionChanged, &camera),
-                                             boost::bind(&multisense_ros::Camera::borderClipChanged, &camera, _1, _2));
+                                             std::bind(&multisense_ros::Camera::updateConfig, &camera, std::placeholders::_1),
+                                             std::bind(&multisense_ros::Camera::borderClipChanged, &camera,
+                                                       std::placeholders::_1, std::placeholders::_2),
+                                             std::bind(&multisense_ros::Camera::maxPointCloudRangeChanged, &camera,
+                                                       std::placeholders::_1));
             ros::spin();
         }
 

@@ -1,8 +1,16 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(multisense_ros)
 
-find_package(Boost REQUIRED COMPONENTS thread)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Selecting default build type: Release")
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type (default: Release)" FORCE)
+endif ()
+
+find_package(Eigen3 REQUIRED)
 find_package(catkin REQUIRED COMPONENTS roscpp
                                         std_msgs
                                         genmsg
@@ -17,9 +25,6 @@ find_package(catkin REQUIRED COMPONENTS roscpp
                                         dynamic_reconfigure
                                         image_geometry
                                         message_generation)
-
-set(CMAKE_C_FLAGS "-O2")
-set(CMAKE_CXX_FLAGS "-O2")
 
 generate_dynamic_reconfigure_options(cfg/multisense.cfg)
 
@@ -57,25 +62,26 @@ catkin_package(INCLUDE_DIRS   include
 
 include_directories(include
                     ${catkin_INCLUDE_DIRS}
-                    ${Boost_INCLUDE_DIRS}
+                    ${EIGEN3_INCLUDE_DIR}
                     ${multisense_lib_INCLUDE_DIRS})
 
 ## Multisense Library
 
 
 add_library(${PROJECT_NAME} src/camera.cpp
-                          src/imu.cpp
-                          src/laser.cpp
-                          src/pps.cpp
-                          src/status.cpp
-                          src/reconfigure.cpp)
+                            src/camera_utilities.cpp
+                            src/imu.cpp
+                            src/laser.cpp
+                            src/pps.cpp
+                            src/point_cloud_utilities.cpp
+                            src/status.cpp
+                            src/reconfigure.cpp)
 
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_generate_messages_cpp)
 add_dependencies(${PROJECT_NAME} multisense_lib)
 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES}
-                                      ${Boost_LIBRARIES}
                                       ${multisense_lib_LIBRARIES})
 
 
@@ -101,7 +107,6 @@ add_executable(raw_snapshot src/raw_snapshot.cpp)
 add_dependencies(raw_snapshot ${PROJECT_NAME}_generate_messages_cpp)
 add_dependencies(raw_snapshot multisense_lib)
 target_link_libraries(raw_snapshot ${catkin_LIBRARIES}
-                                   ${Boost_LIBRARIES}
                                    ${multisense_lib_LIBRARIES})
 
 set_target_properties(raw_snapshot
@@ -111,9 +116,8 @@ set_target_properties(raw_snapshot
 ## Color Laser Point Cloud
 
 
-add_executable(color_laser_publisher src/color_laser.cpp)
-target_link_libraries(color_laser_publisher ${catkin_LIBRARIES}
-                                            ${Boost_LIBRARIES})
+add_executable(color_laser_publisher src/color_laser.cpp src/point_cloud_utilities.cpp)
+target_link_libraries(color_laser_publisher ${catkin_LIBRARIES})
 
 ## Install
 ## Mark executables and/or libraries for installation
