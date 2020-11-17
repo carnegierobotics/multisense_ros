@@ -41,7 +41,6 @@ catkin_package(INCLUDE_DIRS include
 # Build the libraries
 add_subdirectory(sensor_api)
 
-
 # install utilities
 # TODO: how to move install target of bin into devel?
 install(PROGRAMS
