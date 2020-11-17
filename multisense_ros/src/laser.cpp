@@ -67,7 +67,7 @@ tf::Transform makeTransform(float T[4][4])
 
 
 
-}; // anonymous
+} // anonymous
 
 namespace multisense_ros {
 
@@ -90,7 +90,7 @@ void pCB(const lidar::Header&        header,
     reinterpret_cast<Laser*>(userDataP)->pointCloudCallback(header);
 }
 
-}; // anonymous
+} // anonymous
 
 Laser::Laser(Channel* driver,
              const std::string& tf_prefix):
@@ -464,6 +464,8 @@ tf::Transform Laser::getSpindleTransform(float spindle_angle){
 }
 
 void Laser::defaultTfPublisher(const ros::TimerEvent& event){
+    (void) event;
+
     //
     // If our message time is 0 or our message time is over 1 second old
     // we are not subscribed to a laser topic anymore. Publish the default

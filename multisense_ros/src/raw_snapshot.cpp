@@ -213,7 +213,7 @@ void setResolution(const std::string& res)
     setConf(conf);
 }
 
-}; // anonymous
+} // anonymous
 
 int main(int    argc,
          char** argvPP)

@@ -82,6 +82,7 @@ private:
 
     static constexpr char LEFT[] = "left";
     static constexpr char RIGHT[] = "right";
+    static constexpr char AUX[] = "aux";
     static constexpr char CALIBRATION[] = "calibration";
 
     //
@@ -89,6 +90,7 @@ private:
 
     static constexpr char LEFT_OPTICAL_FAME[] = "/left_camera_optical_frame";
     static constexpr char RIGHT_OPTICAL_FAME[] = "/right_camera_optical_frame";
+    static constexpr char AUX_OPTICAL_FAME[] = "/aux_camera_optical_frame";
 
     //
     // Topic names
@@ -143,6 +145,7 @@ private:
     ros::NodeHandle device_nh_;
     ros::NodeHandle left_nh_;
     ros::NodeHandle right_nh_;
+    ros::NodeHandle aux_nh_;
     ros::NodeHandle calibration_nh_;
 
     //
@@ -171,6 +174,8 @@ private:
     image_transport::Publisher       ni_depth_cam_pub_; // publish depth infomation in the openNI format
     image_transport::Publisher       left_rgb_cam_pub_;
     image_transport::CameraPublisher left_rgb_rect_cam_pub_;
+    image_transport::CameraPublisher aux_rgb_cam_pub_;
+    image_transport::CameraPublisher aux_rgb_rect_cam_pub_;
 
     ros::Publisher                   left_mono_cam_info_pub_;
     ros::Publisher                   right_mono_cam_info_pub_;
@@ -182,6 +187,8 @@ private:
     ros::Publisher                   left_rgb_cam_info_pub_;
     ros::Publisher                   left_rgb_rect_cam_info_pub_;
     ros::Publisher                   depth_cam_info_pub_;
+    ros::Publisher                   aux_rgb_cam_info_pub_;
+    ros::Publisher                   aux_rgb_rect_cam_info_pub_;
 
     ros::Publisher                   luma_point_cloud_pub_;
     ros::Publisher                   color_point_cloud_pub_;

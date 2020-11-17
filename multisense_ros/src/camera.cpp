@@ -177,10 +177,12 @@ bool clipPoint(const BorderClip& borderClipType,
 
 constexpr char Camera::LEFT[];
 constexpr char Camera::RIGHT[];
+constexpr char Camera::AUX[];
 constexpr char Camera::CALIBRATION[];
 
 constexpr char Camera::LEFT_OPTICAL_FAME[];
 constexpr char Camera::RIGHT_OPTICAL_FAME[];
+constexpr char Camera::AUX_OPTICAL_FAME[];
 
 constexpr char Camera::DEVICE_INFO_TOPIC[];
 constexpr char Camera::RAW_CAM_CAL_TOPIC[];
@@ -213,6 +215,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     device_nh_(""),
     left_nh_(device_nh_, LEFT),
     right_nh_(device_nh_, RIGHT),
+    aux_nh_(device_nh_, AUX),
     calibration_nh_(device_nh_, CALIBRATION),
     left_mono_transport_(left_nh_),
     right_mono_transport_(right_nh_),
@@ -402,7 +405,6 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         left_disp_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, 1, true);
         depth_cam_info_pub_ = device_nh_.advertise<sensor_msgs::CameraInfo>(DEPTH_CAMERA_INFO_TOPIC, 1, true);
     }
-
 
     //
     // All image streams off
@@ -1339,7 +1341,10 @@ void Camera::pointCloudCallback(const image::Header& header)
                 writePoint(color_organized_point_cloud_, index, valid ? point : invalid_point, packed_color);
             }
 
-            ++valid_points;
+            if (valid)
+            {
+                ++valid_points;
+            }
         }
     }
 
