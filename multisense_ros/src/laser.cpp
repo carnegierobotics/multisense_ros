@@ -156,8 +156,8 @@ Laser::Laser(Channel* driver,
     // Create scan publisher
 
     scan_pub_ = nh.advertise<sensor_msgs::LaserScan>("lidar_scan", 20,
-                boost::bind(&Laser::subscribe, this),
-                boost::bind(&Laser::unsubscribe, this));
+                std::bind(&Laser::subscribe, this),
+                std::bind(&Laser::unsubscribe, this));
 
     //
     // Initialize point cloud structure
@@ -190,8 +190,8 @@ Laser::Laser(Channel* driver,
     // Create point cloud publisher
 
     point_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("lidar_points2", 5,
-                       boost::bind(&Laser::subscribe, this),
-                       boost::bind(&Laser::unsubscribe, this));
+                       std::bind(&Laser::subscribe, this),
+                       std::bind(&Laser::unsubscribe, this));
 
     //
     // Create calibration publishers
@@ -199,8 +199,8 @@ Laser::Laser(Channel* driver,
     ros::NodeHandle calibration_nh(nh, "calibration");
     raw_lidar_cal_pub_  = calibration_nh.advertise<multisense_ros::RawLidarCal>("raw_lidar_cal", 1, true);
     raw_lidar_data_pub_ = calibration_nh.advertise<multisense_ros::RawLidarData>("raw_lidar_data", 20,
-                          boost::bind(&Laser::subscribe, this),
-                          boost::bind(&Laser::unsubscribe, this));
+                          std::bind(&Laser::subscribe, this),
+                          std::bind(&Laser::unsubscribe, this));
 
     //
     // Publish calibration
@@ -253,7 +253,7 @@ Laser::Laser(Channel* driver,
 
 Laser::~Laser()
 {
-    boost::mutex::scoped_lock lock(sub_lock_);
+    std::lock_guard<std::mutex> lock(sub_lock_);
     stop();
     driver_->removeIsolatedCallback(lCB);
     driver_->removeIsolatedCallback(pCB);
@@ -485,7 +485,7 @@ void Laser::stop()
 
 void Laser::unsubscribe()
 {
-    boost::mutex::scoped_lock lock(sub_lock_);
+    std::lock_guard<std::mutex> lock(sub_lock_);
 
     if (--subscribers_ > 0)
         return;
@@ -495,7 +495,7 @@ void Laser::unsubscribe()
 
 void Laser::subscribe()
 {
-    boost::mutex::scoped_lock lock(sub_lock_);
+    std::lock_guard<std::mutex> lock(sub_lock_);
 
     if (0 == subscribers_++) {
 

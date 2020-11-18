@@ -45,8 +45,8 @@ Status::Status(crl::multisense::Channel* driver):
     subscribers_(0)
 {
     status_pub_ = device_nh_.advertise<multisense_ros::DeviceStatus>("status", 5,
-                                                        boost::bind(&Status::connect, this),
-                                                        boost::bind(&Status::disconnect, this));
+                                                        std::bind(&Status::connect, this),
+                                                        std::bind(&Status::disconnect, this));
 
     status_timer_ = device_nh_.createTimer(ros::Duration(1), &Status::queryStatus, this);
 }

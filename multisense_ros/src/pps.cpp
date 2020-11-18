@@ -84,12 +84,12 @@ Pps::Pps(Channel* driver) :
         // the previous event's timecode.
 
         pps_pub_ = device_nh_.advertise<std_msgs::Time>("pps", 5,
-                                                        boost::bind(&Pps::connect, this),
-                                                        boost::bind(&Pps::disconnect, this));
+                                                        std::bind(&Pps::connect, this),
+                                                        std::bind(&Pps::disconnect, this));
 
         stamped_pps_pub_ = device_nh_.advertise<multisense_ros::StampedPps>("stamped_pps", 5,
-                                                        boost::bind(&Pps::connect, this),
-                                                        boost::bind(&Pps::disconnect, this));
+                                                        std::bind(&Pps::connect, this),
+                                                        std::bind(&Pps::disconnect, this));
         driver_->addIsolatedCallback(ppsCB, this);
     }
 }

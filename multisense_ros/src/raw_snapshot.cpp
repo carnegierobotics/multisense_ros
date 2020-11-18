@@ -30,6 +30,9 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
+
+#include <functional>
+
 #include <ros/ros.h>
 #include <ros/topic.h>
 #include <rosbag/bag.h>
@@ -145,7 +148,7 @@ public:
         nh.setCallbackQueue(&queue_);
 
         ros::Subscriber sub_ = nh.subscribe<multisense_ros::RawLidarData>(TOPIC_RAW_LIDAR, 5,
-                                            boost::bind(&LaserHelper::callback, this, _1));
+                                            std::bind(&LaserHelper::callback, this, std::placeholders::_1));
 
         ros::Time start = ros::Time::now();
 

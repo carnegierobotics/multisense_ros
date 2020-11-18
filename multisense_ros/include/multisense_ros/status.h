@@ -34,8 +34,6 @@
 #ifndef MULTISENSE_ROS_STATUS_H
 #define MULTISENSE_ROS_STATUS_H
 
-#include <boost/shared_ptr.hpp>
-#include <boost/thread.hpp>
 #include <ros/ros.h>
 
 #include <multisense_lib/MultiSenseChannel.hh>
@@ -82,7 +80,6 @@ private:
     int32_t subscribers_;
     void connect();
     void disconnect();
-
 };
 
 }

@@ -34,8 +34,8 @@
 #ifndef MULTISENSE_ROS_IMU_H
 #define MULTISENSE_ROS_IMU_H
 
-#include <boost/shared_ptr.hpp>
-#include <boost/thread.hpp>
+#include <mutex>
+
 #include <ros/ros.h>
 
 #include <sensor_msgs/Imu.h>
@@ -90,7 +90,7 @@ private:
     //
     // Publish control
 
-    boost::mutex sub_lock_;
+    std::mutex sub_lock_;
     int32_t total_subscribers_;
     void startStreams();
     void stopStreams();

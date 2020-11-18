@@ -34,8 +34,8 @@
 #ifndef MULTISENSE_ROS_LASER_H
 #define MULTISENSE_ROS_LASER_H
 
-#include <boost/shared_ptr.hpp>
-#include <boost/thread.hpp>
+#include <mutex>
+
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/JointState.h>
@@ -121,7 +121,7 @@ private:
     //
     // Subscriptions
 
-    boost::mutex sub_lock_;
+    std::mutex sub_lock_;
     int32_t      subscribers_;
 
     //
