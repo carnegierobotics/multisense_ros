@@ -295,6 +295,11 @@ private:
     // Storage of images which we use for pointcloud colorizing
 
     std::unordered_map<crl::multisense::DataSource, std::shared_ptr<BufferWrapper<crl::multisense::image::Header>>> image_buffers_;
+
+    //
+    // Has a 3rd aux color camera
+
+    bool has_aux_camera_ = false;
 };
 
 }

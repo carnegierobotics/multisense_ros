@@ -288,6 +288,12 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     }
 
     //
+    // S27/S30 cameras have a 3rd aux color camera and no left color camera
+
+    has_aux_camera_ = system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
+                      system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision;
+
+    //
     // Topics published for all device types
 
     device_info_pub_    = calibration_nh_.advertise<multisense_ros::DeviceInfo>(DEVICE_INFO_TOPIC, 1, true);
@@ -363,11 +369,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
         if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision) {
 
-            //
-            // S27/S30 cameras have a 3rd aux color camera and no left color camera
-
-            if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
-                system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision) {
+            if (has_aux_camera_) {
 
                 aux_rgb_cam_pub_   = aux_rgb_transport_.advertise(COLOR_TOPIC, 5,
                                       std::bind(&Camera::connectStream, this, Source_Luma_Aux | Source_Chroma_Aux),
@@ -395,16 +397,19 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
             }
 
+            const auto point_cloud_color_topics = has_aux_camera_ ? Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux :
+                                                                   Source_Luma_Left | Source_Chroma_Left;
+
             color_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(COLOR_POINTCLOUD_TOPIC, 5,
                                   std::bind(&Camera::connectStream, this,
-                                  Source_Disparity | Source_Luma_Left | Source_Chroma_Left),
+                                  Source_Disparity | point_cloud_color_topics),
                                   std::bind(&Camera::disconnectStream, this,
-                                  Source_Disparity | Source_Luma_Left | Source_Chroma_Left));
+                                  Source_Disparity | point_cloud_color_topics));
             color_organized_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(COLOR_ORGANIZED_POINTCLOUD_TOPIC, 5,
                                   std::bind(&Camera::connectStream, this,
-                                  Source_Disparity | Source_Luma_Left | Source_Chroma_Left),
+                                  Source_Disparity | point_cloud_color_topics),
                                   std::bind(&Camera::disconnectStream, this,
-                                  Source_Disparity | Source_Luma_Left | Source_Chroma_Left));
+                                  Source_Disparity | point_cloud_color_topics));
 
         }
 
@@ -1206,9 +1211,6 @@ void Camera::pointCloudCallback(const image::Header& header)
         return;
     }
 
-    const bool has_aux_camera = device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 ||
-                                device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30;
-
     //
     // Get the corresponding visual images so we can colorize properly
 
@@ -1243,8 +1245,8 @@ void Camera::pointCloudCallback(const image::Header& header)
         aux_chroma_rectified = aux_chroma_rectified_image->second;
     }
 
-    const bool color_data = (has_aux_camera && aux_luma_rectified && aux_chroma_rectified) ||
-                            (!has_aux_camera && left_luma && left_chroma);
+    const bool color_data = (has_aux_camera_ && aux_luma_rectified && aux_chroma_rectified) ||
+                            (!has_aux_camera_ && left_luma && left_chroma);
 
     const bool pub_pointcloud = luma_point_cloud_pub_.getNumSubscribers() > 0 && left_luma_rect;
     const bool pub_color_pointcloud = color_point_cloud_pub_.getNumSubscribers() > 0 && color_data;
@@ -1301,7 +1303,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     // Create rectified color image upfront if we are planning to publish color pointclouds
 
     cv::Mat rectified_color;
-    if (!has_aux_camera && (pub_color_pointcloud || pub_color_organized_pointcloud))
+    if (!has_aux_camera_ && (pub_color_pointcloud || pub_color_organized_pointcloud))
     {
         const auto &luma = left_luma->data();
 
@@ -1318,7 +1320,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 
         rectified_color = std::move(rect_rgb_image);
     }
-    else if(has_aux_camera && (pub_color_pointcloud || pub_color_organized_pointcloud))
+    else if(has_aux_camera_ && (pub_color_pointcloud || pub_color_organized_pointcloud))
     {
         const auto &luma = aux_luma_rectified->data();
 
@@ -1338,7 +1340,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 
     const double squared_max_range = pointcloud_max_range_ * pointcloud_max_range_;
 
-    const double aux_T = has_aux_camera ? stereo_calibration_manager_->aux_T() : stereo_calibration_manager_->T();
+    const double aux_T = has_aux_camera_ ? stereo_calibration_manager_->aux_T() : stereo_calibration_manager_->T();
     const double T = stereo_calibration_manager_->T();
 
     size_t valid_points = 0;
@@ -1376,9 +1378,9 @@ void Camera::pointCloudCallback(const image::Header& header)
             {
                 packed_color = 0;
 
-                const double color_d = has_aux_camera ? (disparity * aux_T) / T : 0.0;
+                const double color_d = has_aux_camera_ ? (disparity * aux_T) / T : 0.0;
 
-                const auto color_pixel = has_aux_camera ? u_interpolate_color(x - color_d, y, rectified_color) :
+                const auto color_pixel = has_aux_camera_ ? u_interpolate_color(x - color_d, y, rectified_color) :
                                                           rectified_color.at<cv::Vec3b>(y, x);
 
                 packed_color |= color_pixel[2] << 16 | color_pixel[1] << 8 | color_pixel[0];
