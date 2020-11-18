@@ -83,6 +83,8 @@ void rawCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->rawCamDataCallback(header); }
 void colorCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->colorImageCallback(header); }
+void auxCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->auxImageCallback(header); }
 void dispCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->disparityImageCallback(header); }
 void jpegCB(const image::Header& header, void* userDataP)
@@ -169,6 +171,28 @@ bool clipPoint(const BorderClip& borderClipType,
     return true;
 }
 
+cv::Vec3b u_interpolate_color(double u, double v, const cv::Mat &image)
+{
+    const double width = image.cols;
+
+    //
+    // Interpolate in just the u dimension
+    //
+    const size_t min_u = static_cast<size_t>(std::min(std::max(std::floor(u), 0.), width - 1.));
+    const size_t max_u = static_cast<size_t>(std::min(std::max(std::ceil(u), 0.), width - 1.));
+
+    const cv::Vec3d element0 = image.at<cv::Vec3b>(width * v + min_u);
+    const cv::Vec3d element1 = image.at<cv::Vec3b>(width * v + max_u);
+
+    const size_t delta_u = max_u - min_u;
+
+    const double u_ratio = delta_u == 0 ? 1. : (static_cast<double>(max_u) - u) / static_cast<double>(delta_u);
+
+    const cv::Vec3b result = (element0 * u_ratio + element1 * (1. - u_ratio));
+
+    return result;
+}
+
 
 } // anonymous
 
@@ -228,8 +252,11 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     disparity_left_transport_(left_nh_),
     disparity_right_transport_(right_nh_),
     disparity_cost_transport_(left_nh_),
+    aux_rgb_transport_(aux_nh_),
+    aux_rgb_rect_transport_(aux_nh_),
     frame_id_left_(tf_prefix + LEFT_OPTICAL_FAME),
     frame_id_right_(tf_prefix + RIGHT_OPTICAL_FAME),
+    frame_id_aux_(tf_prefix + AUX_OPTICAL_FAME),
     pointcloud_max_range_(15.0),
     last_frame_id_(-1),
     border_clip_type_(BorderClip::NONE),
@@ -274,16 +301,16 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     if (system::DeviceInfo::HARDWARE_REV_BCAM == device_info_.hardwareRevision) {
 
         left_mono_cam_pub_  = left_mono_transport_.advertise(MONO_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Left),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Left),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Left));
 
         left_rgb_cam_pub_   = left_rgb_transport_.advertise(COLOR_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Jpeg_Left),
-                              boost::bind(&Camera::disconnectStream, this, Source_Jpeg_Left));
+                              std::bind(&Camera::connectStream, this, Source_Jpeg_Left),
+                              std::bind(&Camera::disconnectStream, this, Source_Jpeg_Left));
 
         left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Jpeg_Left),
-                              boost::bind(&Camera::disconnectStream, this, Source_Jpeg_Left));
+                              std::bind(&Camera::connectStream, this, Source_Jpeg_Left),
+                              std::bind(&Camera::disconnectStream, this, Source_Jpeg_Left));
 
         left_mono_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
         left_rgb_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
@@ -295,17 +322,17 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         // monocular variation
 
         left_mono_cam_pub_  = left_mono_transport_.advertise(MONO_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Left),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Left),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Left));
         left_rect_cam_pub_  = left_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
         left_rgb_cam_pub_   = left_rgb_transport_.advertise(COLOR_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
         left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
-                                 boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
-                                 boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+                                 std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
+                                 std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
 
         left_mono_cam_info_pub_     = left_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
         left_rect_cam_info_pub_     = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
@@ -316,81 +343,104 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
 
         left_mono_cam_pub_  = left_mono_transport_.advertise(MONO_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Left),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Left));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Left),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Left));
         right_mono_cam_pub_ = right_mono_transport_.advertise(MONO_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Right),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Right));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Right),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Right));
         left_rect_cam_pub_  = left_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
         right_rect_cam_pub_ = right_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Right),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Right));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Right),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Right));
         depth_cam_pub_      = depth_transport_.advertise(DEPTH_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Disparity),
-                              boost::bind(&Camera::disconnectStream, this, Source_Disparity));
+                              std::bind(&Camera::connectStream, this, Source_Disparity),
+                              std::bind(&Camera::disconnectStream, this, Source_Disparity));
         ni_depth_cam_pub_   = ni_depth_transport_.advertise(OPENNI_DEPTH_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Disparity),
-                              boost::bind(&Camera::disconnectStream, this, Source_Disparity));
+                              std::bind(&Camera::connectStream, this, Source_Disparity),
+                              std::bind(&Camera::disconnectStream, this, Source_Disparity));
 
         if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision) {
 
-            left_rgb_cam_pub_   = left_rgb_transport_.advertise(COLOR_TOPIC, 5,
-                                  boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
-                                  boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
-            left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
-                                  boost::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
-                                  boost::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+            //
+            // S27/S30 cameras have a 3rd aux color camera and no left color camera
+
+            if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
+                system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision) {
+
+                aux_rgb_cam_pub_   = aux_rgb_transport_.advertise(COLOR_TOPIC, 5,
+                                      std::bind(&Camera::connectStream, this, Source_Luma_Aux | Source_Chroma_Aux),
+                                      std::bind(&Camera::disconnectStream, this, Source_Luma_Aux | Source_Chroma_Aux));
+
+                aux_rgb_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
+                aux_rgb_rect_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
+
+                aux_rgb_rect_cam_pub_ = aux_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
+                                          std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Aux| Source_Chroma_Rectified_Aux),
+                                          std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux));
+            }
+            else {
+
+                left_rgb_cam_pub_   = left_rgb_transport_.advertise(COLOR_TOPIC, 5,
+                                      std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
+                                      std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+
+                left_rgb_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
+                left_rgb_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
+
+                left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
+                                      std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
+                                      std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+
+            }
+
             color_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(COLOR_POINTCLOUD_TOPIC, 5,
-                                  boost::bind(&Camera::connectStream, this,
+                                  std::bind(&Camera::connectStream, this,
                                   Source_Disparity | Source_Luma_Left | Source_Chroma_Left),
-                                  boost::bind(&Camera::disconnectStream, this,
+                                  std::bind(&Camera::disconnectStream, this,
                                   Source_Disparity | Source_Luma_Left | Source_Chroma_Left));
             color_organized_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(COLOR_ORGANIZED_POINTCLOUD_TOPIC, 5,
-                                  boost::bind(&Camera::connectStream, this,
+                                  std::bind(&Camera::connectStream, this,
                                   Source_Disparity | Source_Luma_Left | Source_Chroma_Left),
-                                  boost::bind(&Camera::disconnectStream, this,
+                                  std::bind(&Camera::disconnectStream, this,
                                   Source_Disparity | Source_Luma_Left | Source_Chroma_Left));
-
-            left_rgb_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
-            left_rgb_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
 
         }
 
         luma_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(POINTCLOUD_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
 
         luma_organized_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(ORGANIZED_POINTCLOUD_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
 
         raw_cam_data_pub_   = calibration_nh_.advertise<multisense_ros::RawCamData>(RAW_CAM_DATA_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
-                              boost::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
+                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
 
         left_disparity_pub_ = disparity_left_transport_.advertise(DISPARITY_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Disparity),
-                              boost::bind(&Camera::disconnectStream, this, Source_Disparity));
+                              std::bind(&Camera::connectStream, this, Source_Disparity),
+                              std::bind(&Camera::disconnectStream, this, Source_Disparity));
 
         left_stereo_disparity_pub_ = left_nh_.advertise<stereo_msgs::DisparityImage>(DISPARITY_IMAGE_TOPIC, 5,
-                              boost::bind(&Camera::connectStream, this, Source_Disparity),
-                              boost::bind(&Camera::disconnectStream, this, Source_Disparity));
+                              std::bind(&Camera::connectStream, this, Source_Disparity),
+                              std::bind(&Camera::disconnectStream, this, Source_Disparity));
 
         if (version_info_.sensorFirmwareVersion >= 0x0300) {
 
             right_disparity_pub_ = disparity_right_transport_.advertise(DISPARITY_TOPIC, 5,
-                                   boost::bind(&Camera::connectStream, this, Source_Disparity_Right),
-                                   boost::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
+                                   std::bind(&Camera::connectStream, this, Source_Disparity_Right),
+                                   std::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
 
             right_stereo_disparity_pub_ = right_nh_.advertise<stereo_msgs::DisparityImage>(DISPARITY_IMAGE_TOPIC, 5,
-                                  boost::bind(&Camera::connectStream, this, Source_Disparity_Right),
-                                  boost::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
+                                  std::bind(&Camera::connectStream, this, Source_Disparity_Right),
+                                  std::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
 
             left_disparity_cost_pub_ = disparity_cost_transport_.advertise(COST_TOPIC, 5,
-                                   boost::bind(&Camera::connectStream, this, Source_Disparity_Cost),
-                                   boost::bind(&Camera::disconnectStream, this, Source_Disparity_Cost));
+                                   std::bind(&Camera::connectStream, this, Source_Disparity_Cost),
+                                   std::bind(&Camera::disconnectStream, this, Source_Disparity_Cost));
 
             right_disp_cam_info_pub_  = right_nh_.advertise<sensor_msgs::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, 1, true);
             left_cost_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COST_CAMERA_INFO_TOPIC, 1, true);
@@ -422,10 +472,9 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     msg.deviceRevision = device_info_.hardwareRevision;
 
     msg.numberOfPcbs = device_info_.pcbs.size();
-    std::vector<system::PcbInfo>::const_iterator it = device_info_.pcbs.begin();
-    for(; it != device_info_.pcbs.end(); ++it) {
-        msg.pcbSerialNumbers.push_back((*it).revision);
-        msg.pcbNames.push_back((*it).name);
+    for(const auto &pcb : device_info_.pcbs) {
+        msg.pcbSerialNumbers.push_back(pcb.revision);
+        msg.pcbNames.push_back(pcb.name);
     }
 
     msg.imagerName              = device_info_.imagerName;
@@ -464,9 +513,10 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
     image::Calibration image_calibration;
     status = driver_->getImageCalibration(image_calibration);
-    if (Status_Ok != status)
+    if (Status_Ok != status) {
         ROS_ERROR("Camera: failed to query image calibration: %s",
                   Channel::statusString(status));
+    }
     else {
 
         multisense_ros::RawCamCal cal;
@@ -525,6 +575,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         driver_->addIsolatedCallback(pointCB, Source_Disparity, this);
         driver_->addIsolatedCallback(rawCB,   Source_Disparity | Source_Luma_Rectified_Left, this);
         driver_->addIsolatedCallback(colorCB, Source_Luma_Left | Source_Chroma_Left, this);
+        driver_->addIsolatedCallback(auxCB,   Source_Luma_Aux | Source_Chroma_Aux | Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux, this);
         driver_->addIsolatedCallback(dispCB,  Source_Disparity | Source_Disparity_Right | Source_Disparity_Cost, this);
     }
 
@@ -559,6 +610,7 @@ Camera::~Camera()
         driver_->removeIsolatedCallback(pointCB);
         driver_->removeIsolatedCallback(rawCB);
         driver_->removeIsolatedCallback(colorCB);
+        driver_->removeIsolatedCallback(auxCB);
         driver_->removeIsolatedCallback(dispCB);
     }
 }
@@ -1154,12 +1206,17 @@ void Camera::pointCloudCallback(const image::Header& header)
         return;
     }
 
+    const bool has_aux_camera = device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 ||
+                                device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30;
+
     //
     // Get the corresponding visual images so we can colorize properly
 
     std::shared_ptr<BufferWrapper<image::Header>> left_luma_rect = nullptr;
     std::shared_ptr<BufferWrapper<image::Header>> left_luma = nullptr;
     std::shared_ptr<BufferWrapper<image::Header>> left_chroma = nullptr;
+    std::shared_ptr<BufferWrapper<image::Header>> aux_luma_rectified = nullptr;
+    std::shared_ptr<BufferWrapper<image::Header>> aux_chroma_rectified = nullptr;
 
     const auto left_rect_image = image_buffers_.find(Source_Luma_Rectified_Left);
     if (left_rect_image != std::end(image_buffers_) && left_rect_image->second->data().frameId == header.frameId) {
@@ -1176,10 +1233,23 @@ void Camera::pointCloudCallback(const image::Header& header)
         left_chroma = chroma_image->second;
     }
 
+    const auto aux_luma_rectified_image = image_buffers_.find(Source_Chroma_Rectified_Aux);
+    if (aux_luma_rectified_image != std::end(image_buffers_) && aux_luma_rectified_image->second->data().frameId == header.frameId) {
+        aux_luma_rectified = aux_luma_rectified_image->second;
+    }
+
+    const auto aux_chroma_rectified_image = image_buffers_.find(Source_Chroma_Rectified_Aux);
+    if (aux_chroma_rectified_image != std::end(image_buffers_) && aux_chroma_rectified_image->second->data().frameId == header.frameId) {
+        aux_chroma_rectified = aux_chroma_rectified_image->second;
+    }
+
+    const bool color_data = (has_aux_camera && aux_luma_rectified && aux_chroma_rectified) ||
+                            (!has_aux_camera && left_luma && left_chroma);
+
     const bool pub_pointcloud = luma_point_cloud_pub_.getNumSubscribers() > 0 && left_luma_rect;
-    const bool pub_color_pointcloud = color_point_cloud_pub_.getNumSubscribers() > 0 && left_luma && left_chroma;
+    const bool pub_color_pointcloud = color_point_cloud_pub_.getNumSubscribers() > 0 && color_data;
     const bool pub_organized_pointcloud = luma_organized_point_cloud_pub_.getNumSubscribers() > 0 && left_luma_rect;
-    const bool pub_color_organized_pointcloud = color_organized_point_cloud_pub_.getNumSubscribers() > 0 && left_luma && left_chroma;
+    const bool pub_color_organized_pointcloud = color_organized_point_cloud_pub_.getNumSubscribers() > 0 && color_data;
 
     if (!(pub_pointcloud || pub_color_pointcloud || pub_organized_pointcloud || pub_color_organized_pointcloud))
     {
@@ -1231,7 +1301,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     // Create rectified color image upfront if we are planning to publish color pointclouds
 
     cv::Mat rectified_color;
-    if (pub_color_pointcloud || pub_color_organized_pointcloud)
+    if (!has_aux_camera && (pub_color_pointcloud || pub_color_organized_pointcloud))
     {
         const auto &luma = left_luma->data();
 
@@ -1248,6 +1318,18 @@ void Camera::pointCloudCallback(const image::Header& header)
 
         rectified_color = std::move(rect_rgb_image);
     }
+    else if(has_aux_camera && (pub_color_pointcloud || pub_color_organized_pointcloud))
+    {
+        const auto &luma = aux_luma_rectified->data();
+
+        pointcloud_rect_color_buffer_.resize(3 * luma.width * luma.height);
+
+        ycbcrToBgr(luma, aux_chroma_rectified->data(), reinterpret_cast<uint8_t*>(&(pointcloud_rect_color_buffer_[0])));
+
+        cv::Mat rect_rgb_image(luma.height, luma.width, CV_8UC3, &(pointcloud_rect_color_buffer_[0]));
+
+        rectified_color = std::move(rect_rgb_image);
+    }
 
     //
     // Iterate through our disparity image once populating our pointcloud structures if we plan to publish them
@@ -1255,6 +1337,9 @@ void Camera::pointCloudCallback(const image::Header& header)
     uint32_t packed_color = 0;
 
     const double squared_max_range = pointcloud_max_range_ * pointcloud_max_range_;
+
+    const double aux_T = has_aux_camera ? stereo_calibration_manager_->aux_T() : stereo_calibration_manager_->T();
+    const double T = stereo_calibration_manager_->T();
 
     size_t valid_points = 0;
     for (size_t y = 0 ; y < header.height ; ++y)
@@ -1290,7 +1375,12 @@ void Camera::pointCloudCallback(const image::Header& header)
             if (!rectified_color.empty())
             {
                 packed_color = 0;
-                const auto color_pixel = rectified_color.at<cv::Vec3b>(y, x);
+
+                const double color_d = has_aux_camera ? (disparity * aux_T) / T : 0.0;
+
+                const auto color_pixel = has_aux_camera ? u_interpolate_color(x - color_d, y, rectified_color) :
+                                                          rectified_color.at<cv::Vec3b>(y, x);
+
                 packed_color |= color_pixel[2] << 16 | color_pixel[1] << 8 | color_pixel[0];
             }
 
@@ -1458,8 +1548,8 @@ void Camera::colorImageCallback(const image::Header& header)
 
             const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
-            const uint32_t height    = left_luma_image_.height;
-            const uint32_t width     = left_luma_image_.width;
+            const uint32_t height    = luma_ptr->data().height;
+            const uint32_t width     = luma_ptr->data().width;
             const uint32_t imageSize = 3 * height * width;
 
             left_rgb_image_.data.resize(imageSize);
@@ -1512,6 +1602,117 @@ void Camera::colorImageCallback(const image::Header& header)
         }
     }
 }
+
+void Camera::auxImageCallback(const image::Header& header)
+{
+    if (Source_Luma_Aux != header.source &&
+        Source_Chroma_Aux != header.source &&
+        Source_Luma_Rectified_Aux != header.source &&
+        Source_Chroma_Rectified_Aux != header.source) {
+        ROS_WARN("Camera: unexpected image source: 0x%x", header.source);
+        return;
+    }
+
+    //
+    // This callback gets luma/chroma rectified images. We may need these for publishing pointclouds so store them in
+    // our buffer
+
+    if (Source_Luma_Rectified_Aux == header.source || Source_Chroma_Rectified_Aux == header.source)
+    {
+        image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
+    }
+
+    const auto color_subscribers = aux_rgb_cam_pub_.getNumSubscribers();
+    const auto color_rect_subscribers = aux_rgb_rect_cam_pub_.getNumSubscribers();
+
+    if (color_subscribers == 0 && color_rect_subscribers == 0) {
+        return;
+    }
+
+    const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+
+    //
+    // The aux-luma image is currently published before
+    // the matching chroma image.
+
+    if (Source_Chroma_Aux == header.source && color_subscribers > 0) {
+
+        const auto aux_luma = image_buffers_.find(Source_Luma_Aux);
+        if (aux_luma == std::end(image_buffers_)) {
+            return;
+        }
+
+        const auto luma_ptr = aux_luma->second;
+
+        if (header.frameId == luma_ptr->data().frameId) {
+            const uint32_t height    = luma_ptr->data().height;
+            const uint32_t width     = luma_ptr->data().width;
+            const uint32_t imageSize = 3 * height * width;
+
+            aux_rgb_image_.data.resize(imageSize);
+
+            aux_rgb_image_.header.frame_id = frame_id_aux_;
+            aux_rgb_image_.header.stamp    = t;
+            aux_rgb_image_.height          = height;
+            aux_rgb_image_.width           = width;
+
+            aux_rgb_image_.encoding        = "bgr8";
+            aux_rgb_image_.is_bigendian    = (htonl(1) == 1);
+            aux_rgb_image_.step            = 3 * width;
+
+            //
+            // Convert YCbCr 4:2:0 to RGB
+
+            ycbcrToBgr(luma_ptr->data(), header, reinterpret_cast<uint8_t*>(&(aux_rgb_image_.data[0])));
+
+            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t);
+
+            aux_rgb_cam_pub_.publish(aux_rgb_image_);
+
+            aux_rgb_cam_info_pub_.publish(aux_camera_info);
+        }
+    }
+
+    if (Source_Chroma_Rectified_Aux == header.source && color_rect_subscribers > 0) {
+
+        const auto aux_luma = image_buffers_.find(Source_Luma_Rectified_Aux);
+        if (aux_luma == std::end(image_buffers_)) {
+            return;
+        }
+
+        const auto luma_ptr = aux_luma->second;
+
+        if (header.frameId == luma_ptr->data().frameId) {
+
+            const uint32_t height    = luma_ptr->data().height;
+            const uint32_t width     = luma_ptr->data().width;
+            const uint32_t imageSize = 3 * height * width;
+
+            aux_rgb_rect_image_.data.resize(imageSize);
+
+            aux_rgb_rect_image_.header.frame_id = frame_id_aux_;
+            aux_rgb_rect_image_.header.stamp    = t;
+            aux_rgb_rect_image_.height          = height;
+            aux_rgb_rect_image_.width           = width;
+
+            aux_rgb_rect_image_.encoding        = "bgr8";
+            aux_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
+            aux_rgb_rect_image_.step            = 3 * width;
+
+            //
+            // Convert YCbCr 4:2:0 to RGB
+
+            ycbcrToBgr(luma_ptr->data(), header, reinterpret_cast<uint8_t*>(&(aux_rgb_rect_image_.data[0])));
+
+            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t);
+
+            aux_rgb_rect_cam_pub_.publish(aux_rgb_rect_image_, aux_camera_info);
+
+            aux_rgb_rect_cam_info_pub_.publish(aux_camera_info);
+        }
+    }
+}
+
 
 void Camera::updateConfig(const image::Config& config)
 {

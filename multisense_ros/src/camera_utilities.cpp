@@ -154,10 +154,11 @@ Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
 }
 
 sensor_msgs::CameraInfo makeCameraInfo(const crl::multisense::image::Config& config,
-                                            const crl::multisense::image::Calibration::Data& calibration,
-                                            const crl::multisense::system::DeviceInfo& device_info)
+                                       const crl::multisense::image::Calibration::Data& calibration,
+                                       const crl::multisense::system::DeviceInfo& device_info,
+                                       bool scale_calibration)
 {
-    const auto scale = compute_scale(config, device_info);
+    const auto scale = scale_calibration ? compute_scale(config, device_info) : ScaleT{1.0, 1.0, 0.0, 0.0};
 
     sensor_msgs::CameraInfo camera_info;
 
@@ -283,8 +284,9 @@ StereoCalibrationManger::StereoCalibrationManger(const crl::multisense::image::C
     calibration_(calibration),
     device_info_(device_info),
     q_matrix_(makeQ(config_, calibration_, device_info_)),
-    left_camera_info_(makeCameraInfo(config_, calibration_.left, device_info_)),
-    right_camera_info_(makeCameraInfo(config_, calibration_.right, device_info_)),
+    left_camera_info_(makeCameraInfo(config_, calibration_.left, device_info_, true)),
+    right_camera_info_(makeCameraInfo(config_, calibration_.right, device_info_, true)),
+    aux_camera_info_(makeCameraInfo(config_, calibration_.aux, device_info_, false)),
     left_remap_(std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.left, device_info_))),
     right_remap_(std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.right, device_info_)))
 {
@@ -303,8 +305,9 @@ void StereoCalibrationManger::updateConfig(const crl::multisense::image::Config&
     }
 
     auto q_matrix = makeQ(config, calibration_, device_info_);
-    auto left_camera_info = makeCameraInfo(config, calibration_.left, device_info_);
-    auto right_camera_info = makeCameraInfo(config, calibration_.right, device_info_);
+    auto left_camera_info = makeCameraInfo(config, calibration_.left, device_info_, true);
+    auto right_camera_info = makeCameraInfo(config, calibration_.right, device_info_, true);
+    auto aux_camera_info_ = makeCameraInfo(config, calibration_.right, device_info_, false);
     auto left_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config, calibration_.left, device_info_));
     auto right_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config, calibration_.right, device_info_));
 
@@ -348,6 +351,22 @@ double StereoCalibrationManger::T() const
     return right_camera_info_.P[3] / right_camera_info_.P[0];
 }
 
+double StereoCalibrationManger::aux_T() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    //
+    // The aux camera projection matrix is of the form:
+    //
+    // [fx,  0, cx, t * fx]
+    // [ 0, fy, cy, 0     ]
+    // [ 0,  0,  1, 0     ]
+    //
+    // divide the t * fx term by fx to get t
+
+    return aux_camera_info_.P[3] / aux_camera_info_.P[0];
+}
+
 sensor_msgs::CameraInfo StereoCalibrationManger::leftCameraInfo(const std::string& frame_id,
                                                                 const ros::Time& stamp) const
 {
@@ -366,6 +385,18 @@ sensor_msgs::CameraInfo StereoCalibrationManger::rightCameraInfo(const std::stri
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto camera_info = right_camera_info_;
+    camera_info.header.frame_id = frame_id;
+    camera_info.header.stamp = stamp;
+
+    return camera_info;
+}
+
+sensor_msgs::CameraInfo StereoCalibrationManger::auxCameraInfo(const std::string& frame_id,
+                                                               const ros::Time& stamp) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    auto camera_info = aux_camera_info_;
     camera_info.header.frame_id = frame_id;
     camera_info.header.stamp = stamp;
 

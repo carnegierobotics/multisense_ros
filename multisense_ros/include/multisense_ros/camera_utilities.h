@@ -104,7 +104,8 @@ Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
 
 sensor_msgs::CameraInfo makeCameraInfo(const crl::multisense::image::Config& config,
                                        const crl::multisense::image::Calibration::Data& calibration,
-                                       const crl::multisense::system::DeviceInfo& device_info);
+                                       const crl::multisense::system::DeviceInfo& device_info,
+                                       bool scale_calibration);
 
 RectificationRemapT makeRectificationRemap(const crl::multisense::image::Config& config,
                                            const crl::multisense::image::Calibration::Data& calibration,
@@ -133,8 +134,14 @@ public:
     ///
     double T() const;
 
+    ///
+    /// @brief Translation which transforms points from the aux camera frame into the left camera frame
+    ///
+    double aux_T() const;
+
     sensor_msgs::CameraInfo leftCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
     sensor_msgs::CameraInfo rightCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
+    sensor_msgs::CameraInfo auxCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
 
     std::shared_ptr<RectificationRemapT> leftRemap() const;
     std::shared_ptr<RectificationRemapT> rightRemap() const;
@@ -157,6 +164,7 @@ private:
 
     sensor_msgs::CameraInfo left_camera_info_;
     sensor_msgs::CameraInfo right_camera_info_;
+    sensor_msgs::CameraInfo aux_camera_info_;
 
     std::shared_ptr<RectificationRemapT> left_remap_;
     std::shared_ptr<RectificationRemapT> right_remap_;
