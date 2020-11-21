@@ -10,10 +10,10 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <build_depend>libpng12-dev</build_depend>
+  <build_depend>libpng-dev</build_depend>
   <build_depend>cv_bridge</build_depend>
 
-  <run_depend>libpng12-dev</run_depend>
+  <run_depend>libpng-dev</run_depend>
   <run_depend>cv_bridge</run_depend>
 
 </package>
