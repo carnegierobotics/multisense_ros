@@ -385,6 +385,14 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
         ROS_ERROR("Reconfigure: failed to set image config: %s",
                   Channel::statusString(status));
 
+    status = driver_->getImageConfig(cfg);
+    if (Status_Ok != status)
+        ROS_ERROR("Reconfigure: failed to query image config: %s",
+                  Channel::statusString(status));
+
+
+    resolution_change_callback_(cfg);
+
     //
     // If we are changing the resolution, let others know about it
 
@@ -699,12 +707,17 @@ void Reconfigure::callback_bcam_imx104(multisense_ros::bcam_imx104Config& dyn,
         ROS_ERROR("Reconfigure: failed to set image config: %s",
                   Channel::statusString(status));
 
+    status = driver_->getImageConfig(cfg);
+    if (Status_Ok != status)
+        ROS_ERROR("Reconfigure: failed to query image config: %s",
+                  Channel::statusString(status));
+
+    resolution_change_callback_(cfg);
+
     //
     // If we are changing the resolution, let others know about it
 
     if (resolutionChange) {
-
-        resolution_change_callback_(cfg);
 
         status = driver_->startStreams(streamsEnabled);
         if (Status_Ok != status)
@@ -771,12 +784,18 @@ void Reconfigure::callback_st21_vga(multisense_ros::st21_sgm_vga_imuConfig& dyn,
         ROS_ERROR("Reconfigure: failed to set image config: %s",
                   Channel::statusString(status));
 
+    status = driver_->getImageConfig(cfg);
+    if (Status_Ok != status)
+        ROS_ERROR("Reconfigure: failed to query image config: %s",
+                  Channel::statusString(status));
+
+
+    resolution_change_callback_(cfg);
+
     //
     // If we are changing the resolution, let others know about it
 
     if (resolutionChange) {
-
-        resolution_change_callback_(cfg);
 
         status = driver_->startStreams(streamsEnabled);
         if (Status_Ok != status)

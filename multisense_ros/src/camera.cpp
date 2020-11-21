@@ -1235,7 +1235,7 @@ void Camera::pointCloudCallback(const image::Header& header)
         left_chroma = chroma_image->second;
     }
 
-    const auto aux_luma_rectified_image = image_buffers_.find(Source_Chroma_Rectified_Aux);
+    const auto aux_luma_rectified_image = image_buffers_.find(Source_Luma_Rectified_Aux);
     if (aux_luma_rectified_image != std::end(image_buffers_) && aux_luma_rectified_image->second->data().frameId == header.frameId) {
         aux_luma_rectified = aux_luma_rectified_image->second;
     }
@@ -1380,7 +1380,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 
                 const double color_d = has_aux_camera_ ? (disparity * aux_T) / T : 0.0;
 
-                const auto color_pixel = has_aux_camera_ ? u_interpolate_color(x - color_d, y, rectified_color) :
+                const auto color_pixel = has_aux_camera_ ? u_interpolate_color(std::max(x - color_d, 0.), y, rectified_color) :
                                                           rectified_color.at<cv::Vec3b>(y, x);
 
                 packed_color |= color_pixel[2] << 16 | color_pixel[1] << 8 | color_pixel[0];
