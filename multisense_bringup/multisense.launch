@@ -7,26 +7,27 @@
   <arg name="mtu"        default="7200" />
   <arg name="sensor"     default="SL" />
   <arg name="launch_robot_state_publisher" default="true" />
+  <arg name="nodes_prefix" default="$(arg namespace)" />
 
   <!-- Robot state publisher -->
   <group if = "$(arg launch_robot_state_publisher)">
     <param name="robot_description"
           command="$(find xacro)/xacro '$(find multisense_description)/urdf/multisense$(arg sensor)/standalone.urdf.xacro' name:=$(arg namespace)"/>
-    <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg namespace)_state_publisher">
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg nodes_prefix)_state_publisher">
       <param name="publish_frequency" type="double" value="50.0" />
       <remap from="joint_states" to="/$(arg namespace)/joint_states" />
     </node>
   </group>
 
   <!-- ROS Driver -->
-   <node pkg="multisense_ros" ns="$(arg namespace)" type="ros_driver" name="$(arg namespace)_driver" output="screen">
+   <node pkg="multisense_ros" ns="$(arg namespace)" type="ros_driver" name="$(arg nodes_prefix)_driver" output="screen">
      <param name="sensor_ip"   value="$(arg ip_address)" />
      <param name="sensor_mtu"  value="$(arg mtu)" />
      <param name="tf_prefix"  value="$(arg namespace)" />
   </node>
 
   <!-- Color Laser PointCloud Publisher -->
-   <node pkg="multisense_ros" ns="$(arg namespace)" type="color_laser_publisher" name="$(arg namespace)_color_laser_publisher" output="screen">
+   <node pkg="multisense_ros" ns="$(arg namespace)" type="color_laser_publisher" name="$(arg nodes_prefix)_color_laser_publisher" output="screen">
       <remap from="image_rect_color" to="/$(arg namespace)/left/image_rect_color" />
       <remap from="lidar_points2" to="/$(arg namespace)/lidar_points2" />
       <remap from="camera_info" to="/$(arg namespace)/left/image_rect_color/camera_info" />
