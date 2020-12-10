@@ -1385,6 +1385,9 @@ void Camera::depthCallback(const image::Header& header)
     float *depthImageP = reinterpret_cast<float*>(&depth_image_.data[0]);
     uint16_t *niDepthImageP = reinterpret_cast<uint16_t*>(&ni_depth_image_.data[0]);
 
+    const uint16_t min_ni_depth = std::numeric_limits<uint16_t>::lowest();
+    const uint16_t max_ni_depth = std::numeric_limits<uint16_t>::max();
+
     //
     // Disparity is in 32-bit floating point
 
@@ -1413,7 +1416,9 @@ void Camera::depthCallback(const image::Header& header)
             else
             {
                 depthImageP[i] = scale / disparityImageP[i];
-                niDepthImageP[i] = static_cast<uint16_t>(depthImageP[i] * 1000);
+                niDepthImageP[i] = static_cast<uint16_t>(std::min(static_cast<float>(max_ni_depth),
+                                                                  std::max(static_cast<float>(min_ni_depth),
+                                                                           depthImageP[i] * 1000)));
             }
         }
 
@@ -1447,7 +1452,9 @@ void Camera::depthCallback(const image::Header& header)
             else
             {
                 depthImageP[i] = scale / disparityImageP[i];
-                niDepthImageP[i] = static_cast<uint16_t>(depthImageP[i] * 1000);
+                niDepthImageP[i] = static_cast<uint16_t>(std::min(static_cast<float>(max_ni_depth),
+                                                                  std::max(static_cast<float>(min_ni_depth),
+                                                                           depthImageP[i] * 1000)));
             }
         }
 
