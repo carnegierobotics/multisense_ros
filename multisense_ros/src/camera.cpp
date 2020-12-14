@@ -550,6 +550,10 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
     stereo_calibration_manager_ = std::make_shared<StereoCalibrationManger>(image_config, image_calibration, device_info_);
 
+    if (has_aux_camera_ && !stereo_calibration_manager_->validAux()) {
+        ROS_WARN("Camera: invalid aux camera calibration");
+    }
+
     updateConfig(image_config);
 
     //
@@ -1252,7 +1256,7 @@ void Camera::pointCloudCallback(const image::Header& header)
         aux_chroma_rectified = aux_chroma_rectified_image->second;
     }
 
-    const bool color_data = (has_aux_camera_ && aux_luma_rectified && aux_chroma_rectified) ||
+    const bool color_data = (has_aux_camera_ && aux_luma_rectified && aux_chroma_rectified && stereo_calibration_manager_->validAux()) ||
                             (!has_aux_camera_ && left_luma && left_chroma);
 
     const bool pub_pointcloud = luma_point_cloud_pub_.getNumSubscribers() > 0 && left_luma_rect;
@@ -1624,10 +1628,11 @@ void Camera::auxImageCallback(const image::Header& header)
 
     //
     // This callback gets luma/chroma rectified images. We may need these for publishing pointclouds so store them in
-    // our buffer
+    // our buffer.
 
-    if (Source_Luma_Rectified_Aux == header.source || Source_Chroma_Rectified_Aux == header.source)
-    {
+    if (Source_Luma_Rectified_Aux == header.source ||
+       Source_Chroma_Rectified_Aux == header.source ||
+       Source_Luma_Aux == header.source) {
         image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
     }
 

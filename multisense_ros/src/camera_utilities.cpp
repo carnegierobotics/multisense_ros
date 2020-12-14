@@ -307,7 +307,7 @@ void StereoCalibrationManger::updateConfig(const crl::multisense::image::Config&
     auto q_matrix = makeQ(config, calibration_, device_info_);
     auto left_camera_info = makeCameraInfo(config, calibration_.left, device_info_, true);
     auto right_camera_info = makeCameraInfo(config, calibration_.right, device_info_, true);
-    auto aux_camera_info_ = makeCameraInfo(config, calibration_.right, device_info_, false);
+    auto aux_camera_info_ = makeCameraInfo(config, calibration_.aux, device_info_, false);
     auto left_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config, calibration_.left, device_info_));
     auto right_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config, calibration_.right, device_info_));
 
@@ -365,6 +365,11 @@ double StereoCalibrationManger::aux_T() const
     // divide the t * fx term by fx to get t
 
     return aux_camera_info_.P[3] / aux_camera_info_.P[0];
+}
+
+bool StereoCalibrationManger::validAux() const
+{
+    return std::isfinite(aux_T());
 }
 
 sensor_msgs::CameraInfo StereoCalibrationManger::leftCameraInfo(const std::string& frame_id,

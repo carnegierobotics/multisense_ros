@@ -139,6 +139,11 @@ public:
     ///
     double aux_T() const;
 
+    ///
+    /// @brief Determine if the Aux calibration is valid
+    ///
+    bool validAux() const;
+
     sensor_msgs::CameraInfo leftCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
     sensor_msgs::CameraInfo rightCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
     sensor_msgs::CameraInfo auxCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
