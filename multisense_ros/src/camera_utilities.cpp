@@ -155,10 +155,9 @@ Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
 
 sensor_msgs::CameraInfo makeCameraInfo(const crl::multisense::image::Config& config,
                                        const crl::multisense::image::Calibration::Data& calibration,
-                                       const crl::multisense::system::DeviceInfo& device_info,
-                                       bool scale_calibration)
+                                       const crl::multisense::system::DeviceInfo& device_info)
 {
-    const auto scale = scale_calibration ? compute_scale(config, device_info) : ScaleT{1.0, 1.0, 0.0, 0.0};
+    const auto scale = compute_scale(config, device_info);
 
     sensor_msgs::CameraInfo camera_info;
 
@@ -284,9 +283,9 @@ StereoCalibrationManger::StereoCalibrationManger(const crl::multisense::image::C
     calibration_(calibration),
     device_info_(device_info),
     q_matrix_(makeQ(config_, calibration_, device_info_)),
-    left_camera_info_(makeCameraInfo(config_, calibration_.left, device_info_, true)),
-    right_camera_info_(makeCameraInfo(config_, calibration_.right, device_info_, true)),
-    aux_camera_info_(makeCameraInfo(config_, calibration_.aux, device_info_, false)),
+    left_camera_info_(makeCameraInfo(config_, calibration_.left, device_info_)),
+    right_camera_info_(makeCameraInfo(config_, calibration_.right, device_info_)),
+    aux_camera_info_(makeCameraInfo(config_, calibration_.aux, device_info_)),
     left_remap_(std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.left, device_info_))),
     right_remap_(std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.right, device_info_)))
 {
@@ -305,9 +304,9 @@ void StereoCalibrationManger::updateConfig(const crl::multisense::image::Config&
     }
 
     auto q_matrix = makeQ(config, calibration_, device_info_);
-    auto left_camera_info = makeCameraInfo(config, calibration_.left, device_info_, true);
-    auto right_camera_info = makeCameraInfo(config, calibration_.right, device_info_, true);
-    auto aux_camera_info_ = makeCameraInfo(config, calibration_.aux, device_info_, false);
+    auto left_camera_info = makeCameraInfo(config, calibration_.left, device_info_);
+    auto right_camera_info = makeCameraInfo(config, calibration_.right, device_info_);
+    auto aux_camera_info_ = makeCameraInfo(config, calibration_.aux, device_info_);
     auto left_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config, calibration_.left, device_info_));
     auto right_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config, calibration_.right, device_info_));
 

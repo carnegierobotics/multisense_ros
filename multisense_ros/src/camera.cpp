@@ -689,7 +689,7 @@ void Camera::jpegImageCallback(const image::Header& header)
     left_rgb_image_.header.frame_id = frame_id_left_;
     left_rgb_image_.height          = height;
     left_rgb_image_.width           = width;
-    left_rgb_image_.encoding        = "rgb8";
+    left_rgb_image_.encoding        = sensor_msgs::image_encodings::RGB8;
     left_rgb_image_.is_bigendian    = (htonl(1) == 1);
     left_rgb_image_.step            = 3 * width;
     left_rgb_image_.header.stamp    = t;
@@ -723,7 +723,7 @@ void Camera::jpegImageCallback(const image::Header& header)
         left_rgb_rect_image_.header.stamp    = t;
         left_rgb_rect_image_.height          = height;
         left_rgb_rect_image_.width           = width;
-        left_rgb_rect_image_.encoding        = "rgb8";
+        left_rgb_rect_image_.encoding        = sensor_msgs::image_encodings::RGB8;
         left_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
         left_rgb_rect_image_.step            = 3 * width;
         left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_camera_info);
@@ -835,7 +835,7 @@ void Camera::disparityImageCallback(const image::Header& header)
             stereoDisparityImageP->image.is_bigendian = (htonl(1) == 1);
             stereoDisparityImageP->image.header.stamp = t;
             stereoDisparityImageP->image.header.frame_id = stereoDisparityImageP->header.frame_id;
-            stereoDisparityImageP->image.encoding = "32FC1";
+            stereoDisparityImageP->image.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
             stereoDisparityImageP->image.step = 4 * header.width;
 
 
@@ -1572,7 +1572,7 @@ void Camera::colorImageCallback(const image::Header& header)
             left_rgb_image_.height          = height;
             left_rgb_image_.width           = width;
 
-            left_rgb_image_.encoding        = "bgr8";
+            left_rgb_image_.encoding        = sensor_msgs::image_encodings::BGR8;
             left_rgb_image_.is_bigendian    = (htonl(1) == 1);
             left_rgb_image_.step            = 3 * width;
 
@@ -1604,7 +1604,7 @@ void Camera::colorImageCallback(const image::Header& header)
                 left_rgb_rect_image_.height          = height;
                 left_rgb_rect_image_.width           = width;
 
-                left_rgb_rect_image_.encoding        = "bgr8";
+                left_rgb_rect_image_.encoding        = sensor_msgs::image_encodings::BGR8;
                 left_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
                 left_rgb_rect_image_.step            = 3 * width;
 
@@ -1670,7 +1670,7 @@ void Camera::auxImageCallback(const image::Header& header)
             aux_rgb_image_.height          = height;
             aux_rgb_image_.width           = width;
 
-            aux_rgb_image_.encoding        = "bgr8";
+            aux_rgb_image_.encoding        = sensor_msgs::image_encodings::BGR8;
             aux_rgb_image_.is_bigendian    = (htonl(1) == 1);
             aux_rgb_image_.step            = 3 * width;
 
@@ -1684,6 +1684,7 @@ void Camera::auxImageCallback(const image::Header& header)
             aux_rgb_cam_pub_.publish(aux_rgb_image_);
 
             aux_rgb_cam_info_pub_.publish(aux_camera_info);
+
         }
     }
 
@@ -1709,7 +1710,7 @@ void Camera::auxImageCallback(const image::Header& header)
             aux_rgb_rect_image_.height          = height;
             aux_rgb_rect_image_.width           = width;
 
-            aux_rgb_rect_image_.encoding        = "bgr8";
+            aux_rgb_rect_image_.encoding        = sensor_msgs::image_encodings::BGR8;
             aux_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
             aux_rgb_rect_image_.step            = 3 * width;
 
