@@ -62,68 +62,17 @@ ScaleT compute_scale(const crl::multisense::image::Config &config,
                                    static_cast<double>(config.height())));
 
     //
-    // In crop mode we dont want to scale our fx/fy and cx/cy value. We just want to offset our cx/cy values
+    // In crop mode we want to offset our cx/cy values
     // by the current crop offset. This is because the pixel size does not change in crop mode, and instead a cropped
     // region of the original image is returned
 
-    return ScaleT{crop ? 1.0 : x_scale,
-                  crop ? 1.0 : y_scale,
+    return ScaleT{x_scale,
+                  y_scale,
                   crop ? config.offset() : 0.0,
                   crop ? config.offset() : 0.0};
 }
 
 }// namespace
-
-void ycbcrToBgr(const crl::multisense::image::Header &luma,
-                const crl::multisense::image::Header &chroma,
-                uint8_t *output)
-{
-    const size_t rgb_stride = luma.width * 3;
-
-    for(uint32_t y=0; y< luma.height; ++y)
-    {
-        for(uint32_t x=0; x< luma.width; ++x)
-        {
-            const auto &pixel = ycbcrToBgr(luma, chroma, x, y);
-
-            const size_t rgb_offset = (y * rgb_stride) + (3 * x);
-
-            output[rgb_offset + 0] = pixel[0];
-            output[rgb_offset + 1] = pixel(1);
-            output[rgb_offset + 2] = pixel(2);
-        }
-    }
-}
-
-
-cv::Vec3b ycbcrToBgr(const crl::multisense::image::Header &luma,
-                     const crl::multisense::image::Header &chroma,
-                     size_t u,
-                     size_t v)
-{
-    const uint8_t *lumaP = reinterpret_cast<const uint8_t*>(luma.imageDataP);
-    const uint8_t *chromaP = reinterpret_cast<const uint8_t*>(chroma.imageDataP);
-
-    const size_t luma_offset = (v * luma.width) + u;
-    const size_t chroma_offset = 2 * (((v/2) * (luma.width/2)) + (u/2));
-
-    const float px_y = static_cast<float>(lumaP[luma_offset]);
-    const float px_cb = static_cast<float>(chromaP[chroma_offset+0]) - 128.0f;
-    const float px_cr = static_cast<float>(chromaP[chroma_offset+1]) - 128.0f;
-
-    float px_r  = px_y + 1.402f   * px_cr;
-    float px_g  = px_y - 0.34414f * px_cb - 0.71414f * px_cr;
-    float px_b  = px_y + 1.772f   * px_cb;
-
-    if (px_r < 0.0f)        px_r = 0.0f;
-    else if (px_r > 255.0f) px_r = 255.0f;
-    if (px_g < 0.0f)        px_g = 0.0f;
-    else if (px_g > 255.0f) px_g = 255.0f;
-    if (px_b < 0.0f)        px_b = 0.0f;
-    else if (px_b > 255.0f) px_b = 255.0f;
-
-    return cv::Vec3b{static_cast<uint8_t>(px_b), static_cast<uint8_t>(px_g), static_cast<uint8_t>(px_r)};
-}
 
 Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
                       const crl::multisense::image::Calibration& calibration,

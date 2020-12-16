@@ -72,6 +72,7 @@ public:
     void disparityImageCallback(const crl::multisense::image::Header& header);
     void jpegImageCallback(const crl::multisense::image::Header& header);
     void histogramCallback(const crl::multisense::image::Header& header);
+    void colorizeCallback(const crl::multisense::image::Header& header);
 
     void borderClipChanged(const BorderClip &borderClipType, double borderClipValue);
 

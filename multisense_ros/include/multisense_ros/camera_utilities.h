@@ -89,14 +89,52 @@ private:
 
 };
 
-void ycbcrToBgr(const crl::multisense::image::Header &luma,
-                const crl::multisense::image::Header &chroma,
-                uint8_t *output);
+template <typename T>
+constexpr Eigen::Matrix<T, 3, 1> ycbcrToBgr(const crl::multisense::image::Header &luma,
+                                            const crl::multisense::image::Header &chroma,
+                                            size_t u,
+                                            size_t v)
+{
+    const uint8_t *lumaP = reinterpret_cast<const uint8_t*>(luma.imageDataP);
+    const uint8_t *chromaP = reinterpret_cast<const uint8_t*>(chroma.imageDataP);
 
-cv::Vec3b ycbcrToBgr(const crl::multisense::image::Header &luma,
-                     const crl::multisense::image::Header &chroma,
-                     size_t u,
-                     size_t v);
+    const size_t luma_offset = (v * luma.width) + u;
+    const size_t chroma_offset = 2 * (((v/2) * (luma.width/2)) + (u/2));
+
+    const float px_y = static_cast<float>(lumaP[luma_offset]);
+    const float px_cb = static_cast<float>(chromaP[chroma_offset+0]) - 128.0f;
+    const float px_cr = static_cast<float>(chromaP[chroma_offset+1]) - 128.0f;
+
+    float px_r  = px_y + 1.402f   * px_cr;
+    float px_g  = px_y - 0.34414f * px_cb - 0.71414f * px_cr;
+    float px_b  = px_y + 1.772f   * px_cb;
+
+    if (px_r < 0.0f)        px_r = 0.0f;
+    else if (px_r > 255.0f) px_r = 255.0f;
+    if (px_g < 0.0f)        px_g = 0.0f;
+    else if (px_g > 255.0f) px_g = 255.0f;
+    if (px_b < 0.0f)        px_b = 0.0f;
+    else if (px_b > 255.0f) px_b = 255.0f;
+
+    return Eigen::Matrix<T, 3, 1>{static_cast<T>(px_b), static_cast<T>(px_g), static_cast<T>(px_r)};
+}
+
+constexpr void ycbcrToBgr(const crl::multisense::image::Header &luma,
+                          const crl::multisense::image::Header &chroma,
+                          uint8_t *output)
+{
+    const size_t rgb_stride = luma.width * 3;
+
+    for(uint32_t y=0; y< luma.height; ++y)
+    {
+        const size_t row_offset = y * rgb_stride;
+
+        for(uint32_t x=0; x< luma.width; ++x)
+        {
+            memcpy(output + row_offset + (3 * x), ycbcrToBgr<uint8_t>(luma, chroma, x, y).data(), 3);
+        }
+    }
+}
 
 Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
                       const crl::multisense::image::Calibration& calibration,
