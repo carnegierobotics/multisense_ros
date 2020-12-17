@@ -4,7 +4,7 @@
 
         <link name="${name}/head">
             <visual>
-                <origin xyz="0.105 0 0" rpy="0 0 3.1415926" />
+                <origin xyz="0 0 0" rpy="1.57079632679 0 1.57079632679" />
                 <geometry>
                     <mesh filename="package://multisense_description/meshes/multisense_s21.STL"/>
                 </geometry>
@@ -14,8 +14,12 @@
             </visual>
         </link>
 
+
+        <!-- Note the origin of model is 37.3854mm from the rear mounting plane
+             in the x axis -->
+
         <joint name="${name}/left_camera_joint" type="fixed">
-            <origin xyz="0.0 0.0 0.0"/>
+            <origin xyz="0.0052046 0.105 0" rpy="-1.57079632679 0.0 -1.57079632679"/>
             <parent link="${name}/head"/>
             <child link="${name}/left_camera_frame"/>
         </joint>
@@ -23,7 +27,7 @@
         <link name="${name}/left_camera_frame"/>
 
         <joint name="${name}/top_left_rear_mount_joint" type="fixed">
-            <origin xyz="0.005 -0.014 -0.04089" rpy="1.5707963 -1.5707963 0"/>
+            <origin xyz="-0.0373854 0.1 0.014" rpy="0 0 3.14159"/>
             <parent link="${name}/head"/>
             <child link="${name}/top_left_rear_mount"/>
         </joint>
@@ -35,7 +39,7 @@
             match the S7/S7S/SL MultiSense configurations -->
 
         <joint name="${name}/accel_joint" type="fixed">
-            <origin xyz="0.076 0.0135 -0.0047" rpy="0.0 0.0 0.0"/>
+            <origin xyz="0.0045 0.029 -0.0135" rpy="0.0 1.57079632679 0.0"/>
             <parent link="${name}/head"/>
             <child link="${name}/accel"/>
         </joint>
@@ -43,7 +47,7 @@
         <link name="${name}/accel"/>
 
         <joint name="${name}/mag_joint" type="fixed">
-            <origin xyz="0.076 0.0135 -0.0047" rpy="0.0 0.0 0.0"/>
+            <origin xyz="0.0045 0.029 -0.0135" rpy="0.0 1.57079632679 0.0"/>
             <parent link="${name}/head"/>
             <child link="${name}/mag"/>
         </joint>
@@ -51,7 +55,7 @@
         <link name="${name}/mag"/>
 
         <joint name="${name}/gyro_joint" type="fixed">
-            <origin xyz="0.0672 0.014 -0.0074" rpy="0.0 3.14159 0.0"/>
+            <origin xyz="-0.00219539 0.03758 -0.014" rpy="-1.57079632679 0 -1.57079632679"/>
             <parent link="${name}/head"/>
             <child link="${name}/gyro"/>
         </joint>
