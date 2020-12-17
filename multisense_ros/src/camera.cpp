@@ -40,6 +40,8 @@
 
 #include <sensor_msgs/distortion_models.h>
 #include <sensor_msgs/image_encodings.h>
+#include <tf2/LinearMath/Transform.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include <multisense_lib/MultiSenseChannel.hh>
 #include <multisense_ros/camera.h>
@@ -54,6 +56,19 @@ using namespace crl::multisense;
 namespace multisense_ros {
 
 namespace { // anonymous
+
+tf2::Matrix3x3 toRotation(float R[3][3])
+{
+    return tf2::Matrix3x3{R[0][0],
+                          R[0][1],
+                          R[0][2],
+                          R[1][0],
+                          R[1][1],
+                          R[1][2],
+                          R[2][0],
+                          R[2][1],
+                          R[2][2]};
+}
 
 //
 // All of the data sources that we control here
@@ -205,9 +220,12 @@ constexpr char Camera::RIGHT[];
 constexpr char Camera::AUX[];
 constexpr char Camera::CALIBRATION[];
 
-constexpr char Camera::LEFT_OPTICAL_FAME[];
-constexpr char Camera::RIGHT_OPTICAL_FAME[];
-constexpr char Camera::AUX_OPTICAL_FAME[];
+constexpr char Camera::LEFT_CAMERA_FRAME[];
+constexpr char Camera::RIGHT_CAMERA_FRAME[];
+constexpr char Camera::LEFT_RECTIFIED_FRAME[];
+constexpr char Camera::RIGHT_RECTIFIED_FRAME[];
+constexpr char Camera::AUX_CAMERA_FRAME[];
+constexpr char Camera::AUX_RECTIFIED_FRAME[];
 
 constexpr char Camera::DEVICE_INFO_TOPIC[];
 constexpr char Camera::RAW_CAM_CAL_TOPIC[];
@@ -255,9 +273,12 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     disparity_cost_transport_(left_nh_),
     aux_rgb_transport_(aux_nh_),
     aux_rgb_rect_transport_(aux_nh_),
-    frame_id_left_(tf_prefix + LEFT_OPTICAL_FAME),
-    frame_id_right_(tf_prefix + RIGHT_OPTICAL_FAME),
-    frame_id_aux_(tf_prefix + AUX_OPTICAL_FAME),
+    frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
+    frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME),
+    frame_id_aux_(tf_prefix + AUX_CAMERA_FRAME),
+    frame_id_rectified_left_(tf_prefix + LEFT_RECTIFIED_FRAME),
+    frame_id_rectified_right_(tf_prefix + RIGHT_RECTIFIED_FRAME),
+    frame_id_rectified_aux_(tf_prefix + AUX_RECTIFIED_FRAME),
     pointcloud_max_range_(15.0),
     last_frame_id_(-1),
     border_clip_type_(BorderClip::NONE),
@@ -555,15 +576,63 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         ROS_WARN("Camera: invalid aux camera calibration");
     }
 
+    //
+    // Publish the static transforms for our camera extrinsics for the left/right/aux frames. We will
+    // use the left camera frame as the reference coordinate frame
+
+    const bool has_aux_extrinsics = has_aux_camera_ && stereo_calibration_manager_->validAux();
+
+    std::vector<geometry_msgs::TransformStamped> stamped_transforms(3 + (has_aux_extrinsics ? 2 : 0));
+
+    tf2::Transform rectified_left_T_left{toRotation(image_calibration.left.R), tf2::Vector3{0., 0., 0.}};
+    stamped_transforms[0].header.stamp = ros::Time::now();
+    stamped_transforms[0].header.frame_id = frame_id_left_;
+    stamped_transforms[0].child_frame_id = frame_id_rectified_left_;
+    stamped_transforms[0].transform = tf2::toMsg(rectified_left_T_left.inverse());
+
+    tf2::Transform rectified_right_T_rectified_left{tf2::Matrix3x3::getIdentity(),
+                                                    tf2::Vector3{stereo_calibration_manager_->T(), 0., 0.}};
+    stamped_transforms[1].header.stamp = ros::Time::now();
+    stamped_transforms[1].header.frame_id = frame_id_rectified_left_;
+    stamped_transforms[1].child_frame_id = frame_id_rectified_right_;
+    stamped_transforms[1].transform = tf2::toMsg(rectified_right_T_rectified_left.inverse());
+
+    tf2::Transform rectified_right_T_right{toRotation(image_calibration.right.R), tf2::Vector3{0., 0., 0.}};
+    stamped_transforms[2].header.stamp = ros::Time::now();
+    stamped_transforms[2].header.frame_id = frame_id_rectified_right_;
+    stamped_transforms[2].child_frame_id = frame_id_right_;
+    stamped_transforms[2].transform = tf2::toMsg(rectified_right_T_right);
+
+    if (has_aux_extrinsics)
+    {
+        tf2::Transform rectified_aux_T_rectified_left{tf2::Matrix3x3::getIdentity(),
+                                                      tf2::Vector3{stereo_calibration_manager_->aux_T(), 0., 0.}};
+        stamped_transforms[3].header.stamp = ros::Time::now();
+        stamped_transforms[3].header.frame_id = frame_id_rectified_left_;
+        stamped_transforms[3].child_frame_id = frame_id_rectified_aux_;
+        stamped_transforms[3].transform = tf2::toMsg(rectified_aux_T_rectified_left.inverse());
+
+        tf2::Transform rectified_aux_T_aux{toRotation(image_calibration.aux.R), tf2::Vector3{0., 0., 0.}};
+        stamped_transforms[4].header.stamp = ros::Time::now();
+        stamped_transforms[4].header.frame_id = frame_id_rectified_aux_;
+        stamped_transforms[4].child_frame_id = frame_id_aux_;
+        stamped_transforms[4].transform = tf2::toMsg(rectified_aux_T_aux);
+    }
+
+    static_tf_broadcaster_.sendTransform(stamped_transforms);
+
+    //
+    // Update our internal image config and publish intitial camera info
+
     updateConfig(image_config);
 
     //
     // Initialize point cloud data structures
 
-    luma_point_cloud_ = initialize_pointcloud<float>(true, frame_id_left_, "intensity");
-    color_point_cloud_ = initialize_pointcloud<float>(true, frame_id_left_, "rgb");
-    luma_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_left_, "intensity");
-    color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_left_, "rgb");
+    luma_point_cloud_ = initialize_pointcloud<float>(true, frame_id_rectified_left_, "intensity");
+    color_point_cloud_ = initialize_pointcloud<float>(true, frame_id_rectified_left_, "rgb");
+    luma_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "intensity");
+    color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "rgb");
 
     //
     // Add driver-level callbacks.
@@ -714,6 +783,9 @@ void Camera::jpegImageCallback(const image::Header& header)
     left_rgb_cam_info_pub_.publish(left_camera_info);
 
     if (left_rgb_rect_cam_pub_.getNumSubscribers() > 0) {
+
+        const auto left_rectified_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
+
         left_rgb_rect_image_.data.resize(rgbLength);
 
         const cv::Mat rgb_image(height, width, CV_8UC3, &(left_rgb_image_.data[0]));
@@ -723,15 +795,15 @@ void Camera::jpegImageCallback(const image::Header& header)
 
         cv::remap(rgb_image, rect_rgb_image, left_remap->map1, left_remap->map2, cv::INTER_LINEAR);
 
-        left_rgb_rect_image_.header.frame_id = frame_id_left_;
+        left_rgb_rect_image_.header.frame_id = frame_id_rectified_left_;
         left_rgb_rect_image_.header.stamp    = t;
         left_rgb_rect_image_.height          = height;
         left_rgb_rect_image_.width           = width;
         left_rgb_rect_image_.encoding        = sensor_msgs::image_encodings::RGB8;
         left_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
         left_rgb_rect_image_.step            = 3 * width;
-        left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_camera_info);
-        left_rgb_rect_cam_info_pub_.publish(left_camera_info);
+        left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_rectified_camera_info);
+        left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
     }
 }
 
@@ -768,21 +840,21 @@ void Camera::disparityImageCallback(const image::Header& header)
         if (Source_Disparity == header.source) {
             pubP                    = &left_disparity_pub_;
             imageP                  = &left_disparity_image_;
-            imageP->header.frame_id = frame_id_left_;
-            camInfo                 = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
+            imageP->header.frame_id = frame_id_rectified_left_;
+            camInfo                 = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
             camInfoPubP             = &left_disp_cam_info_pub_;
             stereoDisparityPubP     = &left_stereo_disparity_pub_;
             stereoDisparityImageP   = &left_stereo_disparity_;
-            stereoDisparityImageP->header.frame_id = frame_id_left_;
+            stereoDisparityImageP->header.frame_id = frame_id_rectified_left_;
         } else {
             pubP                    = &right_disparity_pub_;
             imageP                  = &right_disparity_image_;
-            imageP->header.frame_id = frame_id_right_;
-            camInfo                 = stereo_calibration_manager_->rightCameraInfo(frame_id_right_, t);
+            imageP->header.frame_id = frame_id_rectified_right_;
+            camInfo                 = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, t);
             camInfoPubP             = &right_disp_cam_info_pub_;
             stereoDisparityPubP     = &right_stereo_disparity_pub_;
             stereoDisparityImageP   = &right_stereo_disparity_;
-            stereoDisparityImageP->header.frame_id = frame_id_right_;
+            stereoDisparityImageP->header.frame_id = frame_id_rectified_right_;
         }
 
         if (pubP->getNumSubscribers() > 0)
@@ -893,7 +965,7 @@ void Camera::disparityImageCallback(const image::Header& header)
         left_disparity_cost_image_.data.resize(imageSize);
         memcpy(&left_disparity_cost_image_.data[0], header.imageDataP, imageSize);
 
-        left_disparity_cost_image_.header.frame_id = frame_id_left_;
+        left_disparity_cost_image_.header.frame_id = frame_id_rectified_left_;
         left_disparity_cost_image_.header.stamp    = t;
         left_disparity_cost_image_.height          = header.height;
         left_disparity_cost_image_.width           = header.width;
@@ -904,7 +976,7 @@ void Camera::disparityImageCallback(const image::Header& header)
 
         left_disparity_cost_pub_.publish(left_disparity_cost_image_);
 
-        left_cost_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t));
+        left_cost_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t));
 
         break;
     }
@@ -1005,7 +1077,7 @@ void Camera::rectCallback(const image::Header& header)
         left_rect_image_.data.resize(header.imageLength);
         memcpy(&left_rect_image_.data[0], header.imageDataP, header.imageLength);
 
-        left_rect_image_.header.frame_id = frame_id_left_;
+        left_rect_image_.header.frame_id = frame_id_rectified_left_;
         left_rect_image_.header.stamp    = t;
         left_rect_image_.height          = header.height;
         left_rect_image_.width           = header.width;
@@ -1025,7 +1097,7 @@ void Camera::rectCallback(const image::Header& header)
 
         left_rect_image_.is_bigendian    = (htonl(1) == 1);
 
-        const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
+        const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
 
         //
         // Continue to publish the rect camera info on the
@@ -1043,7 +1115,7 @@ void Camera::rectCallback(const image::Header& header)
         right_rect_image_.data.resize(header.imageLength);
         memcpy(&right_rect_image_.data[0], header.imageDataP, header.imageLength);
 
-        right_rect_image_.header.frame_id = frame_id_left_;
+        right_rect_image_.header.frame_id = frame_id_rectified_right_;
         right_rect_image_.header.stamp    = t;
         right_rect_image_.height          = header.height;
         right_rect_image_.width           = header.width;
@@ -1061,7 +1133,7 @@ void Camera::rectCallback(const image::Header& header)
 
         right_rect_image_.is_bigendian    = (htonl(1) == 1);
 
-        const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_left_, t);
+        const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, t);
 
         //
         // Continue to publish the rect camera info on the
@@ -1100,7 +1172,7 @@ void Camera::depthCallback(const image::Header& header)
     const uint32_t imageSize = header.width * header.height;
 
     depth_image_.header.stamp    = t;
-    depth_image_.header.frame_id = frame_id_left_;
+    depth_image_.header.frame_id = frame_id_rectified_left_;
     depth_image_.height          = header.height;
     depth_image_.width           = header.width;
     depth_image_.is_bigendian    = (htonl(1) == 1);
@@ -1207,7 +1279,7 @@ void Camera::depthCallback(const image::Header& header)
         depth_cam_pub_.publish(depth_image_);
     }
 
-    depth_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t));
+    depth_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t));
 }
 
 void Camera::pointCloudCallback(const image::Header& header)
@@ -1579,6 +1651,8 @@ void Camera::colorImageCallback(const image::Header& header)
         if (color_rect_subscribers > 0) {
             left_rgb_rect_image_.data.resize(imageSize);
 
+            const auto left_rectified_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
+
             const auto remaps = stereo_calibration_manager_->leftRemap();
 
             const cv::Mat rgb_image(height, width, CV_8UC3, &(left_rgb_image_.data[0]));
@@ -1586,7 +1660,7 @@ void Camera::colorImageCallback(const image::Header& header)
 
             cv::remap(rgb_image, rect_rgb_image, remaps->map1, remaps->map2, cv::INTER_LINEAR);
 
-            left_rgb_rect_image_.header.frame_id = frame_id_left_;
+            left_rgb_rect_image_.header.frame_id = frame_id_rectified_left_;
             left_rgb_rect_image_.header.stamp    = t;
             left_rgb_rect_image_.height          = height;
             left_rgb_rect_image_.width           = width;
@@ -1595,9 +1669,9 @@ void Camera::colorImageCallback(const image::Header& header)
             left_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
             left_rgb_rect_image_.step            = 3 * width;
 
-            left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_camera_info);
+            left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_rectified_camera_info);
 
-            left_rgb_rect_cam_info_pub_.publish(left_camera_info);
+            left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
         }
     }
 }
@@ -1681,7 +1755,7 @@ void Camera::auxImageCallback(const image::Header& header)
 
             aux_rgb_rect_image_.data.resize(imageSize);
 
-            aux_rgb_rect_image_.header.frame_id = frame_id_aux_;
+            aux_rgb_rect_image_.header.frame_id = frame_id_rectified_aux_;
             aux_rgb_rect_image_.header.stamp    = t;
             aux_rgb_rect_image_.height          = height;
             aux_rgb_rect_image_.width           = width;
@@ -1695,7 +1769,7 @@ void Camera::auxImageCallback(const image::Header& header)
 
             ycbcrToBgr(luma_ptr->data(), header, reinterpret_cast<uint8_t*>(&(aux_rgb_rect_image_.data[0])));
 
-            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t);
+            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, t);
 
             aux_rgb_rect_cam_pub_.publish(aux_rgb_rect_image_, aux_camera_info);
 
@@ -1761,6 +1835,9 @@ void Camera::publishAllCameraInfo()
     const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, stamp);
     const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_right_, stamp);
 
+    const auto left_rectified_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, stamp);
+    const auto right_rectified_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, stamp);
+
     //
     // Republish camera info messages outside of image callbacks.
     // The camera info publishers are latching so the messages
@@ -1772,35 +1849,40 @@ void Camera::publishAllCameraInfo()
 
         left_mono_cam_info_pub_.publish(left_camera_info);
         left_rgb_cam_info_pub_.publish(left_camera_info);
-        left_rgb_rect_cam_info_pub_.publish(left_camera_info);
+        left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
 
     } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == device_info_.hardwareRevision) {
 
         left_mono_cam_info_pub_.publish(left_camera_info);
-        left_rect_cam_info_pub_.publish(left_camera_info);
+        left_rect_cam_info_pub_.publish(left_rectified_camera_info);
         left_rgb_cam_info_pub_.publish(left_camera_info);
-        left_rgb_rect_cam_info_pub_.publish(left_camera_info);
+        left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
 
     } else {  // all other MultiSense-S* variations
 
         if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision) {
 
             left_rgb_cam_info_pub_.publish(left_camera_info);
-            left_rgb_rect_cam_info_pub_.publish(left_camera_info);
+            left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
         }
 
         if (version_info_.sensorFirmwareVersion >= 0x0300) {
 
-            right_disp_cam_info_pub_.publish(right_camera_info);
-            left_cost_cam_info_pub_.publish(left_camera_info);
+            right_disp_cam_info_pub_.publish(right_rectified_camera_info);
+            left_cost_cam_info_pub_.publish(left_rectified_camera_info);
         }
 
         left_mono_cam_info_pub_.publish(left_camera_info);
-        left_rect_cam_info_pub_.publish(left_camera_info);
+        left_rect_cam_info_pub_.publish(left_rectified_camera_info);
         right_mono_cam_info_pub_.publish(right_camera_info);
-        right_rect_cam_info_pub_.publish(right_camera_info);
-        left_disp_cam_info_pub_.publish(left_camera_info);
-        depth_cam_info_pub_.publish(left_camera_info);
+        right_rect_cam_info_pub_.publish(right_rectified_camera_info);
+        left_disp_cam_info_pub_.publish(left_rectified_camera_info);
+        depth_cam_info_pub_.publish(left_rectified_camera_info);
+
+        if (has_aux_camera_) {
+            aux_rgb_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp));
+            aux_rgb_rect_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp));
+        }
     }
 }
 

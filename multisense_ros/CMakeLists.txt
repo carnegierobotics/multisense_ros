@@ -19,7 +19,9 @@ find_package(Eigen3 REQUIRED)
 find_package(catkin REQUIRED COMPONENTS roscpp
                                         std_msgs
                                         genmsg
-                                        tf
+                                        tf2
+                                        tf2_ros
+                                        tf2_geometry_msgs
                                         multisense_lib
                                         rosbag
                                         sensor_msgs
@@ -55,7 +57,9 @@ catkin_package(INCLUDE_DIRS   include
                CATKIN_DEPENDS roscpp
                               std_msgs
                               genmsg
-                              tf
+                              tf2
+                              tf2_ros
+                              tf2_geometry_msgs
                               multisense_lib
                               rosbag
                               sensor_msgs

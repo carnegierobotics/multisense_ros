@@ -46,6 +46,7 @@
 #include <sensor_msgs/distortion_models.h>
 #include <stereo_msgs/DisparityImage.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 
 
 #include <multisense_lib/MultiSenseChannel.hh>
@@ -90,9 +91,12 @@ private:
     //
     // Frames
 
-    static constexpr char LEFT_OPTICAL_FAME[] = "/left_camera_optical_frame";
-    static constexpr char RIGHT_OPTICAL_FAME[] = "/right_camera_optical_frame";
-    static constexpr char AUX_OPTICAL_FAME[] = "/aux_camera_optical_frame";
+    static constexpr char LEFT_CAMERA_FRAME[] = "/left_camera_frame";
+    static constexpr char LEFT_RECTIFIED_FRAME[] = "/left_camera_optical_frame";
+    static constexpr char RIGHT_CAMERA_FRAME[] = "/right_camera_frame";
+    static constexpr char RIGHT_RECTIFIED_FRAME[] = "/right_camera_optical_frame";
+    static constexpr char AUX_CAMERA_FRAME[] = "/aux_camera_frame";
+    static constexpr char AUX_RECTIFIED_FRAME[] = "/aux_camera_optical_frame";
 
     //
     // Topic names
@@ -267,7 +271,11 @@ private:
     const std::string frame_id_left_;
     const std::string frame_id_right_;
     const std::string frame_id_aux_;
+    const std::string frame_id_rectified_left_;
+    const std::string frame_id_rectified_right_;
+    const std::string frame_id_rectified_aux_;
 
+    tf2_ros::StaticTransformBroadcaster static_tf_broadcaster_;
 
     //
     // Stream subscriptions

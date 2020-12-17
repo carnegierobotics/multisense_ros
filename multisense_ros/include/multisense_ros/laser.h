@@ -40,8 +40,9 @@
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/JointState.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <tf/transform_datatypes.h>
-#include <tf/transform_broadcaster.h>
+#include <tf2/transform_datatypes.h>
+#include <tf2/LinearMath/Transform.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 
 #include <multisense_lib/MultiSenseChannel.hh>
 
@@ -72,22 +73,22 @@ private:
     void publishStaticTransforms(const ros::Time& time);
     void publishSpindleTransform(const float spindle_angle, const float velocity, const ros::Time& time);
 
-    tf::TransformBroadcaster static_tf_broadcaster_;
+    tf2_ros::StaticTransformBroadcaster static_tf_broadcaster_;
 
     void defaultTfPublisher(const ros::TimerEvent& event);
 
     //
     // Query transforms
 
-    tf::Transform getSpindleTransform(float spindle_angle);
+    tf2::Transform getSpindleTransform(float spindle_angle);
 
     //
     // Calibration from sensor
 
     crl::multisense::lidar::Calibration lidar_cal_;
 
-    tf::Transform motor_to_camera_;
-    tf::Transform laser_to_spindle_;
+    tf2::Transform motor_to_camera_;
+    tf2::Transform laser_to_spindle_;
 
     //
     // Frames to Publish
