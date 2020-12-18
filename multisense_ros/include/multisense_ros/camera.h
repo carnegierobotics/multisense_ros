@@ -69,7 +69,6 @@ public:
     void pointCloudCallback(const crl::multisense::image::Header& header);
     void rawCamDataCallback(const crl::multisense::image::Header& header);
     void colorImageCallback(const crl::multisense::image::Header& header);
-    void auxImageCallback(const crl::multisense::image::Header& header);
     void disparityImageCallback(const crl::multisense::image::Header& header);
     void jpegImageCallback(const crl::multisense::image::Header& header);
     void histogramCallback(const crl::multisense::image::Header& header);
@@ -168,7 +167,9 @@ private:
     image_transport::ImageTransport  disparity_left_transport_;
     image_transport::ImageTransport  disparity_right_transport_;
     image_transport::ImageTransport  disparity_cost_transport_;
+    image_transport::ImageTransport  aux_mono_transport_;
     image_transport::ImageTransport  aux_rgb_transport_;
+    image_transport::ImageTransport  aux_rect_transport_;
     image_transport::ImageTransport  aux_rgb_rect_transport_;
 
     //
@@ -183,6 +184,8 @@ private:
     image_transport::Publisher       left_rgb_cam_pub_;
     image_transport::CameraPublisher left_rgb_rect_cam_pub_;
     image_transport::Publisher       aux_rgb_cam_pub_;
+    image_transport::Publisher       aux_mono_cam_pub_;
+    image_transport::CameraPublisher aux_rect_cam_pub_;
     image_transport::CameraPublisher aux_rgb_rect_cam_pub_;
 
     ros::Publisher                   left_mono_cam_info_pub_;
@@ -195,7 +198,9 @@ private:
     ros::Publisher                   left_rgb_cam_info_pub_;
     ros::Publisher                   left_rgb_rect_cam_info_pub_;
     ros::Publisher                   depth_cam_info_pub_;
+    ros::Publisher                   aux_mono_cam_info_pub_;
     ros::Publisher                   aux_rgb_cam_info_pub_;
+    ros::Publisher                   aux_rect_cam_info_pub_;
     ros::Publisher                   aux_rgb_rect_cam_info_pub_;
 
     ros::Publisher                   luma_point_cloud_pub_;
@@ -234,11 +239,11 @@ private:
     sensor_msgs::PointCloud2   luma_organized_point_cloud_;
     sensor_msgs::PointCloud2   color_organized_point_cloud_;
 
-    sensor_msgs::Image         left_luma_image_;
-    sensor_msgs::Image         aux_luma_image_;
+    sensor_msgs::Image         aux_mono_image_;
     sensor_msgs::Image         left_rgb_image_;
     sensor_msgs::Image         aux_rgb_image_;
     sensor_msgs::Image         left_rgb_rect_image_;
+    sensor_msgs::Image         aux_rect_image_;
     sensor_msgs::Image         aux_rgb_rect_image_;
 
     sensor_msgs::Image         left_disparity_image_;

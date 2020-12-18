@@ -73,14 +73,18 @@ tf2::Matrix3x3 toRotation(float R[3][3])
 //
 // All of the data sources that we control here
 
-constexpr DataSource allImageSources = (Source_Luma_Left            |
-                                        Source_Luma_Right           |
-                                        Source_Luma_Rectified_Left  |
-                                        Source_Luma_Rectified_Right |
-                                        Source_Chroma_Left          |
-                                        Source_Disparity            |
-                                        Source_Disparity_Right      |
-                                        Source_Disparity_Cost       |
+constexpr DataSource allImageSources = (Source_Luma_Left             |
+                                        Source_Luma_Right            |
+                                        Source_Luma_Aux              |
+                                        Source_Luma_Rectified_Left   |
+                                        Source_Luma_Rectified_Right  |
+                                        Source_Luma_Rectified_Aux    |
+                                        Source_Chroma_Rectified_Aux  |
+                                        Source_Chroma_Left           |
+                                        Source_Chroma_Aux            |
+                                        Source_Disparity             |
+                                        Source_Disparity_Right       |
+                                        Source_Disparity_Cost        |
                                         Source_Jpeg_Left);
 
 //
@@ -98,8 +102,6 @@ void rawCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->rawCamDataCallback(header); }
 void colorCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->colorImageCallback(header); }
-void auxCB(const image::Header& header, void* userDataP)
-{ reinterpret_cast<Camera*>(userDataP)->auxImageCallback(header); }
 void dispCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->disparityImageCallback(header); }
 void jpegCB(const image::Header& header, void* userDataP)
@@ -271,7 +273,9 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     disparity_left_transport_(left_nh_),
     disparity_right_transport_(right_nh_),
     disparity_cost_transport_(left_nh_),
+    aux_mono_transport_(aux_nh_),
     aux_rgb_transport_(aux_nh_),
+    aux_rect_transport_(aux_nh_),
     aux_rgb_rect_transport_(aux_nh_),
     frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
     frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME),
@@ -393,16 +397,29 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
             if (has_aux_camera_) {
 
-                aux_rgb_cam_pub_   = aux_rgb_transport_.advertise(COLOR_TOPIC, 5,
+                aux_mono_cam_pub_  = aux_mono_transport_.advertise(MONO_TOPIC, 5,
+                                      std::bind(&Camera::connectStream, this, Source_Luma_Aux),
+                                      std::bind(&Camera::disconnectStream, this, Source_Luma_Aux));
+
+                aux_mono_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
+
+                aux_rgb_cam_pub_  = aux_rgb_transport_.advertise(COLOR_TOPIC, 5,
                                       std::bind(&Camera::connectStream, this, Source_Luma_Aux | Source_Chroma_Aux),
                                       std::bind(&Camera::disconnectStream, this, Source_Luma_Aux | Source_Chroma_Aux));
 
                 aux_rgb_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
-                aux_rgb_rect_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
+
+                aux_rect_cam_pub_ = aux_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
+                                          std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Aux),
+                                          std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Aux));
+
+                aux_rect_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
 
                 aux_rgb_rect_cam_pub_ = aux_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
-                                          std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Aux| Source_Chroma_Rectified_Aux),
+                                          std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux),
                                           std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux));
+
+                aux_rgb_rect_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
             }
             else {
 
@@ -650,13 +667,12 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
         driver_->addIsolatedCallback(colorizeCB, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux | Source_Luma_Aux |
                                                  Source_Luma_Left | Source_Chroma_Left | Source_Luma_Rectified_Left, this);
-        driver_->addIsolatedCallback(monoCB,  Source_Luma_Left | Source_Luma_Right, this);
-        driver_->addIsolatedCallback(rectCB,  Source_Luma_Rectified_Left | Source_Luma_Rectified_Right, this);
+        driver_->addIsolatedCallback(monoCB,  Source_Luma_Left | Source_Luma_Right | Source_Luma_Aux, this);
+        driver_->addIsolatedCallback(rectCB,  Source_Luma_Rectified_Left | Source_Luma_Rectified_Right | Source_Luma_Rectified_Aux, this);
         driver_->addIsolatedCallback(depthCB, Source_Disparity, this);
         driver_->addIsolatedCallback(pointCB, Source_Disparity, this);
         driver_->addIsolatedCallback(rawCB,   Source_Disparity | Source_Luma_Rectified_Left, this);
-        driver_->addIsolatedCallback(colorCB, Source_Chroma_Left, this);
-        driver_->addIsolatedCallback(auxCB,   Source_Chroma_Aux | Source_Chroma_Rectified_Aux, this);
+        driver_->addIsolatedCallback(colorCB, Source_Chroma_Left | Source_Chroma_Rectified_Aux | Source_Chroma_Aux, this);
         driver_->addIsolatedCallback(dispCB,  Source_Disparity | Source_Disparity_Right | Source_Disparity_Cost, this);
     }
 
@@ -692,7 +708,6 @@ Camera::~Camera()
         driver_->removeIsolatedCallback(pointCB);
         driver_->removeIsolatedCallback(rawCB);
         driver_->removeIsolatedCallback(colorCB);
-        driver_->removeIsolatedCallback(auxCB);
         driver_->removeIsolatedCallback(dispCB);
     }
 }
@@ -985,9 +1000,10 @@ void Camera::disparityImageCallback(const image::Header& header)
 void Camera::monoCallback(const image::Header& header)
 {
     if (Source_Luma_Left  != header.source &&
-        Source_Luma_Right != header.source) {
+        Source_Luma_Right != header.source &&
+        Source_Luma_Aux != header.source) {
 
-        ROS_ERROR("Camera: unexpected image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected mono image source: 0x%x", header.source);
         return;
     }
 
@@ -1051,10 +1067,40 @@ void Camera::monoCallback(const image::Header& header)
         right_mono_cam_pub_.publish(right_mono_image_);
 
         //
-        // Publish a specific camera info message for the left mono image
+        // Publish a specific camera info message for the right mono image
         right_mono_cam_info_pub_.publish(stereo_calibration_manager_->rightCameraInfo(frame_id_right_, t));
 
         break;
+    }
+    case Source_Luma_Aux:
+    {
+        aux_mono_image_.data.resize(header.imageLength);
+        memcpy(&aux_mono_image_.data[0], header.imageDataP, header.imageLength);
+
+        aux_mono_image_.header.frame_id = frame_id_aux_;
+        aux_mono_image_.header.stamp    = t;
+        aux_mono_image_.height          = header.height;
+        aux_mono_image_.width           = header.width;
+
+        switch(header.bitsPerPixel) {
+            case 8:
+                aux_mono_image_.encoding = sensor_msgs::image_encodings::MONO8;
+                aux_mono_image_.step     = header.width;
+                break;
+            case 16:
+                aux_mono_image_.encoding = sensor_msgs::image_encodings::MONO16;
+                aux_mono_image_.step     = header.width * 2;
+                break;
+        }
+        aux_mono_image_.is_bigendian    = (htonl(1) == 1);
+
+        aux_mono_cam_pub_.publish(aux_mono_image_);
+
+        //
+        // Publish a specific camera info message for the aux mono image
+        aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t));
+        break;
+
     }
     }
 }
@@ -1062,9 +1108,10 @@ void Camera::monoCallback(const image::Header& header)
 void Camera::rectCallback(const image::Header& header)
 {
     if (Source_Luma_Rectified_Left  != header.source &&
-        Source_Luma_Rectified_Right != header.source) {
+        Source_Luma_Rectified_Right != header.source &&
+        Source_Luma_Rectified_Aux != header.source) {
 
-        ROS_ERROR("Camera: unexpected image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected rectified image source: 0x%x", header.source);
         return;
     }
 
@@ -1095,7 +1142,7 @@ void Camera::rectCallback(const image::Header& header)
                 break;
         }
 
-        left_rect_image_.is_bigendian    = (htonl(1) == 1);
+        left_rect_image_.is_bigendian = (htonl(1) == 1);
 
         const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
 
@@ -1131,7 +1178,7 @@ void Camera::rectCallback(const image::Header& header)
                 break;
         }
 
-        right_rect_image_.is_bigendian    = (htonl(1) == 1);
+        right_rect_image_.is_bigendian = (htonl(1) == 1);
 
         const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, t);
 
@@ -1145,6 +1192,42 @@ void Camera::rectCallback(const image::Header& header)
 
         break;
     }
+    case Source_Luma_Rectified_Aux:
+    {
+
+        aux_rect_image_.data.resize(header.imageLength);
+        memcpy(&aux_rect_image_.data[0], header.imageDataP, header.imageLength);
+
+        aux_rect_image_.header.frame_id = frame_id_rectified_aux_;
+        aux_rect_image_.header.stamp    = t;
+        aux_rect_image_.height          = header.height;
+        aux_rect_image_.width           = header.width;
+
+        switch(header.bitsPerPixel) {
+            case 8:
+                aux_rect_image_.encoding = sensor_msgs::image_encodings::MONO8;
+                aux_rect_image_.step     = header.width;
+                break;
+            case 16:
+                aux_rect_image_.encoding = sensor_msgs::image_encodings::MONO16;
+                aux_rect_image_.step     = header.width * 2;
+                break;
+        }
+
+        aux_rect_image_.is_bigendian = (htonl(1) == 1);
+
+        const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, t);
+
+        //
+        // Continue to publish the rect camera info on the
+        // <namespace>/aux/camera_info topic for backward compatibility with
+        // older versions of the driver
+        aux_rect_cam_pub_.publish(aux_rect_image_, aux_camera_info);
+
+        aux_rect_cam_info_pub_.publish(aux_camera_info);
+
+        break;
+    }
     }
 }
 
@@ -1152,7 +1235,7 @@ void Camera::depthCallback(const image::Header& header)
 {
     if (Source_Disparity != header.source) {
 
-        ROS_ERROR("Camera: unexpected image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected depth image source: 0x%x", header.source);
         return;
     }
 
@@ -1286,7 +1369,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 {
     if (Source_Disparity != header.source) {
 
-        ROS_ERROR("Camera: unexpected image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected pointcloud image source: 0x%x", header.source);
         return;
     }
 
@@ -1595,150 +1678,100 @@ void Camera::colorImageCallback(const image::Header& header)
     //
     // The left-luma image is currently published before the matching chroma image so this can just trigger on that
 
-    if (Source_Chroma_Left != header.source)
+    if (Source_Chroma_Left != header.source &&
+        Source_Chroma_Rectified_Aux != header.source &&
+        Source_Chroma_Aux != header.source)
     {
-        ROS_WARN("Camera: unexpected image source: 0x%x", header.source);
-        return;
-    }
-
-    const auto color_subscribers = left_rgb_cam_pub_.getNumSubscribers();
-    const auto color_rect_subscribers = left_rgb_rect_cam_pub_.getNumSubscribers();
-
-    if (color_subscribers == 0 && color_rect_subscribers == 0)
-    {
-        return;
-    }
-
-    const auto left_luma = image_buffers_.find(Source_Luma_Left);
-    if (left_luma == std::end(image_buffers_)) {
-        return;
-    }
-
-    const auto luma_ptr = left_luma->second;
-
-    if (header.frameId == luma_ptr->data().frameId) {
-
-        const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
-
-        const uint32_t height    = luma_ptr->data().height;
-        const uint32_t width     = luma_ptr->data().width;
-        const uint32_t imageSize = 3 * height * width;
-
-        left_rgb_image_.data.resize(imageSize);
-
-        left_rgb_image_.header.frame_id = frame_id_left_;
-        left_rgb_image_.header.stamp    = t;
-        left_rgb_image_.height          = height;
-        left_rgb_image_.width           = width;
-
-        left_rgb_image_.encoding        = sensor_msgs::image_encodings::BGR8;
-        left_rgb_image_.is_bigendian    = (htonl(1) == 1);
-        left_rgb_image_.step            = 3 * width;
-
-        //
-        // Convert YCbCr 4:2:0 to RGB
-
-        ycbcrToBgr(luma_ptr->data(), header, reinterpret_cast<uint8_t*>(&(left_rgb_image_.data[0])));
-
-        const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
-
-        if (color_subscribers != 0) {
-            left_rgb_cam_pub_.publish(left_rgb_image_);
-
-            left_rgb_cam_info_pub_.publish(left_camera_info);
-        }
-
-        if (color_rect_subscribers > 0) {
-            left_rgb_rect_image_.data.resize(imageSize);
-
-            const auto left_rectified_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
-
-            const auto remaps = stereo_calibration_manager_->leftRemap();
-
-            const cv::Mat rgb_image(height, width, CV_8UC3, &(left_rgb_image_.data[0]));
-            cv::Mat rect_rgb_image(height, width, CV_8UC3, &(left_rgb_rect_image_.data[0]));
-
-            cv::remap(rgb_image, rect_rgb_image, remaps->map1, remaps->map2, cv::INTER_LINEAR);
-
-            left_rgb_rect_image_.header.frame_id = frame_id_rectified_left_;
-            left_rgb_rect_image_.header.stamp    = t;
-            left_rgb_rect_image_.height          = height;
-            left_rgb_rect_image_.width           = width;
-
-            left_rgb_rect_image_.encoding        = sensor_msgs::image_encodings::BGR8;
-            left_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
-            left_rgb_rect_image_.step            = 3 * width;
-
-            left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_rectified_camera_info);
-
-            left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
-        }
-    }
-}
-
-void Camera::auxImageCallback(const image::Header& header)
-{
-    //
-    // The luma image is currently published before the matching chroma image so this can just trigger on that
-
-    if (Source_Chroma_Aux != header.source && Source_Chroma_Rectified_Aux != header.source) {
-        ROS_WARN("Camera: unexpected image source: 0x%x", header.source);
-        return;
-    }
-
-    const auto color_subscribers = aux_rgb_cam_pub_.getNumSubscribers();
-    const auto color_rect_subscribers = aux_rgb_rect_cam_pub_.getNumSubscribers();
-
-    if (color_subscribers == 0 && color_rect_subscribers == 0) {
+        ROS_WARN("Camera: unexpected color image source: 0x%x", header.source);
         return;
     }
 
     const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
-    //
-    // The aux-luma image is currently published before
-    // the matching chroma image.
+    switch (header.source)
+    {
+    case Source_Chroma_Left:
+    {
 
-    if (Source_Chroma_Aux == header.source && color_subscribers > 0) {
+        const auto color_subscribers = left_rgb_cam_pub_.getNumSubscribers();
+        const auto color_rect_subscribers = left_rgb_rect_cam_pub_.getNumSubscribers();
 
-        const auto aux_luma = image_buffers_.find(Source_Luma_Aux);
-        if (aux_luma == std::end(image_buffers_)) {
+        if (color_subscribers == 0 && color_rect_subscribers == 0)
+        {
             return;
         }
 
-        const auto luma_ptr = aux_luma->second;
+        const auto left_luma = image_buffers_.find(Source_Luma_Left);
+        if (left_luma == std::end(image_buffers_)) {
+            return;
+        }
+
+        const auto luma_ptr = left_luma->second;
 
         if (header.frameId == luma_ptr->data().frameId) {
+
             const uint32_t height    = luma_ptr->data().height;
             const uint32_t width     = luma_ptr->data().width;
             const uint32_t imageSize = 3 * height * width;
 
-            aux_rgb_image_.data.resize(imageSize);
+            left_rgb_image_.data.resize(imageSize);
 
-            aux_rgb_image_.header.frame_id = frame_id_aux_;
-            aux_rgb_image_.header.stamp    = t;
-            aux_rgb_image_.height          = height;
-            aux_rgb_image_.width           = width;
+            left_rgb_image_.header.frame_id = frame_id_left_;
+            left_rgb_image_.header.stamp    = t;
+            left_rgb_image_.height          = height;
+            left_rgb_image_.width           = width;
 
-            aux_rgb_image_.encoding        = sensor_msgs::image_encodings::BGR8;
-            aux_rgb_image_.is_bigendian    = (htonl(1) == 1);
-            aux_rgb_image_.step            = 3 * width;
+            left_rgb_image_.encoding        = sensor_msgs::image_encodings::BGR8;
+            left_rgb_image_.is_bigendian    = (htonl(1) == 1);
+            left_rgb_image_.step            = 3 * width;
 
             //
             // Convert YCbCr 4:2:0 to RGB
 
-            ycbcrToBgr(luma_ptr->data(), header, reinterpret_cast<uint8_t*>(&(aux_rgb_image_.data[0])));
+            ycbcrToBgr(luma_ptr->data(), header, reinterpret_cast<uint8_t*>(&(left_rgb_image_.data[0])));
 
-            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t);
+            const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
 
-            aux_rgb_cam_pub_.publish(aux_rgb_image_);
+            if (color_subscribers != 0) {
+                left_rgb_cam_pub_.publish(left_rgb_image_);
 
-            aux_rgb_cam_info_pub_.publish(aux_camera_info);
+                left_rgb_cam_info_pub_.publish(left_camera_info);
+            }
 
+            if (color_rect_subscribers > 0) {
+                left_rgb_rect_image_.data.resize(imageSize);
+
+                const auto left_rectified_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
+
+                const auto remaps = stereo_calibration_manager_->leftRemap();
+
+                const cv::Mat rgb_image(height, width, CV_8UC3, &(left_rgb_image_.data[0]));
+                cv::Mat rect_rgb_image(height, width, CV_8UC3, &(left_rgb_rect_image_.data[0]));
+
+                cv::remap(rgb_image, rect_rgb_image, remaps->map1, remaps->map2, cv::INTER_LINEAR);
+
+                left_rgb_rect_image_.header.frame_id = frame_id_rectified_left_;
+                left_rgb_rect_image_.header.stamp    = t;
+                left_rgb_rect_image_.height          = height;
+                left_rgb_rect_image_.width           = width;
+
+                left_rgb_rect_image_.encoding        = sensor_msgs::image_encodings::BGR8;
+                left_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
+                left_rgb_rect_image_.step            = 3 * width;
+
+                left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_rectified_camera_info);
+
+                left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
+            }
         }
-    }
 
-    if (Source_Chroma_Rectified_Aux == header.source && color_rect_subscribers > 0) {
+        break;
+    }
+    case Source_Chroma_Rectified_Aux:
+    {
+        if (aux_rgb_rect_cam_pub_.getNumSubscribers() == 0) {
+            return;
+        }
 
         const auto aux_luma = image_buffers_.find(Source_Luma_Rectified_Aux);
         if (aux_luma == std::end(image_buffers_)) {
@@ -1775,6 +1808,52 @@ void Camera::auxImageCallback(const image::Header& header)
 
             aux_rgb_rect_cam_info_pub_.publish(aux_camera_info);
         }
+
+        break;
+    }
+    case Source_Chroma_Aux:
+    {
+        if (aux_rgb_cam_pub_.getNumSubscribers() == 0) {
+            return;
+        }
+
+        const auto aux_luma = image_buffers_.find(Source_Luma_Aux);
+        if (aux_luma == std::end(image_buffers_)) {
+            return;
+        }
+
+        const auto luma_ptr = aux_luma->second;
+
+        if (header.frameId == luma_ptr->data().frameId) {
+            const uint32_t height    = luma_ptr->data().height;
+            const uint32_t width     = luma_ptr->data().width;
+            const uint32_t imageSize = 3 * height * width;
+
+            aux_rgb_image_.data.resize(imageSize);
+
+            aux_rgb_image_.header.frame_id = frame_id_aux_;
+            aux_rgb_image_.header.stamp    = t;
+            aux_rgb_image_.height          = height;
+            aux_rgb_image_.width           = width;
+
+            aux_rgb_image_.encoding        = sensor_msgs::image_encodings::BGR8;
+            aux_rgb_image_.is_bigendian    = (htonl(1) == 1);
+            aux_rgb_image_.step            = 3 * width;
+
+            //
+            // Convert YCbCr 4:2:0 to RGB
+
+            ycbcrToBgr(luma_ptr->data(), header, reinterpret_cast<uint8_t*>(&(aux_rgb_image_.data[0])));
+
+            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t);
+
+            aux_rgb_cam_pub_.publish(aux_rgb_image_);
+
+            aux_rgb_cam_info_pub_.publish(aux_camera_info);
+
+            break;
+        }
+    }
     }
 }
 
@@ -1786,7 +1865,7 @@ void Camera::colorizeCallback(const image::Header& header)
         Source_Luma_Left != header.source &&
         Source_Chroma_Left != header.source &&
         Source_Luma_Rectified_Left != header.source) {
-        ROS_WARN("Camera: unexpected image source: 0x%x", header.source);
+        ROS_WARN("Camera: unexpected colorized image source: 0x%x", header.source);
         return;
     }
 
@@ -1880,6 +1959,10 @@ void Camera::publishAllCameraInfo()
         depth_cam_info_pub_.publish(left_rectified_camera_info);
 
         if (has_aux_camera_) {
+
+            aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp));
+            aux_rect_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp));
+
             aux_rgb_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp));
             aux_rgb_rect_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp));
         }
