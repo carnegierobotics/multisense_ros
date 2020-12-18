@@ -4,11 +4,6 @@
 
     <!-- Head Link Simplified Collision Mesh -->
     <link name="${name}/head">
-      <inertial>
-        <origin xyz="-0.075493 3.3383E-05 0.02774" rpy="0 0 0" />
-        <mass value="1.4199" />
-        <inertia iyy="0.0041178" ixy="-1.5797E-06" iyz="-6.8415E-07" ixx="0.0039688" ixz="-0.00089293" izz="0.0035243" />
-      </inertial>
       <visual>
         <origin xyz="0 0  0" rpy="0 0 0" />
         <geometry>
@@ -25,8 +20,6 @@
       </geometry>
     </collision>
     </link>
-
-    <link name="${name}/left_camera_optical_frame"/>
 
     <joint name="${name}/left_camera_optical_joint" type="continuous">
       <parent link="${name}/left_camera_optical_frame" />
@@ -88,20 +81,10 @@
       <!-- optical frame collocated with tilting DOF -->
       <origin xyz="0.0 0.035 -0.002" rpy="-1.57079632679 0.0 -1.57079632679" />
       <parent link="${name}/head"/>
-      <child link="${name}/left_camera_frame"/>
+      <child link="${name}/left_camera_optical_frame"/>
     </joint>
-    <link name="${name}/left_camera_frame">
-      <inertial>
-        <mass value="0.1" />
-        <origin xyz="0 0 0" />
-        <inertia ixx="0.001"  ixy="0.0"  ixz="0.0" iyy="0.001"  iyz="0.0" izz="0.001" />
-      </inertial>
-    </link>
 
-    <joint name="${name}/left_camera_joint" type="continuous">
-      <parent link="${name}/left_camera_frame" />
-      <child link="${name}/left_camera_optical_frame" />
-    </joint>
+    <link name="${name}/left_camera_optical_frame" />
 
     <joint name="${name}/center_top_led_frame_joint" type="fixed">
       <origin xyz="0.01125 0.0 0.0105"/>
