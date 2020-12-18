@@ -74,6 +74,23 @@ ScaleT compute_scale(const crl::multisense::image::Config &config,
 
 }// namespace
 
+void ycbcrToBgr(const crl::multisense::image::Header &luma,
+                const crl::multisense::image::Header &chroma,
+                uint8_t *output)
+{
+    const size_t rgb_stride = luma.width * 3;
+
+    for(uint32_t y=0; y< luma.height; ++y)
+    {
+        const size_t row_offset = y * rgb_stride;
+
+        for(uint32_t x=0; x< luma.width; ++x)
+        {
+            memcpy(output + row_offset + (3 * x), ycbcrToBgr<uint8_t>(luma, chroma, x, y).data(), 3);
+        }
+    }
+}
+
 Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
                       const crl::multisense::image::Calibration& calibration,
                       const crl::multisense::system::DeviceInfo& device_info)

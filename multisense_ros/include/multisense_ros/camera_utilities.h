@@ -119,22 +119,9 @@ constexpr Eigen::Matrix<T, 3, 1> ycbcrToBgr(const crl::multisense::image::Header
     return Eigen::Matrix<T, 3, 1>{static_cast<T>(px_b), static_cast<T>(px_g), static_cast<T>(px_r)};
 }
 
-constexpr void ycbcrToBgr(const crl::multisense::image::Header &luma,
-                          const crl::multisense::image::Header &chroma,
-                          uint8_t *output)
-{
-    const size_t rgb_stride = luma.width * 3;
-
-    for(uint32_t y=0; y< luma.height; ++y)
-    {
-        const size_t row_offset = y * rgb_stride;
-
-        for(uint32_t x=0; x< luma.width; ++x)
-        {
-            memcpy(output + row_offset + (3 * x), ycbcrToBgr<uint8_t>(luma, chroma, x, y).data(), 3);
-        }
-    }
-}
+void ycbcrToBgr(const crl::multisense::image::Header &luma,
+                const crl::multisense::image::Header &chroma,
+                uint8_t *output);
 
 Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
                       const crl::multisense::image::Calibration& calibration,
