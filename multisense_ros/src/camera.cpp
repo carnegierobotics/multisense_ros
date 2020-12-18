@@ -603,9 +603,9 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
     tf2::Transform rectified_left_T_left{toRotation(image_calibration.left.R), tf2::Vector3{0., 0., 0.}};
     stamped_transforms[0].header.stamp = ros::Time::now();
-    stamped_transforms[0].header.frame_id = frame_id_left_;
-    stamped_transforms[0].child_frame_id = frame_id_rectified_left_;
-    stamped_transforms[0].transform = tf2::toMsg(rectified_left_T_left.inverse());
+    stamped_transforms[0].header.frame_id = frame_id_rectified_left_;
+    stamped_transforms[0].child_frame_id = frame_id_left_;
+    stamped_transforms[0].transform = tf2::toMsg(rectified_left_T_left);
 
     tf2::Transform rectified_right_T_rectified_left{tf2::Matrix3x3::getIdentity(),
                                                     tf2::Vector3{stereo_calibration_manager_->T(), 0., 0.}};

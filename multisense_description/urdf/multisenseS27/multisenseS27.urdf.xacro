@@ -17,10 +17,10 @@
         <joint name="${name}/left_camera_joint" type="fixed">
             <origin xyz="0.08 0.312 0.037" rpy="-1.989 0.0 -1.57079632679"/>
             <parent link="${name}/head"/>
-            <child link="${name}/left_camera_frame"/>
+            <child link="${name}/left_camera_optical_frame"/>
         </joint>
 
-        <link name="${name}/left_camera_frame"/>
+        <link name="${name}/left_camera_optical_frame"/>
 
     </xacro:macro>
 
