@@ -52,13 +52,17 @@ struct ScaleT
 ScaleT compute_scale(const crl::multisense::image::Config &config,
                      const crl::multisense::system::DeviceInfo& device_info)
 {
+    const auto crop = config.camMode() == 2000 &&
+                      (device_info.imagerType == crl::multisense::system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY ||
+                      device_info.imagerType == crl::multisense::system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR);
 
-    const auto crop = config.camMode() == 2000;
+    // crop mode causes the imager to behave completely like a CMV2000, but the device info imager height does not get modified
+    const auto imagerHeight = crop ? 1088 : device_info.imagerHeight;
 
     const double x_scale = 1.0 / ((static_cast<double>(device_info.imagerWidth) /
                                    static_cast<double>(config.width())));
 
-    const double y_scale = 1.0 / ((static_cast<double>(device_info.imagerHeight) /
+    const double y_scale = 1.0 / ((static_cast<double>(imagerHeight) /
                                    static_cast<double>(config.height())));
 
     //
@@ -68,8 +72,8 @@ ScaleT compute_scale(const crl::multisense::image::Config &config,
 
     return ScaleT{x_scale,
                   y_scale,
-                  crop ? config.offset() : 0.0,
-                  crop ? config.offset() : 0.0};
+                  0.0,
+                  crop ? -config.offset()*y_scale : 0.0};
 }
 
 }// namespace
@@ -107,14 +111,21 @@ Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
     //   0     FxTx   0    -FxCyTx
     //   0      0     0     FxFyTx
     //   0      0    -Fy    Fy(Cx - Cx')
+    //
+    const auto fx = calibration.left.P[0][0] * scale.x_scale;
+    const auto cx = calibration.left.P[0][2] * scale.x_scale + scale.cx_offset;
+    const auto fy = calibration.left.P[1][1] * scale.y_scale;
+    const auto cy = calibration.left.P[1][2] * scale.y_scale + scale.cy_offset;
+    const auto tx = calibration.right.P[0][3] / calibration.right.P[0][0];// * scale.x_scale;
+    const auto cx_prime = calibration.left.P[0][2] * scale.x_scale + scale.cx_offset;
 
-    q_matrix(0,0) =  config.fy() * config.tx();
-    q_matrix(1,1) =  config.fx() * config.tx();
-    q_matrix(0,3) = -config.fy() * config.cx() * config.tx();
-    q_matrix(1,3) = -config.fx() * config.cy() * config.tx();
-    q_matrix(2,3) =  config.fx() * config.fy() * config.tx();
-    q_matrix(3,2) = -config.fy();
-    q_matrix(3,3) =  config.fy() * (calibration.left.P[0][2] * scale.x_scale - calibration.right.P[0][2] * scale.x_scale);
+    q_matrix(0,0) =  fy * tx;
+    q_matrix(1,1) =  fx * tx;
+    q_matrix(0,3) = -fy * cx * tx;
+    q_matrix(1,3) = -fx * cy * tx;
+    q_matrix(2,3) =  fx * fy * tx;
+    q_matrix(3,2) = -fy;
+    q_matrix(3,3) =  fy * (cx - cx_prime);
 
     return q_matrix;
 }
