@@ -116,7 +116,7 @@ Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
     const auto cx = calibration.left.P[0][2] * scale.x_scale + scale.cx_offset;
     const auto fy = calibration.left.P[1][1] * scale.y_scale;
     const auto cy = calibration.left.P[1][2] * scale.y_scale + scale.cy_offset;
-    const auto tx = calibration.right.P[0][3] / calibration.right.P[0][0];// * scale.x_scale;
+    const auto tx = calibration.right.P[0][3] / calibration.right.P[0][0];
     const auto cx_prime = calibration.left.P[0][2] * scale.x_scale + scale.cx_offset;
 
     q_matrix(0,0) =  fy * tx;
