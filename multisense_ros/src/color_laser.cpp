@@ -31,9 +31,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include <arpa/inet.h>
+#include <functional>
 
 #include <multisense_ros/color_laser.h>
+#include <multisense_ros/point_cloud_utilities.h>
 
 //
 // Anonymous namespace for locally scoped symbols
@@ -45,62 +46,28 @@ namespace {
 
 namespace multisense_ros {
 
-ColorLaser::ColorLaser(
-    ros::NodeHandle& nh
-):
-    color_image_(),
-    camera_info_(),
-    color_laser_pointcloud_(),
-    color_laser_publisher_(),
-    color_image_sub_(),
-    laser_pointcloud_sub_(),
-    camera_info_sub_(),
+ColorLaser::ColorLaser(ros::NodeHandle& nh, const std::string &tf_prefix):
     node_handle_(nh),
-    data_lock_(),
-    image_channels_(3)
+    image_channels_(3),
+    tf_prefix_(tf_prefix)
 {
     //
     // Initialize point cloud structure
 
-    color_laser_pointcloud_.is_bigendian    = (htonl(1) == 1);
-    color_laser_pointcloud_.is_dense        = true;
-    color_laser_pointcloud_.height          = 1;
-    color_laser_pointcloud_.point_step      = laser_cloud_step;
-
-    color_laser_pointcloud_.fields.resize(4);
-    color_laser_pointcloud_.fields[0].name     = "x";
-    color_laser_pointcloud_.fields[0].offset   = 0;
-    color_laser_pointcloud_.fields[0].count    = 1;
-    color_laser_pointcloud_.fields[0].datatype = sensor_msgs::PointField::FLOAT32;
-    color_laser_pointcloud_.fields[1].name     = "y";
-    color_laser_pointcloud_.fields[1].offset   = 4;
-    color_laser_pointcloud_.fields[1].count    = 1;
-    color_laser_pointcloud_.fields[1].datatype = sensor_msgs::PointField::FLOAT32;
-    color_laser_pointcloud_.fields[2].name     = "z";
-    color_laser_pointcloud_.fields[2].offset   = 8;
-    color_laser_pointcloud_.fields[2].count    = 1;
-    color_laser_pointcloud_.fields[2].datatype = sensor_msgs::PointField::FLOAT32;
-    color_laser_pointcloud_.fields[3].name     = "rgb";
-    color_laser_pointcloud_.fields[3].offset   = 12;
-    color_laser_pointcloud_.fields[3].count    = 1;
-    color_laser_pointcloud_.fields[3].datatype = sensor_msgs::PointField::FLOAT32;
+    color_laser_pointcloud_ = initialize_pointcloud<float>(true, "/left_camera_optical_frame", "rgb");
 
     color_laser_publisher_ = nh.advertise<sensor_msgs::PointCloud2>("lidar_points2_color",
                                                                    10,
-                                                                   boost::bind(&ColorLaser::startStreaming, this),
-                                                                   boost::bind(&ColorLaser::stopStreaming, this));
+                                                                   std::bind(&ColorLaser::startStreaming, this),
+                                                                   std::bind(&ColorLaser::stopStreaming, this));
 
-}
-
-ColorLaser::~ColorLaser()
-{
 }
 
 void ColorLaser::colorImageCallback(
     const sensor_msgs::Image::ConstPtr& message
 )
 {
-    boost::mutex::scoped_lock lock(data_lock_);
+    std::lock_guard<std::mutex> lock(data_lock_);
 
     //
     // Images are assumed to be 8 bit.
@@ -119,7 +86,7 @@ void ColorLaser::cameraInfoCallback(
     const sensor_msgs::CameraInfo::ConstPtr& message
 )
 {
-    boost::mutex::scoped_lock lock(data_lock_);
+    std::lock_guard<std::mutex> lock(data_lock_);
 
     camera_info_ = *message;
 }
@@ -128,7 +95,7 @@ void ColorLaser::laserPointCloudCallback(
     sensor_msgs::PointCloud2::Ptr message
 )
 {
-    boost::mutex::scoped_lock lock(data_lock_);
+    std::lock_guard<std::mutex> lock(data_lock_);
 
     //
     // Make sure the associated camera_info/color image is within 2 seconds
@@ -158,13 +125,12 @@ void ColorLaser::laserPointCloudCallback(
 
     float* pointCloudDataP = reinterpret_cast<float*>(&(message->data[0]));
 
-    uint32_t height = message->height;
-    uint32_t width = message->width;
-    uint32_t cloudStep = message->point_step / message->fields.size();
+    const uint32_t height = message->height;
+    const uint32_t width = message->width;
+    const uint32_t cloudStep = message->point_step / message->fields.size();
 
     uint32_t validPoints = 0;
-    for( uint32_t index = 0 ; index < height * width ;
-            ++index, pointCloudDataP += cloudStep)
+    for( uint32_t index = 0 ; index < height * width ; ++index, pointCloudDataP += cloudStep)
     {
         float x = pointCloudDataP[0];
         float y = pointCloudDataP[1];
@@ -175,11 +141,10 @@ void ColorLaser::laserPointCloudCallback(
         // Since these points have the laser calibration applied to them
         // add in a 2m buffer for filtering out invalid points
 
-        if (sqrt(pow(x,2) + pow(y,2) + pow(z,2)) > 58.0)
+        if (sqrt(x * x + y * y * z * z) > 58.0)
         {
             continue;
         }
-
 
         //
         // Compute the (u,v) camera coordinates corresponding to our laser
@@ -187,18 +152,16 @@ void ColorLaser::laserPointCloudCallback(
 
         //
         // (fx*x + cx*z)/z
-        uint32_t u = (camera_info_.P[0] * x + camera_info_.P[2] * z) / z;
+        const double u = (camera_info_.P[0] * x + camera_info_.P[2] * z) / z;
         //
         // (fy*y + cy*z)/z
-        uint32_t v = (camera_info_.P[5] * y + camera_info_.P[6] * z) / z;
-
-
+        const double v = (camera_info_.P[5] * y + camera_info_.P[6] * z) / z;
 
         //
         // If our computed (u, v) point projects into the image use its
         // color value and add it to the color pointcloud message
 
-        if (u < color_image_.width && v < color_image_.height && u >= 0 && v >= 0)
+        if (u < color_image_.width && v < color_image_.height && u >= 0.0 && v >= 0.0)
         {
 
             colorPointCloudDataP[0] = x;
@@ -211,26 +174,25 @@ void ColorLaser::laserPointCloudCallback(
             // Image data is assumed to be BRG and stored continuously in memory
             // both of which are the case for color images from the MultiSense
 
-            uint8_t* imageDataP = &color_image_.data[(image_channels_ * v * color_image_.width) + (image_channels_ * u)];
+            uint8_t* imageDataP = &color_image_.data[(image_channels_ * static_cast<size_t>(v) * color_image_.width) +
+                                                     (image_channels_ * static_cast<size_t>(u))];
 
             switch(image_channels_)
             {
                 case 3:
                     colorChannelP[2] = imageDataP[2];
+                    colorChannelP[1] = imageDataP[1];
+                    colorChannelP[0] = imageDataP[0];
+                    break;
                 case 2:
                     colorChannelP[1] = imageDataP[1];
+                    colorChannelP[0] = imageDataP[0];
+                    break;
                 case 1:
                     colorChannelP[0] = imageDataP[0];
-            }
-
-            //
-            // If we are dealing with a grayscale image then copy
-            // the intensity value to all 3 channels
-
-            if (image_channels_ == 1)
-            {
-                colorChannelP[2] = imageDataP[0];
-                colorChannelP[1] = imageDataP[0];
+                    colorChannelP[2] = imageDataP[0];
+                    colorChannelP[1] = imageDataP[0];
+                    break;
             }
 
             colorPointCloudDataP += cloudStep;
@@ -252,15 +214,15 @@ void ColorLaser::startStreaming()
         camera_info_sub_.getNumPublishers() == 0 &&
         laser_pointcloud_sub_.getNumPublishers() == 0)
     {
-        color_image_sub_      = node_handle_.subscribe("image_rect_color",
-                                                      10,
-                                                      &multisense_ros::ColorLaser::colorImageCallback,
-                                                      this);
+        color_image_sub_ = node_handle_.subscribe("image_rect_color",
+                                                  10,
+                                                  &multisense_ros::ColorLaser::colorImageCallback,
+                                                  this);
 
-        camera_info_sub_      = node_handle_.subscribe("camera_info",
-                                                      10,
-                                                      &multisense_ros::ColorLaser::cameraInfoCallback,
-                                                      this);
+        camera_info_sub_ = node_handle_.subscribe("camera_info",
+                                                  10,
+                                                  &multisense_ros::ColorLaser::cameraInfoCallback,
+                                                  this);
 
         laser_pointcloud_sub_ = node_handle_.subscribe("lidar_points2",
                                                       10,
@@ -284,14 +246,17 @@ void ColorLaser::stopStreaming()
 
 int main(int argc, char** argv)
 {
-
     try
     {
         ros::init(argc, argv, "color_laser_publisher");
 
         ros::NodeHandle nh;
+        ros::NodeHandle nh_private("~");
 
-        multisense_ros::ColorLaser colorLaserPublisher(nh);
+        std::string tf_prefix;
+        nh_private.param<std::string>("tf_prefix", tf_prefix, "multisense");
+
+        multisense_ros::ColorLaser colorLaserPublisher(nh, tf_prefix);
 
         ros::spin();
     }
@@ -303,5 +268,3 @@ int main(int argc, char** argv)
 
     return 0;
 }
-
-

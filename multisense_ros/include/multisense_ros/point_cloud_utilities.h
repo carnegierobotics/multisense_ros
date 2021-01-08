@@ -1,7 +1,7 @@
 /**
- * @file imu.h
+ * @file point_cloud_utilities.h
  *
- * Copyright 2013
+ * Copyright 2020
  * Carnegie Robotics, LLC
  * 4501 Hatfield Street, Pittsburgh, PA 15201
  * http://www.carnegierobotics.com
@@ -31,79 +31,52 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#ifndef MULTISENSE_ROS_IMU_H
-#define MULTISENSE_ROS_IMU_H
+#ifndef MULTISENSE_ROS_POINT_CLOUD_UTILITY_H
+#define MULTISENSE_ROS_POINT_CLOUD_UTILITY_H
 
-#include <mutex>
+#include <arpa/inet.h>
 
-#include <ros/ros.h>
-
-#include <sensor_msgs/Imu.h>
-#include <geometry_msgs/Vector3Stamped.h>
-
-#include <multisense_lib/MultiSenseChannel.hh>
+#include <sensor_msgs/PointCloud2.h>
 
 namespace multisense_ros {
 
-class Imu {
-public:
+template <typename T>
+uint8_t message_format();
 
-    Imu(crl::multisense::Channel* driver, std::string tf_prefix);
-    ~Imu();
+template <typename T>
+sensor_msgs::PointCloud2 initialize_pointcloud(bool dense,
+                                               const std::string& frame_id,
+                                               const std::string &color_channel)
+{
+    const auto datatype = message_format<T>();
 
-    void imuCallback(const crl::multisense::imu::Header& header);
+    sensor_msgs::PointCloud2 point_cloud;
+    point_cloud.is_bigendian    = (htonl(1) == 1);
+    point_cloud.is_dense        = dense;
+    point_cloud.point_step      = 4 * sizeof(T);
+    point_cloud.header.frame_id = frame_id;
+    point_cloud.fields.resize(4);
+    point_cloud.fields[0].name     = "x";
+    point_cloud.fields[0].offset   = 0;
+    point_cloud.fields[0].count    = 1;
+    point_cloud.fields[0].datatype = datatype;
+    point_cloud.fields[1].name     = "y";
+    point_cloud.fields[1].offset   = sizeof(T);
+    point_cloud.fields[1].count    = 1;
+    point_cloud.fields[1].datatype = datatype;
+    point_cloud.fields[2].name     = "z";
+    point_cloud.fields[2].offset   = 2 * sizeof(T);
+    point_cloud.fields[2].count    = 1;
+    point_cloud.fields[2].datatype = datatype;
+    point_cloud.fields[3].name     = color_channel;
+    point_cloud.fields[3].offset   = 3 * sizeof(T);
+    point_cloud.fields[3].count    = 1;
+    point_cloud.fields[3].datatype = datatype;
 
-private:
-
-    //
-    // CRL sensor API
-
-    crl::multisense::Channel* driver_;
-
-    //
-    // Driver nodes
-
-    ros::NodeHandle device_nh_;
-    ros::NodeHandle imu_nh_;
-
-    //
-    // multisense_ros/RawImuData publishers
-
-    ros::Publisher accelerometer_pub_;
-    ros::Publisher gyroscope_pub_;
-    ros::Publisher magnetometer_pub_;
-
-    //
-    // sensor_msgs/Imu publisher
-    ros::Publisher imu_pub_;
-
-    //
-    // geometry_msgs/Vector3Stamped publishers
-    ros::Publisher accelerometer_vector_pub_;
-    ros::Publisher gyroscope_vector_pub_;
-    ros::Publisher magnetometer_vector_pub_;
-
-    //
-    // IMU message
-    sensor_msgs::Imu imu_message_;
-
-    //
-    // Publish control
-
-    std::mutex sub_lock_;
-    int32_t total_subscribers_;
-    void startStreams();
-    void stopStreams();
-
-    //
-    // TF prefix and frame ID's
-    const std::string tf_prefix_;
-    const std::string accel_frameId_;
-    const std::string gyro_frameId_;
-    const std::string mag_frameId_;
-
-};
-
+    return point_cloud;
 }
+
+
+}// namespace
 
 #endif

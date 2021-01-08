@@ -1,7 +1,7 @@
 /**
- * @file imu.h
+ * @file point_cloud_utilities.h
  *
- * Copyright 2013
+ * Copyright 2020
  * Carnegie Robotics, LLC
  * 4501 Hatfield Street, Pittsburgh, PA 15201
  * http://www.carnegierobotics.com
@@ -31,79 +31,56 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#ifndef MULTISENSE_ROS_IMU_H
-#define MULTISENSE_ROS_IMU_H
-
-#include <mutex>
-
-#include <ros/ros.h>
-
-#include <sensor_msgs/Imu.h>
-#include <geometry_msgs/Vector3Stamped.h>
-
-#include <multisense_lib/MultiSenseChannel.hh>
+#include <multisense_ros/point_cloud_utilities.h>
 
 namespace multisense_ros {
 
-class Imu {
-public:
-
-    Imu(crl::multisense::Channel* driver, std::string tf_prefix);
-    ~Imu();
-
-    void imuCallback(const crl::multisense::imu::Header& header);
-
-private:
-
-    //
-    // CRL sensor API
-
-    crl::multisense::Channel* driver_;
-
-    //
-    // Driver nodes
-
-    ros::NodeHandle device_nh_;
-    ros::NodeHandle imu_nh_;
-
-    //
-    // multisense_ros/RawImuData publishers
-
-    ros::Publisher accelerometer_pub_;
-    ros::Publisher gyroscope_pub_;
-    ros::Publisher magnetometer_pub_;
-
-    //
-    // sensor_msgs/Imu publisher
-    ros::Publisher imu_pub_;
-
-    //
-    // geometry_msgs/Vector3Stamped publishers
-    ros::Publisher accelerometer_vector_pub_;
-    ros::Publisher gyroscope_vector_pub_;
-    ros::Publisher magnetometer_vector_pub_;
-
-    //
-    // IMU message
-    sensor_msgs::Imu imu_message_;
-
-    //
-    // Publish control
-
-    std::mutex sub_lock_;
-    int32_t total_subscribers_;
-    void startStreams();
-    void stopStreams();
-
-    //
-    // TF prefix and frame ID's
-    const std::string tf_prefix_;
-    const std::string accel_frameId_;
-    const std::string gyro_frameId_;
-    const std::string mag_frameId_;
-
-};
-
+template <>
+uint8_t message_format<int8_t>()
+{
+    return sensor_msgs::PointField::INT8;
 }
 
-#endif
+template <>
+uint8_t message_format<uint8_t>()
+{
+    return sensor_msgs::PointField::UINT8;
+}
+
+template <>
+uint8_t message_format<int16_t>()
+{
+    return sensor_msgs::PointField::INT16;
+}
+
+template <>
+uint8_t message_format<uint16_t>()
+{
+    return sensor_msgs::PointField::UINT16;
+}
+
+template <>
+uint8_t message_format<int32_t>()
+{
+    return sensor_msgs::PointField::INT32;
+}
+
+template <>
+uint8_t message_format<uint32_t>()
+{
+    return sensor_msgs::PointField::UINT32;
+}
+
+template <>
+uint8_t message_format<float>()
+{
+    return sensor_msgs::PointField::FLOAT32;
+}
+
+template <>
+uint8_t message_format<double>()
+{
+    return sensor_msgs::PointField::FLOAT64;
+}
+
+}// namespace

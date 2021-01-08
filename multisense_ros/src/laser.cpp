@@ -31,12 +31,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+#include <arpa/inet.h>
+
+#include <angles/angles.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 #include <multisense_ros/laser.h>
 #include <multisense_ros/RawLidarData.h>
 #include <multisense_ros/RawLidarCal.h>
-#include <angles/angles.h>
 
-#include <arpa/inet.h>
 
 using namespace crl::multisense;
 
@@ -44,30 +47,30 @@ namespace { // anonymous
 
 const uint32_t laser_cloud_step = 16;
 
-tf::Transform makeTransform(float T[4][4])
+tf2::Transform makeTransform(float T[4][4])
 {
     //
     // Manually create the rotation matrix
-    tf::Matrix3x3 rot = tf::Matrix3x3(T[0][0],
-                                      T[0][1],
-                                      T[0][2],
-                                      T[1][0],
-                                      T[1][1],
-                                      T[1][2],
-                                      T[2][0],
-                                      T[2][1],
-                                      T[2][2]);
+    tf2::Matrix3x3 rot{T[0][0],
+                       T[0][1],
+                       T[0][2],
+                       T[1][0],
+                       T[1][1],
+                       T[1][2],
+                       T[2][0],
+                       T[2][1],
+                       T[2][2]};
 
     //
     // Maually create the translation vector
-    tf::Vector3 trans = tf::Vector3(T[0][3], T[1][3], T[2][3]);
+    tf2::Vector3 trans{T[0][3], T[1][3], T[2][3]};
 
-    return tf::Transform(rot, trans);
+    return tf2::Transform{rot, trans};
 }
 
 
 
-}; // anonymous
+} // anonymous
 
 namespace multisense_ros {
 
@@ -90,7 +93,7 @@ void pCB(const lidar::Header&        header,
     reinterpret_cast<Laser*>(userDataP)->pointCloudCallback(header);
 }
 
-}; // anonymous
+} // anonymous
 
 Laser::Laser(Channel* driver,
              const std::string& tf_prefix):
@@ -100,7 +103,6 @@ Laser::Laser(Channel* driver,
     previous_scan_time_(0.0)
 
 {
-
     //
     // Get device info
 
@@ -113,19 +115,7 @@ Laser::Laser(Channel* driver,
         return;
     }
 
-    switch(deviceInfo.hardwareRevision) {
-    case system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL:
-
-        if (deviceInfo.imagerType != system::DeviceInfo::IMAGER_TYPE_AR0239_COLOR &&
-            deviceInfo.imagerType != system::DeviceInfo::IMAGER_TYPE_AR0234_GREY)
-        {
-            ; // ok, this one has a laser
-
-            break;
-        }
-
-    default:
-
+    if (deviceInfo.hardwareRevision != system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL) {
         ROS_INFO("hardware does not support a laser");
         return;
     }
@@ -169,8 +159,8 @@ Laser::Laser(Channel* driver,
     // Create scan publisher
 
     scan_pub_ = nh.advertise<sensor_msgs::LaserScan>("lidar_scan", 20,
-                boost::bind(&Laser::subscribe, this),
-                boost::bind(&Laser::unsubscribe, this));
+                std::bind(&Laser::subscribe, this),
+                std::bind(&Laser::unsubscribe, this));
 
     //
     // Initialize point cloud structure
@@ -203,8 +193,8 @@ Laser::Laser(Channel* driver,
     // Create point cloud publisher
 
     point_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("lidar_points2", 5,
-                       boost::bind(&Laser::subscribe, this),
-                       boost::bind(&Laser::unsubscribe, this));
+                       std::bind(&Laser::subscribe, this),
+                       std::bind(&Laser::unsubscribe, this));
 
     //
     // Create calibration publishers
@@ -212,8 +202,8 @@ Laser::Laser(Channel* driver,
     ros::NodeHandle calibration_nh(nh, "calibration");
     raw_lidar_cal_pub_  = calibration_nh.advertise<multisense_ros::RawLidarCal>("raw_lidar_cal", 1, true);
     raw_lidar_data_pub_ = calibration_nh.advertise<multisense_ros::RawLidarData>("raw_lidar_data", 20,
-                          boost::bind(&Laser::subscribe, this),
-                          boost::bind(&Laser::unsubscribe, this));
+                          std::bind(&Laser::subscribe, this),
+                          std::bind(&Laser::unsubscribe, this));
 
     //
     // Publish calibration
@@ -250,6 +240,22 @@ Laser::Laser(Channel* driver,
     joint_states_pub_ = nh.advertise<sensor_msgs::JointState>("joint_states", 1, true);
 
     //
+    // Publish the static transforms from our calibration.
+
+    std::vector<geometry_msgs::TransformStamped> stamped_transforms(2);
+    stamped_transforms[0].header.stamp = ros::Time::now();
+    stamped_transforms[0].header.frame_id = left_camera_optical_;
+    stamped_transforms[0].child_frame_id = motor_;
+    stamped_transforms[0].transform = tf2::toMsg(motor_to_camera_);
+
+    stamped_transforms[1].header.stamp = ros::Time::now();
+    stamped_transforms[1].header.frame_id = spindle_;
+    stamped_transforms[1].child_frame_id = hokuyo_;
+    stamped_transforms[1].transform = tf2::toMsg(laser_to_spindle_);
+
+    static_tf_broadcaster_.sendTransform(stamped_transforms);
+
+    //
     // Create a timer routine to publish the laser transform even when nothing
     // is subscribed to the laser topics. Publishing occurs at 1Hz
 
@@ -266,7 +272,7 @@ Laser::Laser(Channel* driver,
 
 Laser::~Laser()
 {
-    boost::mutex::scoped_lock lock(sub_lock_);
+    std::lock_guard<std::mutex> lock(sub_lock_);
     stop();
     driver_->removeIsolatedCallback(lCB);
     driver_->removeIsolatedCallback(pCB);
@@ -314,16 +320,16 @@ void Laser::pointCloudCallback(const lidar::Header& header)
 
         const double spindleTheta = spindleAngleStart + percent * spindleAngleRange;
 
-        tf::Transform spindle_to_motor = getSpindleTransform(spindleTheta);
+        const tf2::Transform spindle_to_motor = getSpindleTransform(spindleTheta);
 
         //
         // The coordinate in left optical frame
 
         const double      rangeMeters = 1e-3 * static_cast<double>(header.rangesP[i]);  // from millimeters
-        const tf::Vector3 pointMotor  = (laser_to_spindle_ *
-                                         tf::Vector3(rangeMeters * std::sin(mirrorTheta), 0.0,
-                                                     rangeMeters *  std::cos(mirrorTheta)));
-        const tf::Vector3 pointCamera = motor_to_camera_ * (spindle_to_motor * pointMotor);
+        const tf2::Vector3 pointMotor  = (laser_to_spindle_ *
+                                         tf2::Vector3(rangeMeters * std::sin(mirrorTheta), 0.0,
+                                                      rangeMeters *  std::cos(mirrorTheta)));
+        const tf2::Vector3 pointCamera = motor_to_camera_ * (spindle_to_motor * pointMotor);
 
         //
         // Copy data to point cloud structure
@@ -351,8 +357,6 @@ void Laser::scanCallback(const lidar::Header& header)
 
     const float angle_start = 1e-6 * static_cast<float>(header.spindleAngleStart);
     const float angle_end   = 1e-6 * static_cast<float>(header.spindleAngleEnd);
-
-    publishStaticTransforms(start_absolute_time);
 
     //
     // Initialize the previous scan time to the start time if it has not
@@ -433,22 +437,6 @@ void Laser::scanCallback(const lidar::Header& header)
     }
 }
 
-void Laser::publishStaticTransforms(const ros::Time& time) {
-
-    //
-    // Publish the static transforms from our calibration.
-    static_tf_broadcaster_.sendTransform(tf::StampedTransform(motor_to_camera_,
-                                          time,left_camera_optical_,
-                                          motor_));
-
-
-
-    static_tf_broadcaster_.sendTransform(tf::StampedTransform(laser_to_spindle_,
-                                          time, spindle_, hokuyo_));
-
-
-}
-
 void Laser::publishSpindleTransform(const float spindle_angle, const float velocity, const ros::Time& time) {
     joint_states_.header.stamp = time;
     joint_states_.position[0] = spindle_angle;
@@ -456,19 +444,21 @@ void Laser::publishSpindleTransform(const float spindle_angle, const float veloc
     joint_states_pub_.publish(joint_states_);
 }
 
-tf::Transform Laser::getSpindleTransform(float spindle_angle){
+tf2::Transform Laser::getSpindleTransform(float spindle_angle){
 
     //
     // Spindle angle turns about the z-axis to create a transform where it adjusts
     // yaw
-    tf::Matrix3x3 spindle_rot = tf::Matrix3x3();
+    tf2::Matrix3x3 spindle_rot = tf2::Matrix3x3();
     spindle_rot.setRPY(0.0, 0.0, spindle_angle);
-    tf::Transform spindle_to_motor = tf::Transform(spindle_rot);
+    tf2::Transform spindle_to_motor = tf2::Transform(spindle_rot);
 
     return spindle_to_motor;
 }
 
 void Laser::defaultTfPublisher(const ros::TimerEvent& event){
+    (void) event;
+
     //
     // If our message time is 0 or our message time is over 1 second old
     // we are not subscribed to a laser topic anymore. Publish the default
@@ -479,7 +469,6 @@ void Laser::defaultTfPublisher(const ros::TimerEvent& event){
          (ros::Time::now() - point_cloud_.header.stamp >= ros::Duration(1))) )
 
     {
-        publishStaticTransforms(ros::Time::now());
         publishSpindleTransform(spindle_angle_, 0.0, ros::Time::now());
     }
 }
@@ -496,7 +485,7 @@ void Laser::stop()
 
 void Laser::unsubscribe()
 {
-    boost::mutex::scoped_lock lock(sub_lock_);
+    std::lock_guard<std::mutex> lock(sub_lock_);
 
     if (--subscribers_ > 0)
         return;
@@ -506,7 +495,7 @@ void Laser::unsubscribe()
 
 void Laser::subscribe()
 {
-    boost::mutex::scoped_lock lock(sub_lock_);
+    std::lock_guard<std::mutex> lock(sub_lock_);
 
     if (0 == subscribers_++) {
 

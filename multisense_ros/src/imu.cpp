@@ -48,7 +48,7 @@ void imuCB(const imu::Header& header, void* userDataP)
 { reinterpret_cast<Imu*>(userDataP)->imuCallback(header); }
 
 
-}; // anonymous
+} // anonymous
 
 Imu::Imu(Channel* driver, std::string tf_prefix) :
     driver_(driver),
@@ -139,27 +139,27 @@ Imu::Imu(Channel* driver, std::string tf_prefix) :
         driver_->stopStreams(Source_Imu);
 
         accelerometer_pub_ = imu_nh_.advertise<multisense_ros::RawImuData>("accelerometer", 20,
-                                               boost::bind(&Imu::startStreams, this),
-                                               boost::bind(&Imu::stopStreams, this));
+                                               std::bind(&Imu::startStreams, this),
+                                               std::bind(&Imu::stopStreams, this));
         gyroscope_pub_     = imu_nh_.advertise<multisense_ros::RawImuData>("gyroscope", 20,
-                                               boost::bind(&Imu::startStreams, this),
-                                               boost::bind(&Imu::stopStreams, this));
+                                               std::bind(&Imu::startStreams, this),
+                                               std::bind(&Imu::stopStreams, this));
         magnetometer_pub_  = imu_nh_.advertise<multisense_ros::RawImuData>("magnetometer", 20,
-                                               boost::bind(&Imu::startStreams, this),
-                                               boost::bind(&Imu::stopStreams, this));
+                                               std::bind(&Imu::startStreams, this),
+                                               std::bind(&Imu::stopStreams, this));
         imu_pub_           = imu_nh_.advertise<sensor_msgs::Imu>("imu_data", 20,
-                                               boost::bind(&Imu::startStreams, this),
-                                               boost::bind(&Imu::stopStreams, this));
+                                               std::bind(&Imu::startStreams, this),
+                                               std::bind(&Imu::stopStreams, this));
 
         accelerometer_vector_pub_ = imu_nh_.advertise<geometry_msgs::Vector3Stamped>("accelerometer_vector", 20,
-                                                      boost::bind(&Imu::startStreams, this),
-                                                      boost::bind(&Imu::stopStreams, this));
+                                                      std::bind(&Imu::startStreams, this),
+                                                      std::bind(&Imu::stopStreams, this));
         gyroscope_vector_pub_     = imu_nh_.advertise<geometry_msgs::Vector3Stamped>("gyroscope_vector", 20,
-                                                      boost::bind(&Imu::startStreams, this),
-                                                      boost::bind(&Imu::stopStreams, this));
+                                                      std::bind(&Imu::startStreams, this),
+                                                      std::bind(&Imu::stopStreams, this));
         magnetometer_vector_pub_  = imu_nh_.advertise<geometry_msgs::Vector3Stamped>("magnetometer_vector", 20,
-                                                      boost::bind(&Imu::startStreams, this),
-                                                      boost::bind(&Imu::stopStreams, this));
+                                                      std::bind(&Imu::startStreams, this),
+                                                      std::bind(&Imu::stopStreams, this));
 
         driver_->addIsolatedCallback(imuCB, this);
     }
