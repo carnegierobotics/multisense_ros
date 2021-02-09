@@ -138,6 +138,9 @@ sensor_msgs::CameraInfo makeCameraInfo(const crl::multisense::image::Config& con
 
     sensor_msgs::CameraInfo camera_info;
 
+    camera_info.width = config.width();
+    camera_info.height = config.height();
+
     camera_info.P[0] = calibration.P[0][0] * scale.x_scale;
     camera_info.P[1] = calibration.P[0][1];
     camera_info.P[2] = calibration.P[0][2] * scale.x_scale + scale.cx_offset;
