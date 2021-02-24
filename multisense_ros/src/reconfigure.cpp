@@ -566,6 +566,21 @@ template<class T> void Reconfigure::configurePointCloudRange(const T& dyn)
     max_point_cloud_range_callback_(dyn.max_point_cloud_range);
 }
 
+template<class T> void Reconfigure::configurePtp(const T& dyn)
+{
+    Status status = driver_->setTriggerSource(dyn.trigger_source);
+    if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to set trigger source: %s",
+                      Channel::statusString(status));
+    }
+
+    status = driver_->ptpTimeSynchronization(dyn.ptp_time_sync);
+    if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: enable PTP time synchronization: %s",
+                      Channel::statusString(status));
+    }
+}
+
 
 #define GET_CONFIG()                                                    \
     image::Config cfg;                                                  \
@@ -625,6 +640,14 @@ template<class T> void Reconfigure::configurePointCloudRange(const T& dyn)
         configurePointCloudRange(dyn);                          \
     } while(0)
 
+#define S27_SGM()  do {                              \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        configureCamera(cfg, dyn);                              \
+        configureBorderClip(dyn);                               \
+        configurePtp(dyn);                                      \
+    } while(0)
+
 
 
 //
@@ -638,7 +661,7 @@ void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_im
 void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { (void) level; SL_SGM_IMU_CMV4000();  }
 void Reconfigure::callback_mono_cmv2000       (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
 void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
-void Reconfigure::callback_s27_AR0234         (multisense_ros::s27_sgm_AR0234Config&     dyn, uint32_t level) { (void) level; SL_SGM();   }
+void Reconfigure::callback_s27_AR0234         (multisense_ros::s27_sgm_AR0234Config&     dyn, uint32_t level) { (void) level; S27_SGM();   }
 
 //
 // BCAM (Sony IMX104)
