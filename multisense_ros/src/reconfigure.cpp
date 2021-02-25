@@ -81,7 +81,7 @@ Reconfigure::Reconfigure(Channel* driver,
     {
         motor_supported_ = true;
     }
-    if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7AR == deviceInfo.hardwareRevision ||
+    if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
     {
