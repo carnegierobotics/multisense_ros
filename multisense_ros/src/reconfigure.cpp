@@ -48,6 +48,7 @@ Reconfigure::Reconfigure(Channel* driver,
     lighting_supported_(false),
     motor_supported_(false),
     crop_mode_changed_(false),
+    ptp_supported_(false),
     border_clip_type_(BorderClip::NONE),
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
@@ -79,6 +80,12 @@ Reconfigure::Reconfigure(Channel* driver,
     if (deviceInfo.motorType != 0)
     {
         motor_supported_ = true;
+    }
+    if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
+    {
+        ptp_supported_ = true;
     }
 
     //
@@ -553,8 +560,7 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
 {
 
     if (static_cast<BorderClip>(dyn.border_clip_type) != border_clip_type_ ||
-        dyn.border_clip_value != border_clip_value_)
-    {
+        dyn.border_clip_value != border_clip_value_) {
         border_clip_type_ = static_cast<BorderClip>(dyn.border_clip_type);
         border_clip_value_ = dyn.border_clip_value;
         border_clip_change_callback_(border_clip_type_, border_clip_value_);
@@ -564,6 +570,33 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
 template<class T> void Reconfigure::configurePointCloudRange(const T& dyn)
 {
     max_point_cloud_range_callback_(dyn.max_point_cloud_range);
+}
+
+template<class T> void Reconfigure::configurePtp(const T& dyn)
+{
+    if (ptp_supported_) {
+        Status status = driver_->ptpTimeSynchronization(dyn.ptp_time_sync);
+        if (Status_Ok != status) {
+            if (Status_Unsupported == status || Status_Unknown == status) {
+                ptp_supported_ = false;
+            } else {
+                ROS_ERROR("Reconfigure: enable PTP time synchronization: %s",
+                          Channel::statusString(status));
+            }
+        }
+    }
+
+    if (dyn.trigger_source != 3 ||  (ptp_supported_ && dyn.trigger_source == 3)) {
+        Status status = driver_->setTriggerSource(dyn.trigger_source);
+        if (Status_Ok != status) {
+            if (Status_Unsupported == status || Status_Unknown == status) {
+                ptp_supported_ = false;
+            } else {
+                ROS_ERROR("Reconfigure: failed to set trigger source: %s",
+                          Channel::statusString(status));
+            }
+        }
+    }
 }
 
 
@@ -625,6 +658,14 @@ template<class T> void Reconfigure::configurePointCloudRange(const T& dyn)
         configurePointCloudRange(dyn);                          \
     } while(0)
 
+#define S27_SGM()  do {                              \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        configureCamera(cfg, dyn);                              \
+        configureBorderClip(dyn);                               \
+        configurePtp(dyn);                                      \
+    } while(0)
+
 
 
 //
@@ -638,7 +679,7 @@ void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_im
 void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { (void) level; SL_SGM_IMU_CMV4000();  }
 void Reconfigure::callback_mono_cmv2000       (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
 void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
-void Reconfigure::callback_s27_AR0234         (multisense_ros::s27_sgm_AR0234Config&     dyn, uint32_t level) { (void) level; SL_SGM();   }
+void Reconfigure::callback_s27_AR0234         (multisense_ros::s27_sgm_AR0234Config&     dyn, uint32_t level) { (void) level; S27_SGM();   }
 
 //
 // BCAM (Sony IMX104)

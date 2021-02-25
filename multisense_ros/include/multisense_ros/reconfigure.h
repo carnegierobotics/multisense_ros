@@ -96,6 +96,7 @@ private:
     template<class T> void configureImu(const T& dyn);
     template<class T> void configureBorderClip(const T& dyn);
     template<class T> void configurePointCloudRange(const T& dyn);
+    template<class T> void configurePtp(const T& dyn);
 
     //
     // CRL sensor API
@@ -141,6 +142,7 @@ private:
     bool lighting_supported_ = false;
     bool motor_supported_ = false;
     bool crop_mode_changed_ = false;
+    bool ptp_supported_ = false;
 
     //
     // Cached value for the boarder clip. These are used to determine if we
