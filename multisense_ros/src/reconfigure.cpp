@@ -48,6 +48,7 @@ Reconfigure::Reconfigure(Channel* driver,
     lighting_supported_(false),
     motor_supported_(false),
     crop_mode_changed_(false),
+    ptp_supported_(false),
     border_clip_type_(BorderClip::NONE),
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
@@ -79,6 +80,12 @@ Reconfigure::Reconfigure(Channel* driver,
     if (deviceInfo.motorType != 0)
     {
         motor_supported_ = true;
+    }
+    if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7AR == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
+    {
+        ptp_supported_ = true;
     }
 
     //
@@ -553,8 +560,7 @@ template<class T> void Reconfigure::configureBorderClip(const T& dyn)
 {
 
     if (static_cast<BorderClip>(dyn.border_clip_type) != border_clip_type_ ||
-        dyn.border_clip_value != border_clip_value_)
-    {
+        dyn.border_clip_value != border_clip_value_) {
         border_clip_type_ = static_cast<BorderClip>(dyn.border_clip_type);
         border_clip_value_ = dyn.border_clip_value;
         border_clip_change_callback_(border_clip_type_, border_clip_value_);
@@ -568,16 +574,28 @@ template<class T> void Reconfigure::configurePointCloudRange(const T& dyn)
 
 template<class T> void Reconfigure::configurePtp(const T& dyn)
 {
-    Status status = driver_->setTriggerSource(dyn.trigger_source);
-    if (Status_Ok != status) {
-            ROS_ERROR("Reconfigure: failed to set trigger source: %s",
-                      Channel::statusString(status));
+    if (ptp_supported_) {
+        Status status = driver_->ptpTimeSynchronization(dyn.ptp_time_sync);
+        if (Status_Ok != status) {
+            if (Status_Unsupported == status || Status_Unknown == status) {
+                ptp_supported_ = false;
+            } else {
+                ROS_ERROR("Reconfigure: enable PTP time synchronization: %s",
+                          Channel::statusString(status));
+            }
+        }
     }
 
-    status = driver_->ptpTimeSynchronization(dyn.ptp_time_sync);
-    if (Status_Ok != status) {
-            ROS_ERROR("Reconfigure: enable PTP time synchronization: %s",
-                      Channel::statusString(status));
+    if (dyn.trigger_source != 3 ||  (ptp_supported_ && dyn.trigger_source == 3)) {
+        Status status = driver_->setTriggerSource(dyn.trigger_source);
+        if (Status_Ok != status) {
+            if (Status_Unsupported == status || Status_Unknown == status) {
+                ptp_supported_ = false;
+            } else {
+                ROS_ERROR("Reconfigure: failed to set trigger source: %s",
+                          Channel::statusString(status));
+            }
+        }
     }
 }
 

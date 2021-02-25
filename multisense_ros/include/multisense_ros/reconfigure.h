@@ -142,6 +142,7 @@ private:
     bool lighting_supported_ = false;
     bool motor_supported_ = false;
     bool crop_mode_changed_ = false;
+    bool ptp_supported_ = false;
 
     //
     // Cached value for the boarder clip. These are used to determine if we
