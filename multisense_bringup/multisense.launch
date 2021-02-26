@@ -7,7 +7,9 @@
   <arg name="mtu"        default="7200" />
   <arg name="sensor"     default="S21" />
   <arg name="launch_robot_state_publisher" default="true" />
+  <arg name="launch_color_laser_publisher" default="true" />
   <arg name="nodes_prefix" default="$(arg namespace)" />
+  <arg name="tf_prefix" default="$(arg namespace)" />
 
   <!-- Robot state publisher -->
   <group if = "$(arg launch_robot_state_publisher)">
@@ -23,14 +25,16 @@
    <node pkg="multisense_ros" ns="$(arg namespace)" type="ros_driver" name="$(arg nodes_prefix)_driver" output="screen">
      <param name="sensor_ip"   value="$(arg ip_address)" />
      <param name="sensor_mtu"  value="$(arg mtu)" />
-     <param name="tf_prefix"  value="$(arg namespace)" />
+     <param name="tf_prefix"  value="$(arg tf_prefix)" />
   </node>
 
   <!-- Color Laser PointCloud Publisher -->
-   <node pkg="multisense_ros" ns="$(arg namespace)" type="color_laser_publisher" name="$(arg nodes_prefix)_color_laser_publisher" output="screen">
+  <group if = "$(arg launch_color_laser_publisher)">
+    <node pkg="multisense_ros" ns="$(arg namespace)" type="color_laser_publisher" name="$(arg nodes_prefix)_color_laser_publisher" output="screen">
       <remap from="image_rect_color" to="/$(arg namespace)/left/image_rect_color" />
       <remap from="lidar_points2" to="/$(arg namespace)/lidar_points2" />
       <remap from="camera_info" to="/$(arg namespace)/left/image_rect_color/camera_info" />
-  </node>
+    </node>
+  </group>
 
 </launch>
