@@ -97,6 +97,7 @@ private:
     template<class T> void configureBorderClip(const T& dyn);
     template<class T> void configurePointCloudRange(const T& dyn);
     template<class T> void configurePtp(const T& dyn);
+    template<class T> void configureStereoProfile(crl::multisense::image::Config &cfg, const T& dyn);
 
     //
     // CRL sensor API

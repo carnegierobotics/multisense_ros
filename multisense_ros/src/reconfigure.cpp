@@ -599,6 +599,10 @@ template<class T> void Reconfigure::configurePtp(const T& dyn)
     }
 }
 
+template<class T> void Reconfigure::configureStereoProfile(crl::multisense::image::Config &cfg, const T& dyn)
+{
+    cfg.setCameraProfile(dyn.stereo_profile);
+}
 
 #define GET_CONFIG()                                                    \
     image::Config cfg;                                                  \
@@ -658,9 +662,10 @@ template<class T> void Reconfigure::configurePtp(const T& dyn)
         configurePointCloudRange(dyn);                          \
     } while(0)
 
-#define S27_SGM()  do {                              \
+#define S27_SGM()  do {                                         \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
+        configureStereoProfile(cfg, dyn);                       \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configurePtp(dyn);                                      \
