@@ -283,6 +283,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     frame_id_rectified_left_(tf_prefix + LEFT_RECTIFIED_FRAME),
     frame_id_rectified_right_(tf_prefix + RIGHT_RECTIFIED_FRAME),
     frame_id_rectified_aux_(tf_prefix + AUX_RECTIFIED_FRAME),
+    static_tf_broadcaster_(),
     pointcloud_max_range_(15.0),
     last_frame_id_(-1),
     border_clip_type_(BorderClip::NONE),
