@@ -247,6 +247,7 @@ constexpr char Camera::POINTCLOUD_TOPIC[];
 constexpr char Camera::COLOR_POINTCLOUD_TOPIC[];
 constexpr char Camera::ORGANIZED_POINTCLOUD_TOPIC[];
 constexpr char Camera::COLOR_ORGANIZED_POINTCLOUD_TOPIC[];
+constexpr char Camera::CAMERA_INFO_TOPIC[];
 constexpr char Camera::MONO_CAMERA_INFO_TOPIC[];
 constexpr char Camera::RECT_CAMERA_INFO_TOPIC[];
 constexpr char Camera::COLOR_CAMERA_INFO_TOPIC[];
@@ -341,10 +342,11 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
                               std::bind(&Camera::connectStream, this, Source_Jpeg_Left),
                               std::bind(&Camera::disconnectStream, this, Source_Jpeg_Left));
 
-        left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
+        left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertise(RECT_COLOR_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Jpeg_Left),
                               std::bind(&Camera::disconnectStream, this, Source_Jpeg_Left));
 
+        left_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(CAMERA_INFO_TOPIC, 1, true);
         left_mono_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
         left_rgb_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
         left_rgb_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
@@ -357,16 +359,17 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         left_mono_cam_pub_  = left_mono_transport_.advertise(MONO_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Luma_Left),
                               std::bind(&Camera::disconnectStream, this, Source_Luma_Left));
-        left_rect_cam_pub_  = left_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
+        left_rect_cam_pub_  = left_rect_transport_.advertise(RECT_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
                               std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
         left_rgb_cam_pub_   = left_rgb_transport_.advertise(COLOR_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
                               std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
-        left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
+        left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertise(RECT_COLOR_TOPIC, 5,
                                  std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
 
+        left_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(CAMERA_INFO_TOPIC, 1, true);
         left_mono_cam_info_pub_     = left_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
         left_rect_cam_info_pub_     = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
         left_rgb_cam_info_pub_      = left_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
@@ -381,10 +384,10 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         right_mono_cam_pub_ = right_mono_transport_.advertise(MONO_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Luma_Right),
                               std::bind(&Camera::disconnectStream, this, Source_Luma_Right));
-        left_rect_cam_pub_  = left_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
+        left_rect_cam_pub_  = left_rect_transport_.advertise(RECT_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
                               std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
-        right_rect_cam_pub_ = right_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
+        right_rect_cam_pub_ = right_rect_transport_.advertise(RECT_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Right),
                               std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Right));
         depth_cam_pub_      = depth_transport_.advertise(DEPTH_TOPIC, 5,
@@ -410,17 +413,19 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
                 aux_rgb_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
 
-                aux_rect_cam_pub_ = aux_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
+                aux_rect_cam_pub_ = aux_rect_transport_.advertise(RECT_TOPIC, 5,
                                           std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Aux),
                                           std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Aux));
 
                 aux_rect_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
 
-                aux_rgb_rect_cam_pub_ = aux_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
+                aux_rgb_rect_cam_pub_ = aux_rgb_rect_transport_.advertise(RECT_COLOR_TOPIC, 5,
                                           std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux),
                                           std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux));
 
                 aux_rgb_rect_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
+
+                aux_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(CAMERA_INFO_TOPIC, 1, true);
             }
             else {
 
@@ -431,7 +436,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
                 left_rgb_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
                 left_rgb_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
 
-                left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
+                left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertise(RECT_COLOR_TOPIC, 5,
                                       std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
                                       std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
 
@@ -494,7 +499,9 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         //
         // Camera info topic publishers
         left_mono_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
+        left_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(CAMERA_INFO_TOPIC, 1, true);
         right_mono_cam_info_pub_ = right_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
+        right_cam_info_pub_  = right_nh_.advertise<sensor_msgs::CameraInfo>(CAMERA_INFO_TOPIC, 1, true);
         left_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
         right_rect_cam_info_pub_ = right_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
         left_disp_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, 1, true);
@@ -818,8 +825,9 @@ void Camera::jpegImageCallback(const image::Header& header)
         left_rgb_rect_image_.encoding        = sensor_msgs::image_encodings::RGB8;
         left_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
         left_rgb_rect_image_.step            = 3 * width;
-        left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_rectified_camera_info);
+        left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_);
         left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
+        left_cam_info_pub_.publish(left_rectified_camera_info);
     }
 }
 
@@ -851,6 +859,7 @@ void Camera::disparityImageCallback(const image::Header& header)
         ros::Publisher *camInfoPubP          = NULL;
         ros::Publisher *stereoDisparityPubP  = NULL;
         stereo_msgs::DisparityImage *stereoDisparityImageP = NULL;
+        bool left = false;
 
 
         if (Source_Disparity == header.source) {
@@ -862,6 +871,7 @@ void Camera::disparityImageCallback(const image::Header& header)
             stereoDisparityPubP     = &left_stereo_disparity_pub_;
             stereoDisparityImageP   = &left_stereo_disparity_;
             stereoDisparityImageP->header.frame_id = frame_id_rectified_left_;
+            left = true;
         } else {
             pubP                    = &right_disparity_pub_;
             imageP                  = &right_disparity_image_;
@@ -871,6 +881,7 @@ void Camera::disparityImageCallback(const image::Header& header)
             stereoDisparityPubP     = &right_stereo_disparity_pub_;
             stereoDisparityImageP   = &right_stereo_disparity_;
             stereoDisparityImageP->header.frame_id = frame_id_rectified_right_;
+            left = false;
         }
 
         if (pubP->getNumSubscribers() > 0)
@@ -895,6 +906,17 @@ void Camera::disparityImageCallback(const image::Header& header)
             }
 
             pubP->publish(*imageP);
+
+            camInfoPubP->publish(camInfo);
+
+            if (left)
+            {
+                left_cam_info_pub_.publish(camInfo);
+            }
+            else
+            {
+                right_cam_info_pub_.publish(camInfo);
+            }
         }
 
         if (stereoDisparityPubP->getNumSubscribers() > 0)
@@ -970,9 +992,18 @@ void Camera::disparityImageCallback(const image::Header& header)
             floatingPointImage = tmpImage / 16.0;
 
             stereoDisparityPubP->publish(*stereoDisparityImageP);
-        }
 
-        camInfoPubP->publish(camInfo);
+            camInfoPubP->publish(camInfo);
+
+            if (left)
+            {
+                left_cam_info_pub_.publish(camInfo);
+            }
+            else
+            {
+                right_cam_info_pub_.publish(camInfo);
+            }
+        }
 
         break;
     }
@@ -993,6 +1024,7 @@ void Camera::disparityImageCallback(const image::Header& header)
         left_disparity_cost_pub_.publish(left_disparity_cost_image_);
 
         left_cost_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t));
+        left_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t));
 
         break;
     }
@@ -1013,93 +1045,104 @@ void Camera::monoCallback(const image::Header& header)
     switch(header.source) {
     case Source_Luma_Left:
     {
+        if (left_mono_cam_pub_.getNumSubscribers() > 0)
+        {
+            left_mono_image_.data.resize(header.imageLength);
+            memcpy(&left_mono_image_.data[0], header.imageDataP, header.imageLength);
 
-        left_mono_image_.data.resize(header.imageLength);
-        memcpy(&left_mono_image_.data[0], header.imageDataP, header.imageLength);
+            left_mono_image_.header.frame_id = frame_id_left_;
+            left_mono_image_.header.stamp    = t;
+            left_mono_image_.height          = header.height;
+            left_mono_image_.width           = header.width;
 
-        left_mono_image_.header.frame_id = frame_id_left_;
-        left_mono_image_.header.stamp    = t;
-        left_mono_image_.height          = header.height;
-        left_mono_image_.width           = header.width;
+            switch(header.bitsPerPixel) {
+                case 8:
+                    left_mono_image_.encoding = sensor_msgs::image_encodings::MONO8;
+                    left_mono_image_.step     = header.width;
+                    break;
+                case 16:
+                    left_mono_image_.encoding = sensor_msgs::image_encodings::MONO16;
+                    left_mono_image_.step     = header.width * 2;
+                    break;
+            }
 
-        switch(header.bitsPerPixel) {
-            case 8:
-                left_mono_image_.encoding = sensor_msgs::image_encodings::MONO8;
-                left_mono_image_.step     = header.width;
-                break;
-            case 16:
-                left_mono_image_.encoding = sensor_msgs::image_encodings::MONO16;
-                left_mono_image_.step     = header.width * 2;
-                break;
+            left_mono_image_.is_bigendian    = (htonl(1) == 1);
+
+            left_mono_cam_pub_.publish(left_mono_image_);
+
+            //
+            // Publish a specific camera info message for the left mono image
+            left_mono_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t));
+            left_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t));
         }
-
-        left_mono_image_.is_bigendian    = (htonl(1) == 1);
-
-        left_mono_cam_pub_.publish(left_mono_image_);
-
-        //
-        // Publish a specific camera info message for the left mono image
-        left_mono_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t));
 
         break;
     }
     case Source_Luma_Right:
     {
-        right_mono_image_.data.resize(header.imageLength);
-        memcpy(&right_mono_image_.data[0], header.imageDataP, header.imageLength);
+        if (right_mono_cam_pub_.getNumSubscribers() > 0)
+        {
+            right_mono_image_.data.resize(header.imageLength);
+            memcpy(&right_mono_image_.data[0], header.imageDataP, header.imageLength);
 
-        right_mono_image_.header.frame_id = frame_id_right_;
-        right_mono_image_.header.stamp    = t;
-        right_mono_image_.height          = header.height;
-        right_mono_image_.width           = header.width;
+            right_mono_image_.header.frame_id = frame_id_right_;
+            right_mono_image_.header.stamp    = t;
+            right_mono_image_.height          = header.height;
+            right_mono_image_.width           = header.width;
 
-        switch(header.bitsPerPixel) {
-            case 8:
-                right_mono_image_.encoding = sensor_msgs::image_encodings::MONO8;
-                right_mono_image_.step     = header.width;
-                break;
-            case 16:
-                right_mono_image_.encoding = sensor_msgs::image_encodings::MONO16;
-                right_mono_image_.step     = header.width * 2;
-                break;
+            switch(header.bitsPerPixel) {
+                case 8:
+                    right_mono_image_.encoding = sensor_msgs::image_encodings::MONO8;
+                    right_mono_image_.step     = header.width;
+                    break;
+                case 16:
+                    right_mono_image_.encoding = sensor_msgs::image_encodings::MONO16;
+                    right_mono_image_.step     = header.width * 2;
+                    break;
+            }
+            right_mono_image_.is_bigendian    = (htonl(1) == 1);
+
+            right_mono_cam_pub_.publish(right_mono_image_);
+
+            //
+            // Publish a specific camera info message for the right mono image
+            right_mono_cam_info_pub_.publish(stereo_calibration_manager_->rightCameraInfo(frame_id_right_, t));
+            right_cam_info_pub_.publish(stereo_calibration_manager_->rightCameraInfo(frame_id_right_, t));
         }
-        right_mono_image_.is_bigendian    = (htonl(1) == 1);
-
-        right_mono_cam_pub_.publish(right_mono_image_);
-
-        //
-        // Publish a specific camera info message for the right mono image
-        right_mono_cam_info_pub_.publish(stereo_calibration_manager_->rightCameraInfo(frame_id_right_, t));
 
         break;
     }
     case Source_Luma_Aux:
     {
-        aux_mono_image_.data.resize(header.imageLength);
-        memcpy(&aux_mono_image_.data[0], header.imageDataP, header.imageLength);
+        if (aux_mono_cam_pub_.getNumSubscribers() > 0)
+        {
+            aux_mono_image_.data.resize(header.imageLength);
+            memcpy(&aux_mono_image_.data[0], header.imageDataP, header.imageLength);
 
-        aux_mono_image_.header.frame_id = frame_id_aux_;
-        aux_mono_image_.header.stamp    = t;
-        aux_mono_image_.height          = header.height;
-        aux_mono_image_.width           = header.width;
+            aux_mono_image_.header.frame_id = frame_id_aux_;
+            aux_mono_image_.header.stamp    = t;
+            aux_mono_image_.height          = header.height;
+            aux_mono_image_.width           = header.width;
 
-        switch(header.bitsPerPixel) {
-            case 8:
-                aux_mono_image_.encoding = sensor_msgs::image_encodings::MONO8;
-                aux_mono_image_.step     = header.width;
-                break;
-            case 16:
-                aux_mono_image_.encoding = sensor_msgs::image_encodings::MONO16;
-                aux_mono_image_.step     = header.width * 2;
-                break;
+            switch(header.bitsPerPixel) {
+                case 8:
+                    aux_mono_image_.encoding = sensor_msgs::image_encodings::MONO8;
+                    aux_mono_image_.step     = header.width;
+                    break;
+                case 16:
+                    aux_mono_image_.encoding = sensor_msgs::image_encodings::MONO16;
+                    aux_mono_image_.step     = header.width * 2;
+                    break;
+            }
+            aux_mono_image_.is_bigendian    = (htonl(1) == 1);
+
+            aux_mono_cam_pub_.publish(aux_mono_image_);
+
+            //
+            // Publish a specific camera info message for the aux mono image
+            aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t));
+            aux_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t));
         }
-        aux_mono_image_.is_bigendian    = (htonl(1) == 1);
-
-        aux_mono_cam_pub_.publish(aux_mono_image_);
-
-        //
-        // Publish a specific camera info message for the aux mono image
-        aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t));
         break;
 
     }
@@ -1121,111 +1164,120 @@ void Camera::rectCallback(const image::Header& header)
     switch(header.source) {
     case Source_Luma_Rectified_Left:
     {
+        if (left_rect_cam_pub_.getNumSubscribers() > 0)
+        {
+            left_rect_image_.data.resize(header.imageLength);
+            memcpy(&left_rect_image_.data[0], header.imageDataP, header.imageLength);
 
-        left_rect_image_.data.resize(header.imageLength);
-        memcpy(&left_rect_image_.data[0], header.imageDataP, header.imageLength);
+            left_rect_image_.header.frame_id = frame_id_rectified_left_;
+            left_rect_image_.header.stamp    = t;
+            left_rect_image_.height          = header.height;
+            left_rect_image_.width           = header.width;
 
-        left_rect_image_.header.frame_id = frame_id_rectified_left_;
-        left_rect_image_.header.stamp    = t;
-        left_rect_image_.height          = header.height;
-        left_rect_image_.width           = header.width;
+            switch(header.bitsPerPixel) {
+                case 8:
+                    left_rect_image_.encoding = sensor_msgs::image_encodings::MONO8;
+                    left_rect_image_.step     = header.width;
 
-        switch(header.bitsPerPixel) {
-            case 8:
-                left_rect_image_.encoding = sensor_msgs::image_encodings::MONO8;
-                left_rect_image_.step     = header.width;
+                    break;
+                case 16:
+                    left_rect_image_.encoding = sensor_msgs::image_encodings::MONO16;
+                    left_rect_image_.step     = header.width * 2;
 
-                break;
-            case 16:
-                left_rect_image_.encoding = sensor_msgs::image_encodings::MONO16;
-                left_rect_image_.step     = header.width * 2;
+                    break;
+            }
 
-                break;
+            left_rect_image_.is_bigendian = (htonl(1) == 1);
+
+            const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
+
+            //
+            // Continue to publish the rect camera info on the
+            // <namespace>/left/camera_info topic for backward compatibility with
+            // older versions of the driver
+            left_rect_cam_pub_.publish(left_rect_image_);
+
+            left_rect_cam_info_pub_.publish(left_camera_info);
+            left_cam_info_pub_.publish(left_camera_info);
         }
-
-        left_rect_image_.is_bigendian = (htonl(1) == 1);
-
-        const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
-
-        //
-        // Continue to publish the rect camera info on the
-        // <namespace>/left/camera_info topic for backward compatibility with
-        // older versions of the driver
-        left_rect_cam_pub_.publish(left_rect_image_, left_camera_info);
-
-        left_rect_cam_info_pub_.publish(left_camera_info);
 
         break;
     }
     case Source_Luma_Rectified_Right:
     {
+        if (right_rect_cam_pub_.getNumSubscribers() > 0)
+        {
+            right_rect_image_.data.resize(header.imageLength);
+            memcpy(&right_rect_image_.data[0], header.imageDataP, header.imageLength);
 
-        right_rect_image_.data.resize(header.imageLength);
-        memcpy(&right_rect_image_.data[0], header.imageDataP, header.imageLength);
+            right_rect_image_.header.frame_id = frame_id_rectified_right_;
+            right_rect_image_.header.stamp    = t;
+            right_rect_image_.height          = header.height;
+            right_rect_image_.width           = header.width;
 
-        right_rect_image_.header.frame_id = frame_id_rectified_right_;
-        right_rect_image_.header.stamp    = t;
-        right_rect_image_.height          = header.height;
-        right_rect_image_.width           = header.width;
+            switch(header.bitsPerPixel) {
+                case 8:
+                    right_rect_image_.encoding = sensor_msgs::image_encodings::MONO8;
+                    right_rect_image_.step     = header.width;
+                    break;
+                case 16:
+                    right_rect_image_.encoding = sensor_msgs::image_encodings::MONO16;
+                    right_rect_image_.step     = header.width * 2;
+                    break;
+            }
 
-        switch(header.bitsPerPixel) {
-            case 8:
-                right_rect_image_.encoding = sensor_msgs::image_encodings::MONO8;
-                right_rect_image_.step     = header.width;
-                break;
-            case 16:
-                right_rect_image_.encoding = sensor_msgs::image_encodings::MONO16;
-                right_rect_image_.step     = header.width * 2;
-                break;
+            right_rect_image_.is_bigendian = (htonl(1) == 1);
+
+            const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, t);
+
+            //
+            // Continue to publish the rect camera info on the
+            // <namespace>/right/camera_info topic for backward compatibility with
+            // older versions of the driver
+            right_rect_cam_pub_.publish(right_rect_image_);
+
+            right_rect_cam_info_pub_.publish(right_camera_info);
+            right_cam_info_pub_.publish(right_camera_info);
         }
-
-        right_rect_image_.is_bigendian = (htonl(1) == 1);
-
-        const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, t);
-
-        //
-        // Continue to publish the rect camera info on the
-        // <namespace>/right/camera_info topic for backward compatibility with
-        // older versions of the driver
-        right_rect_cam_pub_.publish(right_rect_image_, right_camera_info);
-
-        right_rect_cam_info_pub_.publish(right_camera_info);
 
         break;
     }
     case Source_Luma_Rectified_Aux:
     {
+        if (aux_rect_cam_pub_.getNumSubscribers() > 0)
+        {
+            aux_rect_image_.data.resize(header.imageLength);
+            memcpy(&aux_rect_image_.data[0], header.imageDataP, header.imageLength);
 
-        aux_rect_image_.data.resize(header.imageLength);
-        memcpy(&aux_rect_image_.data[0], header.imageDataP, header.imageLength);
+            aux_rect_image_.header.frame_id = frame_id_rectified_aux_;
+            aux_rect_image_.header.stamp    = t;
+            aux_rect_image_.height          = header.height;
+            aux_rect_image_.width           = header.width;
 
-        aux_rect_image_.header.frame_id = frame_id_rectified_aux_;
-        aux_rect_image_.header.stamp    = t;
-        aux_rect_image_.height          = header.height;
-        aux_rect_image_.width           = header.width;
+            switch(header.bitsPerPixel) {
+                case 8:
+                    aux_rect_image_.encoding = sensor_msgs::image_encodings::MONO8;
+                    aux_rect_image_.step     = header.width;
+                    break;
+                case 16:
+                    aux_rect_image_.encoding = sensor_msgs::image_encodings::MONO16;
+                    aux_rect_image_.step     = header.width * 2;
+                    break;
+            }
 
-        switch(header.bitsPerPixel) {
-            case 8:
-                aux_rect_image_.encoding = sensor_msgs::image_encodings::MONO8;
-                aux_rect_image_.step     = header.width;
-                break;
-            case 16:
-                aux_rect_image_.encoding = sensor_msgs::image_encodings::MONO16;
-                aux_rect_image_.step     = header.width * 2;
-                break;
+            aux_rect_image_.is_bigendian = (htonl(1) == 1);
+
+            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, t);
+
+            //
+            // Continue to publish the rect camera info on the
+            // <namespace>/aux/camera_info topic for backward compatibility with
+            // older versions of the driver
+            aux_rect_cam_pub_.publish(aux_rect_image_);
+
+            aux_rect_cam_info_pub_.publish(aux_camera_info);
+            aux_cam_info_pub_.publish(aux_camera_info);
         }
-
-        aux_rect_image_.is_bigendian = (htonl(1) == 1);
-
-        const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, t);
-
-        //
-        // Continue to publish the rect camera info on the
-        // <namespace>/aux/camera_info topic for backward compatibility with
-        // older versions of the driver
-        aux_rect_cam_pub_.publish(aux_rect_image_, aux_camera_info);
-
-        aux_rect_cam_info_pub_.publish(aux_camera_info);
 
         break;
     }
@@ -1364,6 +1416,7 @@ void Camera::depthCallback(const image::Header& header)
     }
 
     depth_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t));
+    left_cam_info_pub_.publish(stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t));
 }
 
 void Camera::pointCloudCallback(const image::Header& header)
@@ -1737,6 +1790,7 @@ void Camera::colorImageCallback(const image::Header& header)
                 left_rgb_cam_pub_.publish(left_rgb_image_);
 
                 left_rgb_cam_info_pub_.publish(left_camera_info);
+                left_cam_info_pub_.publish(left_camera_info);
             }
 
             if (color_rect_subscribers > 0) {
@@ -1760,9 +1814,10 @@ void Camera::colorImageCallback(const image::Header& header)
                 left_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
                 left_rgb_rect_image_.step            = 3 * width;
 
-                left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_, left_rectified_camera_info);
+                left_rgb_rect_cam_pub_.publish(left_rgb_rect_image_);
 
                 left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
+                left_cam_info_pub_.publish(left_rectified_camera_info);
             }
         }
 
@@ -1805,9 +1860,10 @@ void Camera::colorImageCallback(const image::Header& header)
 
             const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, t);
 
-            aux_rgb_rect_cam_pub_.publish(aux_rgb_rect_image_, aux_camera_info);
+            aux_rgb_rect_cam_pub_.publish(aux_rgb_rect_image_);
 
             aux_rgb_rect_cam_info_pub_.publish(aux_camera_info);
+            aux_cam_info_pub_.publish(aux_camera_info);
         }
 
         break;
@@ -1851,6 +1907,7 @@ void Camera::colorImageCallback(const image::Header& header)
             aux_rgb_cam_pub_.publish(aux_rgb_image_);
 
             aux_rgb_cam_info_pub_.publish(aux_camera_info);
+            aux_cam_info_pub_.publish(aux_camera_info);
 
             break;
         }
@@ -1928,12 +1985,14 @@ void Camera::publishAllCameraInfo()
     if (system::DeviceInfo::HARDWARE_REV_BCAM == device_info_.hardwareRevision) {
 
         left_mono_cam_info_pub_.publish(left_camera_info);
+        left_cam_info_pub_.publish(left_camera_info);
         left_rgb_cam_info_pub_.publish(left_camera_info);
         left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
 
     } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == device_info_.hardwareRevision) {
 
         left_mono_cam_info_pub_.publish(left_camera_info);
+        left_cam_info_pub_.publish(left_camera_info);
         left_rect_cam_info_pub_.publish(left_rectified_camera_info);
         left_rgb_cam_info_pub_.publish(left_camera_info);
         left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
@@ -1953,8 +2012,10 @@ void Camera::publishAllCameraInfo()
         }
 
         left_mono_cam_info_pub_.publish(left_camera_info);
+        left_cam_info_pub_.publish(left_camera_info);
         left_rect_cam_info_pub_.publish(left_rectified_camera_info);
         right_mono_cam_info_pub_.publish(right_camera_info);
+        right_cam_info_pub_.publish(right_camera_info);
         right_rect_cam_info_pub_.publish(right_rectified_camera_info);
         left_disp_cam_info_pub_.publish(left_rectified_camera_info);
         depth_cam_info_pub_.publish(left_rectified_camera_info);
@@ -1962,10 +2023,14 @@ void Camera::publishAllCameraInfo()
         if (has_aux_camera_) {
 
             aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp));
+            aux_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp));
             aux_rect_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp));
+            aux_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp));
 
             aux_rgb_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp));
+            aux_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp));
             aux_rgb_rect_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp));
+            aux_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp));
         }
     }
 }

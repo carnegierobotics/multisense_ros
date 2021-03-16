@@ -203,6 +203,7 @@ void ColorLaser::laserPointCloudCallback(
 
     color_laser_pointcloud_.data.resize(validPoints * laser_cloud_step);
     color_laser_pointcloud_.width = validPoints;
+    color_laser_pointcloud_.height = 1;
     color_laser_pointcloud_.row_step = validPoints * laser_cloud_step;
 
     color_laser_publisher_.publish(color_laser_pointcloud_);
