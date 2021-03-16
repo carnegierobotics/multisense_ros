@@ -118,6 +118,7 @@ private:
     static constexpr char COLOR_POINTCLOUD_TOPIC[] = "image_points2_color";
     static constexpr char ORGANIZED_POINTCLOUD_TOPIC[] = "organized_image_points2";
     static constexpr char COLOR_ORGANIZED_POINTCLOUD_TOPIC[] = "organized_image_points2_color";
+    static constexpr char CAMERA_INFO_TOPIC[] = "camera_info";
     static constexpr char MONO_CAMERA_INFO_TOPIC[] = "image_mono/camera_info";
     static constexpr char RECT_CAMERA_INFO_TOPIC[] = "image_rect/camera_info";
     static constexpr char COLOR_CAMERA_INFO_TOPIC[] = "image_color/camera_info";
@@ -177,17 +178,20 @@ private:
 
     image_transport::Publisher       left_mono_cam_pub_;
     image_transport::Publisher       right_mono_cam_pub_;
-    image_transport::CameraPublisher left_rect_cam_pub_;
-    image_transport::CameraPublisher right_rect_cam_pub_;
+    image_transport::Publisher       left_rect_cam_pub_;
+    image_transport::Publisher       right_rect_cam_pub_;
     image_transport::Publisher       depth_cam_pub_;
     image_transport::Publisher       ni_depth_cam_pub_; // publish depth infomation in the openNI format
     image_transport::Publisher       left_rgb_cam_pub_;
-    image_transport::CameraPublisher left_rgb_rect_cam_pub_;
+    image_transport::Publisher       left_rgb_rect_cam_pub_;
     image_transport::Publisher       aux_rgb_cam_pub_;
     image_transport::Publisher       aux_mono_cam_pub_;
-    image_transport::CameraPublisher aux_rect_cam_pub_;
-    image_transport::CameraPublisher aux_rgb_rect_cam_pub_;
+    image_transport::Publisher       aux_rect_cam_pub_;
+    image_transport::Publisher       aux_rgb_rect_cam_pub_;
 
+    ros::Publisher                   left_cam_info_pub_;
+    ros::Publisher                   right_cam_info_pub_;
+    ros::Publisher                   aux_cam_info_pub_;
     ros::Publisher                   left_mono_cam_info_pub_;
     ros::Publisher                   right_mono_cam_info_pub_;
     ros::Publisher                   left_rect_cam_info_pub_;
