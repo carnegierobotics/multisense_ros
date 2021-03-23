@@ -384,6 +384,23 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
     cfg.setHdr(dyn.hdr_enable);
 
+    if (dyn.roi_auto_exposure)
+    {
+        //
+        // Ensure the commanded ROI region is in the image
+
+        const int32_t x = std::max(0, std::min(dyn.roi_auto_exposure_x, width));
+        const int32_t y = std::max(0, std::min(dyn.roi_auto_exposure_y, height));
+
+        cfg.setAutoExposureRoi(x, y,
+                               std::max(0, std::min(dyn.roi_auto_exposure_width, width - x)),
+                               std::max(0, std::min(dyn.roi_auto_exposure_height, height - y)));
+    }
+    else
+    {
+        cfg.setAutoExposureRoi(0, 0, Roi_Full_Image, Roi_Full_Image);
+    }
+
     //
     // Apply, sensor enforces limits per setting.
 
