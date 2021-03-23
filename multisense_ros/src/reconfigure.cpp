@@ -49,6 +49,7 @@ Reconfigure::Reconfigure(Channel* driver,
     motor_supported_(false),
     crop_mode_changed_(false),
     ptp_supported_(false),
+    roi_supported_(false),
     border_clip_type_(BorderClip::NONE),
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
@@ -86,6 +87,10 @@ Reconfigure::Reconfigure(Channel* driver,
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
     {
         ptp_supported_ = true;
+    }
+
+    if (versionInfo.sensorFirmwareVersion >= 0x0403) {
+        roi_supported_ = true;
     }
 
     //
@@ -384,20 +389,22 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
     cfg.setHdr(dyn.hdr_enable);
 
-    if (dyn.roi_auto_exposure)
-    {
-        //
-        // Ensure the commanded ROI region is in the image
+    if (dyn.roi_auto_exposure) {
+        if (roi_supported_) {
+            //
+            // Ensure the commanded ROI region is in the image
 
-        const int32_t x = std::max(0, std::min(dyn.roi_auto_exposure_x, width));
-        const int32_t y = std::max(0, std::min(dyn.roi_auto_exposure_y, height));
+            const int32_t x = fmax(0, fmin(dyn.roi_auto_exposure_x, width));
+            const int32_t y = fmax(0, fmin(dyn.roi_auto_exposure_y, height));
 
-        cfg.setAutoExposureRoi(x, y,
-                               std::max(0, std::min(dyn.roi_auto_exposure_width, width - x)),
-                               std::max(0, std::min(dyn.roi_auto_exposure_height, height - y)));
-    }
-    else
-    {
+            cfg.setAutoExposureRoi(x, y,
+                                   fmax(0, fmin(dyn.roi_auto_exposure_width, width - x)),
+                                   fmax(0, fmin(dyn.roi_auto_exposure_height, height - y)));
+        } else {
+            ROS_WARN("Reconfigure: ROI auto exposure is not supported with this firmware version");
+        }
+
+    } else {
         cfg.setAutoExposureRoi(0, 0, Roi_Full_Image, Roi_Full_Image);
     }
 
