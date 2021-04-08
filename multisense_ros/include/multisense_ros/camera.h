@@ -86,6 +86,7 @@ private:
     static constexpr char RIGHT[] = "right";
     static constexpr char AUX[] = "aux";
     static constexpr char CALIBRATION[] = "calibration";
+    static constexpr char GROUND_SURFACE[] = "ground_surface";
 
     //
     // Frames
@@ -125,6 +126,7 @@ private:
     static constexpr char DEPTH_CAMERA_INFO_TOPIC[] = "depth/camera_info";
     static constexpr char DISPARITY_CAMERA_INFO_TOPIC[] = "disparity/camera_info";
     static constexpr char COST_CAMERA_INFO_TOPIC[] = "cost/camera_info";
+    static constexpr char GROUND_SURFACE_IMAGE_TOPIC[] = "image";
 
     //
     // Device stream control
@@ -152,6 +154,7 @@ private:
     ros::NodeHandle right_nh_;
     ros::NodeHandle aux_nh_;
     ros::NodeHandle calibration_nh_;
+    ros::NodeHandle ground_surface_nh_;
 
     //
     // Image transports
@@ -171,9 +174,11 @@ private:
     image_transport::ImageTransport  aux_rgb_transport_;
     image_transport::ImageTransport  aux_rect_transport_;
     image_transport::ImageTransport  aux_rgb_rect_transport_;
+    image_transport::ImageTransport  ground_surface_transport_;
 
     //
     // Data publishers
+
 
     image_transport::Publisher       left_mono_cam_pub_;
     image_transport::Publisher       right_mono_cam_pub_;
@@ -187,6 +192,7 @@ private:
     image_transport::Publisher       aux_mono_cam_pub_;
     image_transport::CameraPublisher aux_rect_cam_pub_;
     image_transport::CameraPublisher aux_rgb_rect_cam_pub_;
+    image_transport::Publisher       ground_surface_cam_pub_;
 
     ros::Publisher                   left_mono_cam_info_pub_;
     ros::Publisher                   right_mono_cam_info_pub_;

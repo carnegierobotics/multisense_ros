@@ -221,6 +221,7 @@ constexpr char Camera::LEFT[];
 constexpr char Camera::RIGHT[];
 constexpr char Camera::AUX[];
 constexpr char Camera::CALIBRATION[];
+constexpr char Camera::GROUND_SURFACE[];
 
 constexpr char Camera::LEFT_CAMERA_FRAME[];
 constexpr char Camera::RIGHT_CAMERA_FRAME[];
@@ -254,6 +255,7 @@ constexpr char Camera::RECT_COLOR_CAMERA_INFO_TOPIC[];
 constexpr char Camera::DEPTH_CAMERA_INFO_TOPIC[];
 constexpr char Camera::DISPARITY_CAMERA_INFO_TOPIC[];
 constexpr char Camera::COST_CAMERA_INFO_TOPIC[];
+constexpr char Camera::GROUND_SURFACE_IMAGE_TOPIC[];
 
 Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     driver_(driver),
@@ -262,6 +264,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     right_nh_(device_nh_, RIGHT),
     aux_nh_(device_nh_, AUX),
     calibration_nh_(device_nh_, CALIBRATION),
+    ground_surface_nh_(device_nh_, GROUND_SURFACE),
     left_mono_transport_(left_nh_),
     right_mono_transport_(right_nh_),
     left_rect_transport_(left_nh_),
@@ -277,6 +280,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     aux_rgb_transport_(aux_nh_),
     aux_rect_transport_(aux_nh_),
     aux_rgb_rect_transport_(aux_nh_),
+    ground_surface_transport_(ground_surface_nh_),
     frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
     frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME),
     frame_id_aux_(tf_prefix + AUX_CAMERA_FRAME),
@@ -327,6 +331,11 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     raw_cam_cal_pub_    = calibration_nh_.advertise<multisense_ros::RawCamCal>(RAW_CAM_CAL_TOPIC, 1, true);
     raw_cam_config_pub_ = calibration_nh_.advertise<multisense_ros::RawCamConfig>(RAW_CAM_CONFIG_TOPIC, 1, true);
     histogram_pub_      = device_nh_.advertise<multisense_ros::Histogram>(HISTOGRAM_TOPIC, 5);
+
+    // TODO(drobinson): guard this inside appropriate hardware conditional
+    ground_surface_cam_pub_ = ground_surface_transport_.advertise(GROUND_SURFACE_IMAGE_TOPIC, 5,
+                              std::bind(&Camera::connectStream, this, Source_Ground_Surface),
+                              std::bind(&Camera::disconnectStream, this, Source_Ground_Surface));
 
     //
     // Create topic publishers (TODO: color topics should not be advertised if the device can't support it)
