@@ -73,6 +73,7 @@ public:
     void jpegImageCallback(const crl::multisense::image::Header& header);
     void histogramCallback(const crl::multisense::image::Header& header);
     void colorizeCallback(const crl::multisense::image::Header& header);
+    void groundSurfaceCallback(const crl::multisense::image::Header& header);
 
     void borderClipChanged(const BorderClip &borderClipType, double borderClipValue);
 
@@ -127,6 +128,8 @@ private:
     static constexpr char DISPARITY_CAMERA_INFO_TOPIC[] = "disparity/camera_info";
     static constexpr char COST_CAMERA_INFO_TOPIC[] = "cost/camera_info";
     static constexpr char GROUND_SURFACE_IMAGE_TOPIC[] = "image";
+    static constexpr char GROUND_SURFACE_INFO_TOPIC[] = "camera_info";
+
 
     //
     // Device stream control
@@ -208,6 +211,7 @@ private:
     ros::Publisher                   aux_rgb_cam_info_pub_;
     ros::Publisher                   aux_rect_cam_info_pub_;
     ros::Publisher                   aux_rgb_rect_cam_info_pub_;
+    ros::Publisher                   ground_surface_info_pub_;
 
     ros::Publisher                   luma_point_cloud_pub_;
     ros::Publisher                   color_point_cloud_pub_;
@@ -258,6 +262,8 @@ private:
 
     stereo_msgs::DisparityImage left_stereo_disparity_;
     stereo_msgs::DisparityImage right_stereo_disparity_;
+
+    sensor_msgs::Image         ground_surface_image_;
 
     multisense_ros::RawCamData raw_cam_data_;
 

@@ -110,6 +110,9 @@ void histCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->histogramCallback(header); }
 void colorizeCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->colorizeCallback(header); }
+void groundSurfaceCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->groundSurfaceCallback(header); }
+
 
 bool isValidReprojectedPoint(const Eigen::Vector3f& pt, double squared_max_range)
 {
@@ -256,6 +259,7 @@ constexpr char Camera::DEPTH_CAMERA_INFO_TOPIC[];
 constexpr char Camera::DISPARITY_CAMERA_INFO_TOPIC[];
 constexpr char Camera::COST_CAMERA_INFO_TOPIC[];
 constexpr char Camera::GROUND_SURFACE_IMAGE_TOPIC[];
+constexpr char Camera::GROUND_SURFACE_INFO_TOPIC[];
 
 Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     driver_(driver),
@@ -336,6 +340,8 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     ground_surface_cam_pub_ = ground_surface_transport_.advertise(GROUND_SURFACE_IMAGE_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Ground_Surface),
                               std::bind(&Camera::disconnectStream, this, Source_Ground_Surface));
+
+    ground_surface_info_pub_ = ground_surface_nh_.advertise<sensor_msgs::CameraInfo>(GROUND_SURFACE_INFO_TOPIC, 1, true);
 
     //
     // Create topic publishers (TODO: color topics should not be advertised if the device can't support it)
@@ -660,6 +666,9 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     color_point_cloud_ = initialize_pointcloud<float>(true, frame_id_rectified_left_, "rgb");
     luma_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "intensity");
     color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "rgb");
+
+    // TODO(drobinson): guard this inside appropriate hardware conditional
+    driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface, this);
 
     //
     // Add driver-level callbacks.
@@ -1882,6 +1891,58 @@ void Camera::colorizeCallback(const image::Header& header)
     image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
 }
 
+void Camera::groundSurfaceCallback(const image::Header& header)
+{
+    if (Source_Ground_Surface != header.source)
+    {
+        ROS_WARN("Camera: unexpected image source: 0x%x", header.source);
+        return;
+    }
+
+    static int64_t lastFrameId = -1;
+    if (lastFrameId == header.frameId)
+        return;
+
+    lastFrameId = header.frameId;
+
+    const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+
+    switch (header.source)
+    {
+    case Source_Ground_Surface:
+    {
+        const auto ground_surface_subscribers = ground_surface_cam_pub_.getNumSubscribers();
+
+        if (ground_surface_subscribers == 0)
+            return;
+
+        // TODO(drobinson): Convert to colored image!
+        const uint32_t height    = header.height;
+        const uint32_t width     = header.width;
+        const uint32_t imageSize = height * width;
+
+        ground_surface_image_.data.resize(imageSize);
+        memcpy(&ground_surface_image_.data[0], header.imageDataP, imageSize);
+
+        ground_surface_image_.header.frame_id = frame_id_rectified_left_;
+        ground_surface_image_.header.stamp    = t;
+        ground_surface_image_.height          = height;
+        ground_surface_image_.width           = width;
+
+        ground_surface_image_.encoding        = sensor_msgs::image_encodings::MONO8;
+        ground_surface_image_.is_bigendian    = (htonl(1) == 1);
+        ground_surface_image_.step            = width;
+
+        ground_surface_cam_pub_.publish(ground_surface_image_);
+
+        // Publish info
+        const auto ground_surface_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
+        ground_surface_info_pub_.publish(ground_surface_info);
+
+        break;
+    }
+    }
+}
 
 void Camera::updateConfig(const image::Config& config)
 {
