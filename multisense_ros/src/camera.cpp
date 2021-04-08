@@ -1916,10 +1916,9 @@ void Camera::groundSurfaceCallback(const image::Header& header)
         if (ground_surface_subscribers == 0)
             return;
 
-        // TODO(drobinson): Convert to colored image!
         const uint32_t height    = header.height;
         const uint32_t width     = header.width;
-        const uint32_t imageSize = height * width;
+        const uint32_t imageSize = 3 * height * width;
 
         ground_surface_image_.data.resize(imageSize);
         memcpy(&ground_surface_image_.data[0], header.imageDataP, imageSize);
@@ -1929,9 +1928,59 @@ void Camera::groundSurfaceCallback(const image::Header& header)
         ground_surface_image_.height          = height;
         ground_surface_image_.width           = width;
 
-        ground_surface_image_.encoding        = sensor_msgs::image_encodings::MONO8;
+        ground_surface_image_.encoding        = sensor_msgs::image_encodings::RGB8;
         ground_surface_image_.is_bigendian    = (htonl(1) == 1);
-        ground_surface_image_.step            = width;
+        ground_surface_image_.step            = 3* width;
+
+        // Get pointer to output image
+        uint8_t* output = reinterpret_cast<uint8_t*>(&(ground_surface_image_.data[0]));
+
+        // Colorize image with classes
+        const size_t rgb_stride = ground_surface_image_.width * 3;
+
+        for(uint32_t y = 0; y < ground_surface_image_.height; ++y)
+        {
+            const size_t row_offset = y * rgb_stride;
+
+            for(uint32_t x = 0; x < ground_surface_image_.width; ++x)
+            {
+                const uint8_t *imageP = reinterpret_cast<const uint8_t*>(header.imageDataP);
+
+                const size_t image_offset = (y * ground_surface_image_.width) + x;
+
+                // TODO(drobinson): Perform this lookup in a separate function
+                uint8_t px_r;
+                uint8_t px_g;
+                uint8_t px_b;
+                if (imageP[image_offset] == 1)
+                {
+                    px_r = 114;
+                    px_g = 159;
+                    px_b = 207;
+                }
+                else if (imageP[image_offset] == 2)
+                {
+                    px_r = 255;
+                    px_g = 0;
+                    px_b = 0;
+                }
+                else if (imageP[image_offset] == 3)
+                {
+                    px_r = 0;
+                    px_g = 255;
+                    px_b = 0;
+                }
+                else // if imageP[image_offset] == 0 or otherwise
+                {
+                    px_r = 0;
+                    px_g = 0;
+                    px_b = 0;
+                }
+
+                const auto rgb_px = Eigen::Matrix<uint8_t, 3, 1>{ px_r, px_g, px_b };
+                memcpy(output + row_offset + (3 * x), rgb_px.data(), 3);
+            }
+        }
 
         ground_surface_cam_pub_.publish(ground_surface_image_);
 
