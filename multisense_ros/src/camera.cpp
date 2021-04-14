@@ -338,8 +338,8 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
     // TODO(drobinson): guard this inside appropriate hardware conditional
     ground_surface_cam_pub_ = ground_surface_transport_.advertise(GROUND_SURFACE_IMAGE_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Ground_Surface),
-                              std::bind(&Camera::disconnectStream, this, Source_Ground_Surface));
+                              std::bind(&Camera::connectStream, this, Source_Ground_Surface_Class_Image),
+                              std::bind(&Camera::disconnectStream, this, Source_Ground_Surface_Class_Image));
 
     ground_surface_info_pub_ = ground_surface_nh_.advertise<sensor_msgs::CameraInfo>(GROUND_SURFACE_INFO_TOPIC, 1, true);
 
@@ -668,7 +668,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "rgb");
 
     // TODO(drobinson): guard this inside appropriate hardware conditional
-    driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface, this);
+    driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface_Class_Image | Source_Ground_Surface_Control_Points, this);
 
     //
     // Add driver-level callbacks.
@@ -1893,23 +1893,18 @@ void Camera::colorizeCallback(const image::Header& header)
 
 void Camera::groundSurfaceCallback(const image::Header& header)
 {
-    if (Source_Ground_Surface != header.source)
+    if (Source_Ground_Surface_Class_Image != header.source &&
+        Source_Ground_Surface_Control_Points != header.source)
     {
         ROS_WARN("Camera: unexpected image source: 0x%x", header.source);
         return;
     }
 
-    static int64_t lastFrameId = -1;
-    if (lastFrameId == header.frameId)
-        return;
-
-    lastFrameId = header.frameId;
-
     const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
     switch (header.source)
     {
-    case Source_Ground_Surface:
+    case Source_Ground_Surface_Class_Image:
     {
         const auto ground_surface_subscribers = ground_surface_cam_pub_.getNumSubscribers();
 
@@ -1921,7 +1916,6 @@ void Camera::groundSurfaceCallback(const image::Header& header)
         const uint32_t imageSize = 3 * height * width;
 
         ground_surface_image_.data.resize(imageSize);
-        memcpy(&ground_surface_image_.data[0], header.imageDataP, imageSize);
 
         ground_surface_image_.header.frame_id = frame_id_rectified_left_;
         ground_surface_image_.header.stamp    = t;
@@ -1987,6 +1981,19 @@ void Camera::groundSurfaceCallback(const image::Header& header)
         // Publish info
         const auto ground_surface_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
         ground_surface_info_pub_.publish(ground_surface_info);
+
+        break;
+    }
+    case Source_Ground_Surface_Control_Points:
+    {
+        // TODO(drobinson): Explain why this offset exists
+        constexpr unsigned control_points_offset = 2;
+
+        Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> test_data(
+            reinterpret_cast<const float*>(header.imageDataP) + control_points_offset, header.height, header.width);
+
+        // std::cout.precision(2);
+        // std::cout << test_data << std::endl;
 
         break;
     }
