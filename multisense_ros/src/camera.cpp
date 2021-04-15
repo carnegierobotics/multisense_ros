@@ -112,6 +112,8 @@ void colorizeCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->colorizeCallback(header); }
 void groundSurfaceCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->groundSurfaceCallback(header); }
+void groundSurfaceSplineCB(const ground_surface::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->groundSurfaceSplineCallback(header); }
 
 
 bool isValidReprojectedPoint(const Eigen::Vector3f& pt, double squared_max_range)
@@ -668,7 +670,10 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "rgb");
 
     // TODO(drobinson): guard this inside appropriate hardware conditional
+    // TODO(drobinson): remove on dtor
     driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface_Class_Image | Source_Ground_Surface_Control_Points, this);
+
+    driver_->addIsolatedCallback(groundSurfaceSplineCB, this);
 
     //
     // Add driver-level callbacks.
@@ -1986,11 +1991,11 @@ void Camera::groundSurfaceCallback(const image::Header& header)
     }
     case Source_Ground_Surface_Control_Points:
     {
-        // TODO(drobinson): Explain why this offset exists
-        constexpr unsigned control_points_offset = 2;
+        // Skip pointer over type and version fields (i.e. 2 byte offset)
+        constexpr unsigned ptr_offset = 2;
 
         Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> test_data(
-            reinterpret_cast<const float*>(header.imageDataP) + control_points_offset, header.height, header.width);
+            reinterpret_cast<const float*>(header.imageDataP) + ptr_offset, header.height, header.width);
 
         // std::cout.precision(2);
         // std::cout << test_data << std::endl;
@@ -1998,6 +2003,13 @@ void Camera::groundSurfaceCallback(const image::Header& header)
         break;
     }
     }
+}
+
+void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
+{
+    std::cout << "GROUND SURFACE CALLBACK!" << std::endl;
+    for (const auto &param : header.quadratic_params)
+        std::cout << param << std::endl;
 }
 
 void Camera::updateConfig(const image::Config& config)

@@ -74,6 +74,7 @@ public:
     void histogramCallback(const crl::multisense::image::Header& header);
     void colorizeCallback(const crl::multisense::image::Header& header);
     void groundSurfaceCallback(const crl::multisense::image::Header& header);
+    void groundSurfaceSplineCallback(const crl::multisense::ground_surface::Header& header);
 
     void borderClipChanged(const BorderClip &borderClipType, double borderClipValue);
 
