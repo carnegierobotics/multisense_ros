@@ -130,6 +130,7 @@ private:
     static constexpr char COST_CAMERA_INFO_TOPIC[] = "cost/camera_info";
     static constexpr char GROUND_SURFACE_IMAGE_TOPIC[] = "image";
     static constexpr char GROUND_SURFACE_INFO_TOPIC[] = "camera_info";
+    static constexpr char GROUND_SURFACE_POINT_SPLINE_TOPIC[] = "spline";
 
 
     //
@@ -216,6 +217,7 @@ private:
 
     ros::Publisher                   luma_point_cloud_pub_;
     ros::Publisher                   color_point_cloud_pub_;
+    ros::Publisher                   ground_surface_spline_pub_;
 
     ros::Publisher                   luma_organized_point_cloud_pub_;
     ros::Publisher                   color_organized_point_cloud_pub_;
