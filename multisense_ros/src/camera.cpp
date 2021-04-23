@@ -1899,11 +1899,6 @@ void Camera::colorizeCallback(const image::Header& header)
     image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
 }
 
-// TODO(drobinson): Find a better way to handle this!
-ground_surface::Header ground_surface_data_{};
-bool ground_surface_data_available_{ false };
-std::mutex ground_surface_data_mutex_;
-
 sensor_msgs::PointCloud2 eigen_to_pointcloud(
     const std::vector<Eigen::Vector3f> &input,
     const std::string &frame_id)
@@ -2121,6 +2116,7 @@ std::vector<Eigen::Vector3f> convert_spline_to_pointcloud(
     const SplineOriginSize &spline,
     const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
     const Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> &basisArray,
+    const Eigen::Matrix<float, 4, 4> extrinsics,
     const std::array<float, 6> &quadratic_params,
     const SplineBoundaries &boundaries,
     const double max_range,
@@ -2151,8 +2147,13 @@ std::vector<Eigen::Vector3f> convert_spline_to_pointcloud(
             const auto z = get_spline_value(spline, x, y, controlGrid, basisArray)
                            + computeQuadraticSurface(x, y, quadratic_params);
 
-            // Swap x, y, z because we're looking at a different frame - i.e. this effectively rotates 90 deg.
-            points.emplace_back(Eigen::Vector3f(x, -z, y));
+            auto spline_point = Eigen::Vector3f(x, y, z);
+            auto spline_point_tf = extrinsics.inverse() * spline_point.homogeneous();
+
+            // Rotate the x-axis so that we transform z into -y (to undo alg frame)
+            auto rotated_point = Eigen::AngleAxis<float>(M_PI_2, Eigen::Vector3f(1.0, 0.0, 0.0)) * spline_point_tf.hnormalized();
+
+            points.emplace_back(rotated_point);
         }
     }
 
@@ -2254,51 +2255,6 @@ void Camera::groundSurfaceCallback(const image::Header& header)
     }
     case Source_Ground_Surface_Control_Points:
     {
-        // Skip pointer over type and version fields (i.e. 2 byte offset)
-        constexpr unsigned ptr_offset = 2;
-
-        Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> controlGrid(
-            reinterpret_cast<const float*>(header.imageDataP) + ptr_offset, header.height, header.width);
-
-        std::lock_guard<std::mutex> guard(ground_surface_data_mutex_);
-
-        // TODO(drobinson): Ensure header timestamps are correct!
-        if (!ground_surface_data_available_)
-            break;
-
-        SplineBoundaries boundaries{
-            ground_surface_data_.boundary_max_x,
-            ground_surface_data_.boundary_min_x,
-            ground_surface_data_.boundary_max_y,
-            ground_surface_data_.boundary_min_y,
-            ground_surface_data_.boundary_max_azimuth_angle,
-            ground_surface_data_.boundary_min_azimuth_angle
-        };
-
-        SplineOriginSize spline{
-            ground_surface_data_.xyCellOrigin_x,
-            ground_surface_data_.xyCellOrigin_y,
-            ground_surface_data_.xyCellSize_x,
-            ground_surface_data_.xyCellSize_y
-        };
-
-        // TODO(drobinson): Only bother to generate once
-        const auto basisArray = generate_basis_array();
-
-        // Generate pointcloud for visualization
-        auto eigen_pcl = convert_spline_to_pointcloud(
-            spline,
-            controlGrid,
-            basisArray,
-            ground_surface_data_.quadratic_params,
-            boundaries,
-            10.0, // max range
-            1.0, // min range
-            0.1 // draw_resolution
-        );
-
-        ground_surface_spline_pub_.publish(eigen_to_pointcloud(eigen_pcl, frame_id_rectified_left_));
-
         break;
     }
     }
@@ -2306,10 +2262,63 @@ void Camera::groundSurfaceCallback(const image::Header& header)
 
 void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
 {
-    std::lock_guard<std::mutex> guard(ground_surface_data_mutex_);
+    if (header.controlPointsBitsPerPixel != 32)
+    {
+        std::cerr << "Expecting floats for spline control points, got " << header.controlPointsBitsPerPixel
+                  << " bits per pixel instead" << std::endl;
+        return;
+    }
 
-    ground_surface_data_available_ = true;
-    ground_surface_data_ = header;
+    // Convert row spline control point data to eigen matrix
+    Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> controlGrid(
+        reinterpret_cast<const float*>(header.controlPointsImageDataP), header.controlPointsHeight, header.controlPointsWidth);
+
+    // TODO(drobinson): Only bother to generate once
+    const auto basisArray = generate_basis_array();
+
+    // Generate extrinsics
+    Eigen::Matrix<float, 4, 4> extrinsics;
+    {
+        extrinsics.setZero();
+
+        Eigen::Matrix<float, 3, 3> rot =
+            (Eigen::AngleAxis<float>(header.extrinsics_rz_rad, Eigen::Matrix<float, 3, 1>(0, 0, 1))
+            * Eigen::AngleAxis<float>(header.extrinsics_ry_rad, Eigen::Matrix<float, 3, 1>(0, 1, 0))
+            * Eigen::AngleAxis<float>(header.extrinsics_rx_rad, Eigen::Matrix<float, 3, 1>(1, 0, 0))).matrix();
+
+        extrinsics.block(0, 0, 3, 3) = rot;
+        extrinsics(0, 3) = header.extrinsics_x_m;
+        extrinsics(1, 3) = header.extrinsics_y_m;
+        extrinsics(2, 3) = header.extrinsics_z_m;
+        extrinsics(3, 3) = static_cast<float>(1.0);
+    }
+
+    // Generate pointcloud for visualization
+    auto eigen_pcl = convert_spline_to_pointcloud(
+        SplineOriginSize{
+            header.xyCellOrigin_x,
+            header.xyCellOrigin_y,
+            header.xyCellSize_x,
+            header.xyCellSize_y
+        },
+        controlGrid,
+        basisArray,
+        extrinsics,
+        header.quadratic_params,
+        SplineBoundaries{
+            header.boundary_max_x,
+            header.boundary_min_x,
+            header.boundary_max_y,
+            header.boundary_min_y,
+            header.boundary_max_azimuth_angle,
+            header.boundary_min_azimuth_angle
+        },
+        20.0,   // max range
+        1.0,    // min range
+        0.1     // draw resolution
+    );
+
+    ground_surface_spline_pub_.publish(eigen_to_pointcloud(eigen_pcl, frame_id_rectified_left_));
 }
 
 void Camera::updateConfig(const image::Config& config)
