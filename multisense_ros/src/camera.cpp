@@ -1959,7 +1959,7 @@ template <typename T> T computeQuadraticSurface(T x, T y, const std::array<T, 6>
            params[5];
 }
 
-Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> generate_basis_array()
+Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> generateBasisArray()
 {
     Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> ret(4);
 
@@ -2012,17 +2012,10 @@ Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> genera
     return ret;
 }
 
-struct SplineOriginSize
-{
-    float xyCellOrigin_x;
-    float xyCellOrigin_y;
-    float xyCellSize_x;
-    float xyCellSize_y;
-};
-
 template <class FloatT>
 void decomposeSamplePoint(
-    const SplineOriginSize &spline,
+    const std::array<FloatT, 2> &xyCellOrigin,
+    const std::array<FloatT, 2> &xyCellSize,
     FloatT sValue,
     FloatT tValue,
     size_t& iIndex,
@@ -2034,8 +2027,8 @@ void decomposeSamplePoint(
 
     // Find the integer coords of the control grid cell in which the
     // input point lies.
-    FloatT iTmp = (sValue - spline.xyCellOrigin_x) / spline.xyCellSize_x;
-    FloatT jTmp = (tValue - spline.xyCellOrigin_y) / spline.xyCellSize_y;
+    FloatT iTmp = (sValue - xyCellOrigin[0]) / xyCellSize[0];
+    FloatT jTmp = (tValue - xyCellOrigin[1]) / xyCellSize[1];
 
     int iCoord = static_cast<int>(floor(iTmp));
     int jCoord = static_cast<int>(floor(jTmp));
@@ -2056,9 +2049,9 @@ void decomposeSamplePoint(
     jIndex = static_cast<size_t>(jCoord);
 }
 
-
-float get_spline_value(
-    const SplineOriginSize &spline,
+float getSplineValue(
+    const std::array<float, 2> &xyCellOrigin,
+    const std::array<float, 2> &xyCellSize,
     const float sValue,
     const float tValue,
     const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
@@ -2071,7 +2064,7 @@ float get_spline_value(
     size_t jIndex;
     float powersOfS[4];
     float powersOfT[4];
-    decomposeSamplePoint(spline, sValue, tValue, iIndex, jIndex, powersOfS, powersOfT);
+    decomposeSamplePoint(xyCellOrigin, xyCellSize, sValue, tValue, iIndex, jIndex, powersOfS, powersOfT);
 
     // Interpolate by adding spline basis functions from the
     // surrounding control points.
@@ -2102,53 +2095,70 @@ float get_spline_value(
     return functionValue;
 }
 
-struct SplineBoundaries
-{
-    float max_x;
-    float min_x;
-    float max_y;
-    float min_y;
-    float max_azimuth_angle;
-    float min_azimuth_angle;
-};
-
 std::vector<Eigen::Vector3f> convert_spline_to_pointcloud(
-    const SplineOriginSize &spline,
     const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
-    const Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> &basisArray,
-    const Eigen::Matrix<float, 4, 4> extrinsics,
-    const std::array<float, 6> &quadratic_params,
-    const SplineBoundaries &boundaries,
-    const double max_range,
-    const double min_range,
-    const float draw_resolution)
+    const std::array<float, 2> &xyCellOrigin,
+    const std::array<float, 2> &xyCellSize,
+    const std::array<float, 2> &xyLimit,
+    const std::array<float, 2> &minMaxAzimuthAngle,
+    const std::array<float, 6> &extrinsics,
+    const std::array<float, 6> &quadraticParams)
 {
+    static constexpr double drawResolution = 0.1;
+    static const auto basisArray = generateBasisArray();
+
+    // Generate extrinsics matrix
+    Eigen::Matrix<float, 4, 4> extrinsics_mat;
+    {
+        extrinsics_mat.setZero();
+        extrinsics_mat(0, 3) = extrinsics[0];
+        extrinsics_mat(1, 3) = extrinsics[1];
+        extrinsics_mat(2, 3) = extrinsics[2];
+        extrinsics_mat(3, 3) = static_cast<float>(1.0);
+        Eigen::Matrix<float, 3, 3> rot =
+            (Eigen::AngleAxis<float>(extrinsics[5], Eigen::Matrix<float, 3, 1>(0, 0, 1))
+            * Eigen::AngleAxis<float>(extrinsics[4], Eigen::Matrix<float, 3, 1>(0, 1, 0))
+            * Eigen::AngleAxis<float>(extrinsics[3], Eigen::Matrix<float, 3, 1>(1, 0, 0))).matrix();
+        extrinsics_mat.block(0, 0, 3, 3) = rot;
+    }
+
+    // Precompute extrinsics inverse
+    const auto extrinsics_inverse = extrinsics_mat.inverse();
+
+    // Get boundaries of valid spline area
+    const float minX = xyCellOrigin[0] + xyCellSize[0];
+    const float minY = xyCellOrigin[1] + xyCellSize[1];
+    const float maxX = xyLimit[0];
+    const float maxY = xyLimit[1];
+
     // Precompute number of points
     size_t num_points = 0;
-    for (float x = boundaries.min_x; x < boundaries.max_x; x += draw_resolution)
-        for (float y = boundaries.min_y; y < boundaries.max_y; y += draw_resolution)
+    for (float x = minX; x < maxX; x += drawResolution)
+        for (float y = minY; y < maxY; y += drawResolution)
             num_points++;
 
     std::vector<Eigen::Vector3f> points;
     points.reserve(num_points);
 
-    for (float x = boundaries.min_x; x < boundaries.max_x; x += draw_resolution)
+    for (float x = minX; x < maxX; x += drawResolution)
     {
-        for (float y = boundaries.min_y; y < boundaries.max_y; y += draw_resolution)
+        for (float y = minY; y < maxY; y += drawResolution)
         {
+            // Filter points by range and angle for a cleaner "frustum" style visualization
             const auto distance = computeRange(x, y);
-            if (distance > max_range || distance < min_range)
+            if (distance > maxY)
                 continue;
 
             const auto azimuth_angle = computeAzimuth(x, y);
-            if (azimuth_angle > boundaries.max_azimuth_angle || azimuth_angle < boundaries.min_azimuth_angle)
+            if (azimuth_angle < minMaxAzimuthAngle[0] || azimuth_angle > minMaxAzimuthAngle[1])
                 continue;
 
-            const auto z = get_spline_value(spline, x, y, controlGrid, basisArray)
-                           + computeQuadraticSurface(x, y, quadratic_params);
+            // Compute spline point and transform into left camera optical frame
+            const auto z = getSplineValue(xyCellOrigin, xyCellSize, x, y, controlGrid, basisArray)
+                           + computeQuadraticSurface(x, y, quadraticParams);
 
             auto spline_point = Eigen::Vector3f(x, y, z);
-            auto spline_point_tf = extrinsics.inverse() * spline_point.homogeneous();
+            auto spline_point_tf = extrinsics_inverse * spline_point.homogeneous();
 
             // Rotate the x-axis so that we transform z into -y (to undo alg frame)
             auto rotated_point = Eigen::AngleAxis<float>(M_PI_2, Eigen::Vector3f(1.0, 0.0, 0.0)) * spline_point_tf.hnormalized();
@@ -2156,6 +2166,8 @@ std::vector<Eigen::Vector3f> convert_spline_to_pointcloud(
             points.emplace_back(rotated_point);
         }
     }
+
+    points.shrink_to_fit();
 
     return points;
 }
@@ -2273,51 +2285,18 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
     Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> controlGrid(
         reinterpret_cast<const float*>(header.controlPointsImageDataP), header.controlPointsHeight, header.controlPointsWidth);
 
-    // TODO(drobinson): Only bother to generate once
-    const auto basisArray = generate_basis_array();
-
-    // Generate extrinsics
-    Eigen::Matrix<float, 4, 4> extrinsics;
-    {
-        extrinsics.setZero();
-
-        Eigen::Matrix<float, 3, 3> rot =
-            (Eigen::AngleAxis<float>(header.extrinsics_rz_rad, Eigen::Matrix<float, 3, 1>(0, 0, 1))
-            * Eigen::AngleAxis<float>(header.extrinsics_ry_rad, Eigen::Matrix<float, 3, 1>(0, 1, 0))
-            * Eigen::AngleAxis<float>(header.extrinsics_rx_rad, Eigen::Matrix<float, 3, 1>(1, 0, 0))).matrix();
-
-        extrinsics.block(0, 0, 3, 3) = rot;
-        extrinsics(0, 3) = header.extrinsics_x_m;
-        extrinsics(1, 3) = header.extrinsics_y_m;
-        extrinsics(2, 3) = header.extrinsics_z_m;
-        extrinsics(3, 3) = static_cast<float>(1.0);
-    }
-
     // Generate pointcloud for visualization
     auto eigen_pcl = convert_spline_to_pointcloud(
-        SplineOriginSize{
-            header.xyCellOrigin_x,
-            header.xyCellOrigin_y,
-            header.xyCellSize_x,
-            header.xyCellSize_y
-        },
         controlGrid,
-        basisArray,
-        extrinsics,
-        header.quadratic_params,
-        SplineBoundaries{
-            header.boundary_max_x,
-            header.boundary_min_x,
-            header.boundary_max_y,
-            header.boundary_min_y,
-            header.boundary_max_azimuth_angle,
-            header.boundary_min_azimuth_angle
-        },
-        20.0,   // max range
-        1.0,    // min range
-        0.1     // draw resolution
+        header.xyCellOrigin,
+        header.xyCellSize,
+        header.xyLimit,
+        header.minMaxAzimuthAngle,
+        header.extrinsics,
+        header.quadraticParams
     );
 
+    // Send pointcloud message
     ground_surface_spline_pub_.publish(eigen_to_pointcloud(eigen_pcl, frame_id_rectified_left_));
 }
 
