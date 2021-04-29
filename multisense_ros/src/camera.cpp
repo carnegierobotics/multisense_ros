@@ -429,10 +429,10 @@ std::vector<Eigen::Vector3f> convertSplineToPointcloud(
     const auto extrinsics_inverse = extrinsicsMat.inverse();
 
     // Get boundaries of valid spline area
-    const float minX = xyCellOrigin[0] + xyCellSize[0];
-    const float minY = xyCellOrigin[1] + xyCellSize[1];
-    const float maxX = xyLimit[0];
-    const float maxY = xyLimit[1];
+    const auto minX = xyCellOrigin[0] + xyCellSize[0];
+    const auto minY = xyCellOrigin[1] + xyCellSize[1];
+    const auto maxX = xyLimit[0];
+    const auto maxY = xyLimit[1];
 
     // Precompute number of points
     size_t num_points = 0;
@@ -445,28 +445,24 @@ std::vector<Eigen::Vector3f> convertSplineToPointcloud(
 
     for (float x = minX; x < maxX; x += drawResolution)
     {
-        for (float y = minY; y < maxY; y += drawResolution)
+        for (float z = minY; z < maxY; z += drawResolution)
         {
             // Filter points by range and angle for a cleaner "frustum" style visualization
-            const auto distance = computeRange(x, y);
+            const auto distance = computeRange(x, z);
             if (distance > maxY)
                 continue;
 
-            const auto azimuth_angle = computeAzimuth(x, y);
+            const auto azimuth_angle = computeAzimuth(x, z);
             if (azimuth_angle < minMaxAzimuthAngle[0] || azimuth_angle > minMaxAzimuthAngle[1])
                 continue;
 
             // Compute spline point and transform into left camera optical frame
-            const auto z = getSplineValue(xyCellOrigin, xyCellSize, x, y, controlGrid, basisArray)
-                           + computeQuadraticSurface(x, y, quadraticParams);
+            const auto y = getSplineValue(xyCellOrigin, xyCellSize, x, z, controlGrid, basisArray)
+                           + computeQuadraticSurface(x, z, quadraticParams);
 
             auto spline_point = Eigen::Vector3f(x, y, z);
-            auto spline_point_tf = extrinsics_inverse * spline_point.homogeneous();
-
-            // Rotate the x-axis so that we transform z into -y (to undo alg frame)
-            auto rotated_point = Eigen::AngleAxis<float>(M_PI_2, Eigen::Vector3f(1.0, 0.0, 0.0)) * spline_point_tf.hnormalized();
-
-            points.emplace_back(rotated_point);
+            auto transformed_spline_point = extrinsics_inverse * spline_point.homogeneous();
+            points.emplace_back(transformed_spline_point.hnormalized());
         }
     }
 
