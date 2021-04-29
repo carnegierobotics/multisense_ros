@@ -217,6 +217,264 @@ cv::Vec3b u_interpolate_color(double u, double v, const cv::Mat &image)
     return result;
 }
 
+Eigen::Matrix<uint8_t, 3, 1> groundSurfaceClassToPixelColor(const uint8_t value)
+{
+    if (value == 1) // Out of bounds
+        return Eigen::Matrix<uint8_t, 3, 1>{ 114, 159, 207 };
+    else if (value == 2) // Obstacle
+        return Eigen::Matrix<uint8_t, 3, 1>{ 255, 0, 0 };
+    else if (value == 3) // Free space
+        return Eigen::Matrix<uint8_t, 3, 1>{ 0, 255, 0 };
+
+    // Unknown
+    return Eigen::Matrix<uint8_t, 3, 1>{ 0, 0, 0 };
+}
+
+sensor_msgs::PointCloud2 eigenToPointcloud(
+    const std::vector<Eigen::Vector3f> &input,
+    const std::string &frame_id)
+{
+    sensor_msgs::PointCloud2 ret = initialize_pointcloud<float>(true, frame_id, "intensity");
+
+    const double num_points = input.size();
+    ret.data.resize(num_points * ret.point_step);
+
+    for (size_t i = 0; i < num_points; ++i)
+    {
+        float* cloudP = reinterpret_cast<float*>(&(ret.data[i * ret.point_step]));
+        cloudP[0] = input[i][0];
+        cloudP[1] = input[i][1];
+        cloudP[2] = input[i][2];
+
+        // This is token and not relevant for spline fitting
+        uint32_t luma = 0;
+        uint32_t* colorP = reinterpret_cast<uint32_t*>(&(cloudP[3]));
+        colorP[0] = luma;
+    }
+
+    ret.height = 1;
+    ret.row_step = num_points * ret.point_step;
+    ret.width = num_points;
+    ret.data.resize(num_points * ret.point_step);
+
+    return ret;
+}
+
+inline float computeAzimuth(const float x, const float y)
+{
+    return x >= 0 ? static_cast<float>(M_PI) - atan(y / (x + std::numeric_limits<float>::epsilon()))
+                  : atan(y / -(x + std::numeric_limits<float>::epsilon()));
+}
+
+inline float computeRange(const float x, const float y)
+{
+    return sqrt(pow(x, 2) + pow(y, 2));
+}
+
+template <typename T> T computeQuadraticSurface(T x, T y, const std::array<T, 6> &params)
+{
+    // z = ax^2 + by^2 + cxy + dx + ey + f
+    return params[0] * pow(x, 2) + params[1] * pow(y, 2) + params[2] * x * y +
+           params[3] * x + params[4] * y + params[5];
+}
+
+Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> generateBasisArray()
+{
+    Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> ret(4);
+
+    // Temporary storage for polynomial coefficients.
+    Eigen::Matrix<float, Eigen::Dynamic, 1> basisCoefficients(4);
+
+    // The following basis functions are copied from Lee,
+    // Wolberg, and Shin, "Scattered Data Interpolation with
+    // Multilevel B-Splines, IEEE Transactions on Visualization and
+    // Computer Graphics, Vol 3, 228-244, 1997.  We present them
+    // here without further justification, although we suspect
+    // you could derive them recursively using a 2D version of
+    // the procedure used in BSpline::computeBasisFunction() from
+    // file bSpline.hh.
+
+    // First cubic spline basis component is
+    // B(s) = (1 - s)**3 / 6.
+    // This expands to
+    // B(s) = -(1/6)s**3 + (1/2)s**2 - (1/2)s + 1/6.
+    basisCoefficients(0) = 1.0 / 6.0;
+    basisCoefficients(1) = -0.5;
+    basisCoefficients(2) = 0.5;
+    basisCoefficients(3) = -1.0 / 6.0;
+    ret(0) = basisCoefficients;
+
+    // Second cubic spline basis component is
+    // B(s) = (1/2)t**3 - t**2 + 2/3.
+    basisCoefficients(0) = 2.0 / 3.0;
+    basisCoefficients(1) = 0.0;
+    basisCoefficients(2) = -1.0;
+    basisCoefficients(3) = 0.5;
+    ret(1) = basisCoefficients;
+
+    // Third cubic spline basis component is
+    // B(s) = -(1/2)t**3 + (1/2)t**2 + (1/2)t + 1/6.
+    basisCoefficients(0) = 1.0 / 6.0;
+    basisCoefficients(1) = 0.5;
+    basisCoefficients(2) = 0.5;
+    basisCoefficients(3) = -0.5;
+    ret(2) = basisCoefficients;
+
+    // Fourth cubic spline basis component is
+    // B(s) = (1/6)t**3.
+    basisCoefficients(0) = 0.0;
+    basisCoefficients(1) = 0.0;
+    basisCoefficients(2) = 0.0;
+    basisCoefficients(3) = 1.0 / 6.0;
+    ret(3) = basisCoefficients;
+
+    return ret;
+}
+
+template <class FloatT>
+FloatT getSplineValue(
+    const std::array<FloatT, 2> &xyCellOrigin,
+    const std::array<FloatT, 2> &xyCellSize,
+    const FloatT sValue,
+    const FloatT tValue,
+    const Eigen::Matrix<FloatT, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
+    const Eigen::Matrix<Eigen::Matrix<FloatT, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> &basisArray)
+{
+    // This call sets the value of powersOfS and powersOfT,
+    // and returns by reference the indices of the control grid
+    // cell into which (s, t) falls.
+    // decomposeSamplePoint()
+
+    // Find the integer coords of the control grid cell in which the
+    // input point lies.
+    FloatT iTmp = (sValue - xyCellOrigin[0]) / xyCellSize[0];
+    FloatT jTmp = (tValue - xyCellOrigin[1]) / xyCellSize[1];
+
+    int iCoord = static_cast<int>(floor(iTmp));
+    int jCoord = static_cast<int>(floor(jTmp));
+
+    // Find real valued coords within the cell, along with all of
+    // the powers of those coords we'll be wanting to plug into
+    // spline basis functions.
+    FloatT powersOfS[4];
+    powersOfS[0] = FloatT(1.0);
+    powersOfS[1] = iTmp - FloatT(iCoord);
+    powersOfS[2] = powersOfS[1] * powersOfS[1];
+    powersOfS[3] = powersOfS[2] * powersOfS[1];
+    FloatT powersOfT[4];
+    powersOfT[0] = FloatT(1.0);
+    powersOfT[1] = jTmp - FloatT(jCoord);
+    powersOfT[2] = powersOfT[1] * powersOfT[1];
+    powersOfT[3] = powersOfT[2] * powersOfT[1];
+
+    size_t iIndex = static_cast<size_t>(iCoord);
+    size_t jIndex = static_cast<size_t>(jCoord);
+
+    // Interpolate by adding spline basis functions from the
+    // surrounding control points.
+    int index0 = iIndex - 1;
+    int index1 = jIndex - 1;
+    FloatT functionValue = 0.0;
+    for (size_t kIndex = 0; kIndex < 4; ++kIndex)
+    {
+        size_t i0PlusK = index0 + kIndex;
+
+        //  FloatT B_k = dot<FloatT>((basisArray)[kIndex], powersOfS);
+        FloatT B_k = std::inner_product(
+            powersOfS, powersOfS + 4, (basisArray)[kIndex].data(), static_cast<FloatT>(0));
+
+        for (size_t lIndex = 0; lIndex < 4; ++lIndex)
+        {
+            size_t i1PlusL = index1 + lIndex;
+
+            // FloatT B_l = dot<FloatT>((basisArray)[lIndex], powersOfT);
+            FloatT B_l = std::inner_product(
+                powersOfT, powersOfT + 4, (basisArray)[lIndex].data(), static_cast<FloatT>(0));
+
+            // Indexing into control grid is (row, column), not (k, l).
+            functionValue += (B_k * B_l * controlGrid(i1PlusL, i0PlusK));
+        }
+    }
+    return functionValue;
+}
+
+std::vector<Eigen::Vector3f> convertSplineToPointcloud(
+    const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
+    const std::array<float, 2> &xyCellOrigin,
+    const std::array<float, 2> &xyCellSize,
+    const std::array<float, 2> &xyLimit,
+    const std::array<float, 2> &minMaxAzimuthAngle,
+    const std::array<float, 6> &extrinsics,
+    const std::array<float, 6> &quadraticParams)
+{
+    static constexpr double drawResolution = 0.1;
+    static const auto basisArray = generateBasisArray();
+
+    // Generate extrinsics matrix
+    Eigen::Matrix<float, 4, 4> extrinsicsMat;
+    {
+        extrinsicsMat.setZero();
+        extrinsicsMat(0, 3) = extrinsics[0];
+        extrinsicsMat(1, 3) = extrinsics[1];
+        extrinsicsMat(2, 3) = extrinsics[2];
+        extrinsicsMat(3, 3) = static_cast<float>(1.0);
+        Eigen::Matrix<float, 3, 3> rot =
+            (Eigen::AngleAxis<float>(extrinsics[5], Eigen::Matrix<float, 3, 1>(0, 0, 1))
+            * Eigen::AngleAxis<float>(extrinsics[4], Eigen::Matrix<float, 3, 1>(0, 1, 0))
+            * Eigen::AngleAxis<float>(extrinsics[3], Eigen::Matrix<float, 3, 1>(1, 0, 0))).matrix();
+        extrinsicsMat.block(0, 0, 3, 3) = rot;
+    }
+
+    // Precompute extrinsics inverse
+    const auto extrinsics_inverse = extrinsicsMat.inverse();
+
+    // Get boundaries of valid spline area
+    const float minX = xyCellOrigin[0] + xyCellSize[0];
+    const float minY = xyCellOrigin[1] + xyCellSize[1];
+    const float maxX = xyLimit[0];
+    const float maxY = xyLimit[1];
+
+    // Precompute number of points
+    size_t num_points = 0;
+    for (float x = minX; x < maxX; x += drawResolution)
+        for (float y = minY; y < maxY; y += drawResolution)
+            num_points++;
+
+    std::vector<Eigen::Vector3f> points;
+    points.reserve(num_points);
+
+    for (float x = minX; x < maxX; x += drawResolution)
+    {
+        for (float y = minY; y < maxY; y += drawResolution)
+        {
+            // Filter points by range and angle for a cleaner "frustum" style visualization
+            const auto distance = computeRange(x, y);
+            if (distance > maxY)
+                continue;
+
+            const auto azimuth_angle = computeAzimuth(x, y);
+            if (azimuth_angle < minMaxAzimuthAngle[0] || azimuth_angle > minMaxAzimuthAngle[1])
+                continue;
+
+            // Compute spline point and transform into left camera optical frame
+            const auto z = getSplineValue(xyCellOrigin, xyCellSize, x, y, controlGrid, basisArray)
+                           + computeQuadraticSurface(x, y, quadraticParams);
+
+            auto spline_point = Eigen::Vector3f(x, y, z);
+            auto spline_point_tf = extrinsics_inverse * spline_point.homogeneous();
+
+            // Rotate the x-axis so that we transform z into -y (to undo alg frame)
+            auto rotated_point = Eigen::AngleAxis<float>(M_PI_2, Eigen::Vector3f(1.0, 0.0, 0.0)) * spline_point_tf.hnormalized();
+
+            points.emplace_back(rotated_point);
+        }
+    }
+
+    points.shrink_to_fit();
+
+    return points;
+}
+
 } // anonymous
 
 //
@@ -339,7 +597,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     raw_cam_config_pub_ = calibration_nh_.advertise<multisense_ros::RawCamConfig>(RAW_CAM_CONFIG_TOPIC, 1, true);
     histogram_pub_      = device_nh_.advertise<multisense_ros::Histogram>(HISTOGRAM_TOPIC, 5);
 
-    // TODO(drobinson): guard this inside appropriate hardware conditional
+    // TODO(drobinson): guard this inside appropriate hardware / profile conditional
     ground_surface_cam_pub_ = ground_surface_transport_.advertise(GROUND_SURFACE_IMAGE_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Ground_Surface_Class_Image),
                               std::bind(&Camera::disconnectStream, this, Source_Ground_Surface_Class_Image));
@@ -672,12 +930,6 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     luma_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "intensity");
     color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "rgb");
 
-    // TODO(drobinson): guard this inside appropriate hardware conditional
-    // TODO(drobinson): remove on dtor
-    driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface_Class_Image | Source_Ground_Surface_Control_Points, this);
-
-    driver_->addIsolatedCallback(groundSurfaceSplineCB, this);
-
     //
     // Add driver-level callbacks.
     //
@@ -709,6 +961,13 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     driver_->addIsolatedCallback(histCB, allImageSources, this);
 
     //
+    // Add ground surface callbacks
+    // TODO(drobinson): guard this inside appropriate hardware / profile conditional
+
+    driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface_Class_Image, this);
+    driver_->addIsolatedCallback(groundSurfaceSplineCB, this);
+
+    //
     // Disable color point cloud strict frame syncing, if desired
 
     const char *pcColorFrameSyncEnvStringP = getenv("MULTISENSE_ROS_PC_COLOR_FRAME_SYNC_OFF");
@@ -737,6 +996,9 @@ Camera::~Camera()
         driver_->removeIsolatedCallback(colorCB);
         driver_->removeIsolatedCallback(dispCB);
     }
+
+    driver_->removeIsolatedCallback(groundSurfaceCB);
+    driver_->removeIsolatedCallback(groundSurfaceSplineCB);
 }
 
 void Camera::borderClipChanged(const BorderClip &borderClipType, double borderClipValue)
@@ -1899,283 +2161,9 @@ void Camera::colorizeCallback(const image::Header& header)
     image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
 }
 
-sensor_msgs::PointCloud2 eigen_to_pointcloud(
-    const std::vector<Eigen::Vector3f> &input,
-    const std::string &frame_id)
-{
-    sensor_msgs::PointCloud2 ret = initialize_pointcloud<float>(true, frame_id, "intensity");
-
-    const double num_points = input.size();
-    ret.data.resize(num_points * ret.point_step);
-
-    for (size_t i = 0; i < num_points; ++i)
-    {
-        float* cloudP = reinterpret_cast<float*>(&(ret.data[i * ret.point_step]));
-        cloudP[0] = input[i][0];
-        cloudP[1] = input[i][1];
-        cloudP[2] = input[i][2];
-
-        // This is token and not relevant for spline fitting
-        uint32_t luma = 0;
-        uint32_t* colorP = reinterpret_cast<uint32_t*>(&(cloudP[3]));
-        colorP[0] = luma;
-    }
-
-    ret.height = 1;
-    ret.row_step = num_points * ret.point_step;
-    ret.width = num_points;
-    ret.data.resize(num_points * ret.point_step);
-
-    return ret;
-}
-
-inline float computeAzimuth(const float x, const float y)
-{
-    return x >= 0 ? static_cast<float>(M_PI) - atan(y / (x + std::numeric_limits<float>::epsilon()))
-                  : atan(y / -(x + std::numeric_limits<float>::epsilon()));
-}
-
-inline float computeRange(const float x, const float y)
-{
-    return sqrt(pow(x, 2) + pow(y, 2));
-}
-
-template<class InputIt1, class InputIt2, class T>
-T inner_product_impl(InputIt1 first1, InputIt1 last1, InputIt2 first2, T init)
-{
-    while (first1 != last1)
-    {
-        init = init + *first1 * *first2;
-        ++first1;
-        ++first2;
-    }
-    return init;
-}
-
-template <typename T> T computeQuadraticSurface(T x, T y, const std::array<T, 6> &params)
-{
-    // z = ax^2 + by^2 + cxy + dx + ey + f
-    return params[0] * pow(x, 2) + params[1] * pow(y, 2) + params[2] * x * y + params[3] * x + params[4] * y +
-           params[5];
-}
-
-Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> generateBasisArray()
-{
-    Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> ret(4);
-
-    // Temporary storage for polynomial coefficients.
-    Eigen::Matrix<float, Eigen::Dynamic, 1> basisCoefficients(4);
-
-    // The following basis functions are copied from Lee,
-    // Wolberg, and Shin, "Scattered Data Interpolation with
-    // Multilevel B-Splines, IEEE Transactions on Visualization and
-    // Computer Graphics, Vol 3, 228-244, 1997.  We present them
-    // here without further justification, although we suspect
-    // you could derive them recursively using a 2D version of
-    // the procedure used in BSpline::computeBasisFunction() from
-    // file bSpline.hh.
-
-    // First cubic spline basis component is
-    // B(s) = (1 - s)**3 / 6.
-    // This expands to
-    // B(s) = -(1/6)s**3 + (1/2)s**2 - (1/2)s + 1/6.
-    basisCoefficients(0) = 1.0 / 6.0;
-    basisCoefficients(1) = -0.5;
-    basisCoefficients(2) = 0.5;
-    basisCoefficients(3) = -1.0 / 6.0;
-    ret(0) = basisCoefficients;
-
-    // Second cubic spline basis component is
-    // B(s) = (1/2)t**3 - t**2 + 2/3.
-    basisCoefficients(0) = 2.0 / 3.0;
-    basisCoefficients(1) = 0.0;
-    basisCoefficients(2) = -1.0;
-    basisCoefficients(3) = 0.5;
-    ret(1) = basisCoefficients;
-
-    // Third cubic spline basis component is
-    // B(s) = -(1/2)t**3 + (1/2)t**2 + (1/2)t + 1/6.
-    basisCoefficients(0) = 1.0 / 6.0;
-    basisCoefficients(1) = 0.5;
-    basisCoefficients(2) = 0.5;
-    basisCoefficients(3) = -0.5;
-    ret(2) = basisCoefficients;
-
-    // Fourth cubic spline basis component is
-    // B(s) = (1/6)t**3.
-    basisCoefficients(0) = 0.0;
-    basisCoefficients(1) = 0.0;
-    basisCoefficients(2) = 0.0;
-    basisCoefficients(3) = 1.0 / 6.0;
-    ret(3) = basisCoefficients;
-
-    return ret;
-}
-
-template <class FloatT>
-void decomposeSamplePoint(
-    const std::array<FloatT, 2> &xyCellOrigin,
-    const std::array<FloatT, 2> &xyCellSize,
-    FloatT sValue,
-    FloatT tValue,
-    size_t& iIndex,
-    size_t& jIndex,
-    FloatT* powersOfS,
-    FloatT* powersOfT)
-{
-    // Note(xxx): consider using std::modf() here.
-
-    // Find the integer coords of the control grid cell in which the
-    // input point lies.
-    FloatT iTmp = (sValue - xyCellOrigin[0]) / xyCellSize[0];
-    FloatT jTmp = (tValue - xyCellOrigin[1]) / xyCellSize[1];
-
-    int iCoord = static_cast<int>(floor(iTmp));
-    int jCoord = static_cast<int>(floor(jTmp));
-
-    // Find real valued coords within the cell, along with all of
-    // the powers of those coords we'll be wanting to plug into
-    // spline basis functions.
-    powersOfS[0] = FloatT(1.0);
-    powersOfS[1] = iTmp - FloatT(iCoord);
-    powersOfS[2] = powersOfS[1] * powersOfS[1];
-    powersOfS[3] = powersOfS[2] * powersOfS[1];
-    powersOfT[0] = FloatT(1.0);
-    powersOfT[1] = jTmp - FloatT(jCoord);
-    powersOfT[2] = powersOfT[1] * powersOfT[1];
-    powersOfT[3] = powersOfT[2] * powersOfT[1];
-
-    iIndex = static_cast<size_t>(iCoord);
-    jIndex = static_cast<size_t>(jCoord);
-}
-
-float getSplineValue(
-    const std::array<float, 2> &xyCellOrigin,
-    const std::array<float, 2> &xyCellSize,
-    const float sValue,
-    const float tValue,
-    const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
-    const Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> &basisArray)
-{
-    // This call sets the value of powersOfS and powersOfT,
-    // and returns by reference the indices of the control grid
-    // cell into which (s, t) falls.
-    size_t iIndex;
-    size_t jIndex;
-    float powersOfS[4];
-    float powersOfT[4];
-    decomposeSamplePoint(xyCellOrigin, xyCellSize, sValue, tValue, iIndex, jIndex, powersOfS, powersOfT);
-
-    // Interpolate by adding spline basis functions from the
-    // surrounding control points.
-    int index0 = iIndex - 1;
-    int index1 = jIndex - 1;
-    float functionValue = 0.0;
-    for (size_t kIndex = 0; kIndex < 4; ++kIndex)
-    {
-        size_t i0PlusK = index0 + kIndex;
-
-        //  float B_k = dot<float>((basisArray)[kIndex], powersOfS);
-        float B_k = inner_product_impl(
-            powersOfS, powersOfS + 4, (basisArray)[kIndex].data(), static_cast<float>(0));
-
-        for (size_t lIndex = 0; lIndex < 4; ++lIndex)
-        {
-
-            size_t i1PlusL = index1 + lIndex;
-
-            // float B_l = dot<float>((basisArray)[lIndex], powersOfT);
-            float B_l = inner_product_impl(
-                powersOfT, powersOfT + 4, (basisArray)[lIndex].data(), static_cast<float>(0));
-
-            // Indexing into control grid is (row, column), not (k, l).
-            functionValue += (B_k * B_l * controlGrid(i1PlusL, i0PlusK));
-        }
-    }
-    return functionValue;
-}
-
-std::vector<Eigen::Vector3f> convert_spline_to_pointcloud(
-    const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
-    const std::array<float, 2> &xyCellOrigin,
-    const std::array<float, 2> &xyCellSize,
-    const std::array<float, 2> &xyLimit,
-    const std::array<float, 2> &minMaxAzimuthAngle,
-    const std::array<float, 6> &extrinsics,
-    const std::array<float, 6> &quadraticParams)
-{
-    static constexpr double drawResolution = 0.1;
-    static const auto basisArray = generateBasisArray();
-
-    // Generate extrinsics matrix
-    Eigen::Matrix<float, 4, 4> extrinsics_mat;
-    {
-        extrinsics_mat.setZero();
-        extrinsics_mat(0, 3) = extrinsics[0];
-        extrinsics_mat(1, 3) = extrinsics[1];
-        extrinsics_mat(2, 3) = extrinsics[2];
-        extrinsics_mat(3, 3) = static_cast<float>(1.0);
-        Eigen::Matrix<float, 3, 3> rot =
-            (Eigen::AngleAxis<float>(extrinsics[5], Eigen::Matrix<float, 3, 1>(0, 0, 1))
-            * Eigen::AngleAxis<float>(extrinsics[4], Eigen::Matrix<float, 3, 1>(0, 1, 0))
-            * Eigen::AngleAxis<float>(extrinsics[3], Eigen::Matrix<float, 3, 1>(1, 0, 0))).matrix();
-        extrinsics_mat.block(0, 0, 3, 3) = rot;
-    }
-
-    // Precompute extrinsics inverse
-    const auto extrinsics_inverse = extrinsics_mat.inverse();
-
-    // Get boundaries of valid spline area
-    const float minX = xyCellOrigin[0] + xyCellSize[0];
-    const float minY = xyCellOrigin[1] + xyCellSize[1];
-    const float maxX = xyLimit[0];
-    const float maxY = xyLimit[1];
-
-    // Precompute number of points
-    size_t num_points = 0;
-    for (float x = minX; x < maxX; x += drawResolution)
-        for (float y = minY; y < maxY; y += drawResolution)
-            num_points++;
-
-    std::vector<Eigen::Vector3f> points;
-    points.reserve(num_points);
-
-    for (float x = minX; x < maxX; x += drawResolution)
-    {
-        for (float y = minY; y < maxY; y += drawResolution)
-        {
-            // Filter points by range and angle for a cleaner "frustum" style visualization
-            const auto distance = computeRange(x, y);
-            if (distance > maxY)
-                continue;
-
-            const auto azimuth_angle = computeAzimuth(x, y);
-            if (azimuth_angle < minMaxAzimuthAngle[0] || azimuth_angle > minMaxAzimuthAngle[1])
-                continue;
-
-            // Compute spline point and transform into left camera optical frame
-            const auto z = getSplineValue(xyCellOrigin, xyCellSize, x, y, controlGrid, basisArray)
-                           + computeQuadraticSurface(x, y, quadraticParams);
-
-            auto spline_point = Eigen::Vector3f(x, y, z);
-            auto spline_point_tf = extrinsics_inverse * spline_point.homogeneous();
-
-            // Rotate the x-axis so that we transform z into -y (to undo alg frame)
-            auto rotated_point = Eigen::AngleAxis<float>(M_PI_2, Eigen::Vector3f(1.0, 0.0, 0.0)) * spline_point_tf.hnormalized();
-
-            points.emplace_back(rotated_point);
-        }
-    }
-
-    points.shrink_to_fit();
-
-    return points;
-}
-
 void Camera::groundSurfaceCallback(const image::Header& header)
 {
-    if (Source_Ground_Surface_Class_Image != header.source &&
-        Source_Ground_Surface_Control_Points != header.source)
+    if (Source_Ground_Surface_Class_Image != header.source)
     {
         ROS_WARN("Camera: unexpected image source: 0x%x", header.source);
         return;
@@ -2222,38 +2210,7 @@ void Camera::groundSurfaceCallback(const image::Header& header)
                 const uint8_t *imageP = reinterpret_cast<const uint8_t*>(header.imageDataP);
 
                 const size_t image_offset = (y * ground_surface_image_.width) + x;
-
-                // TODO(drobinson): Perform this lookup in a separate function
-                uint8_t px_r;
-                uint8_t px_g;
-                uint8_t px_b;
-                if (imageP[image_offset] == 1)
-                {
-                    px_r = 114;
-                    px_g = 159;
-                    px_b = 207;
-                }
-                else if (imageP[image_offset] == 2)
-                {
-                    px_r = 255;
-                    px_g = 0;
-                    px_b = 0;
-                }
-                else if (imageP[image_offset] == 3)
-                {
-                    px_r = 0;
-                    px_g = 255;
-                    px_b = 0;
-                }
-                else // if imageP[image_offset] == 0 or otherwise
-                {
-                    px_r = 0;
-                    px_g = 0;
-                    px_b = 0;
-                }
-
-                const auto rgb_px = Eigen::Matrix<uint8_t, 3, 1>{ px_r, px_g, px_b };
-                memcpy(output + row_offset + (3 * x), rgb_px.data(), 3);
+                memcpy(output + row_offset + (3 * x), groundSurfaceClassToPixelColor(imageP[image_offset]).data(), 3);
             }
         }
 
@@ -2263,10 +2220,6 @@ void Camera::groundSurfaceCallback(const image::Header& header)
         const auto ground_surface_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
         ground_surface_info_pub_.publish(ground_surface_info);
 
-        break;
-    }
-    case Source_Ground_Surface_Control_Points:
-    {
         break;
     }
     }
@@ -2286,7 +2239,7 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
         reinterpret_cast<const float*>(header.controlPointsImageDataP), header.controlPointsHeight, header.controlPointsWidth);
 
     // Generate pointcloud for visualization
-    auto eigen_pcl = convert_spline_to_pointcloud(
+    auto eigen_pcl = convertSplineToPointcloud(
         controlGrid,
         header.xyCellOrigin,
         header.xyCellSize,
@@ -2297,7 +2250,7 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
     );
 
     // Send pointcloud message
-    ground_surface_spline_pub_.publish(eigen_to_pointcloud(eigen_pcl, frame_id_rectified_left_));
+    ground_surface_spline_pub_.publish(eigenToPointcloud(eigen_pcl, frame_id_rectified_left_));
 }
 
 void Camera::updateConfig(const image::Config& config)

@@ -37,6 +37,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <numeric>
 
 #include <ros/ros.h>
 
