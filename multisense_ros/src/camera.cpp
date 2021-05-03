@@ -333,8 +333,8 @@ Eigen::Matrix<Eigen::Matrix<float, Eigen::Dynamic, 1>, Eigen::Dynamic, 1> genera
 
 template <class FloatT>
 FloatT getSplineValue(
-    const std::array<FloatT, 2> &xyCellOrigin,
-    const std::array<FloatT, 2> &xyCellSize,
+    const std::array<FloatT, 2> &xzCellOrigin,
+    const std::array<FloatT, 2> &xzCellSize,
     const FloatT sValue,
     const FloatT tValue,
     const Eigen::Matrix<FloatT, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
@@ -347,8 +347,8 @@ FloatT getSplineValue(
 
     // Find the integer coords of the control grid cell in which the
     // input point lies.
-    FloatT iTmp = (sValue - xyCellOrigin[0]) / xyCellSize[0];
-    FloatT jTmp = (tValue - xyCellOrigin[1]) / xyCellSize[1];
+    FloatT iTmp = (sValue - xzCellOrigin[0]) / xzCellSize[0];
+    FloatT jTmp = (tValue - xzCellOrigin[1]) / xzCellSize[1];
 
     int iCoord = static_cast<int>(floor(iTmp));
     int jCoord = static_cast<int>(floor(jTmp));
@@ -400,9 +400,9 @@ FloatT getSplineValue(
 
 std::vector<Eigen::Vector3f> convertSplineToPointcloud(
     const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
-    const std::array<float, 2> &xyCellOrigin,
-    const std::array<float, 2> &xyCellSize,
-    const std::array<float, 2> &xyLimit,
+    const std::array<float, 2> &xzCellOrigin,
+    const std::array<float, 2> &xzCellSize,
+    const std::array<float, 2> &xzLimit,
     const std::array<float, 2> &minMaxAzimuthAngle,
     const std::array<float, 6> &extrinsics,
     const std::array<float, 6> &quadraticParams)
@@ -426,18 +426,18 @@ std::vector<Eigen::Vector3f> convertSplineToPointcloud(
     }
 
     // Precompute extrinsics inverse
-    const auto extrinsics_inverse = extrinsicsMat.inverse();
+    const auto extrinsicsInverse = extrinsicsMat.inverse();
 
     // Get boundaries of valid spline area
-    const auto minX = xyCellOrigin[0] + xyCellSize[0];
-    const auto minY = xyCellOrigin[1] + xyCellSize[1];
-    const auto maxX = xyLimit[0];
-    const auto maxY = xyLimit[1];
+    const auto minX = xzCellOrigin[0] + xzCellSize[0];
+    const auto minZ = xzCellOrigin[1] + xzCellSize[1];
+    const auto maxX = xzLimit[0];
+    const auto maxZ = xzLimit[1];
 
     // Precompute number of points
     size_t num_points = 0;
     for (float x = minX; x < maxX; x += drawResolution)
-        for (float y = minY; y < maxY; y += drawResolution)
+        for (float y = minZ; y < maxZ; y += drawResolution)
             num_points++;
 
     std::vector<Eigen::Vector3f> points;
@@ -445,11 +445,11 @@ std::vector<Eigen::Vector3f> convertSplineToPointcloud(
 
     for (float x = minX; x < maxX; x += drawResolution)
     {
-        for (float z = minY; z < maxY; z += drawResolution)
+        for (float z = minZ; z < maxZ; z += drawResolution)
         {
             // Filter points by range and angle for a cleaner "frustum" style visualization
             const auto distance = computeRange(x, z);
-            if (distance > maxY)
+            if (distance > maxZ)
                 continue;
 
             const auto azimuth_angle = computeAzimuth(x, z);
@@ -457,12 +457,12 @@ std::vector<Eigen::Vector3f> convertSplineToPointcloud(
                 continue;
 
             // Compute spline point and transform into left camera optical frame
-            const auto y = getSplineValue(xyCellOrigin, xyCellSize, x, z, controlGrid, basisArray)
+            const auto y = getSplineValue(xzCellOrigin, xzCellSize, x, z, controlGrid, basisArray)
                            + computeQuadraticSurface(x, z, quadraticParams);
 
-            auto spline_point = Eigen::Vector3f(x, y, z);
-            auto transformed_spline_point = extrinsics_inverse * spline_point.homogeneous();
-            points.emplace_back(transformed_spline_point.hnormalized());
+            auto splinePoint = Eigen::Vector3f(x, y, z);
+            auto transformedSplinePoint = extrinsicsInverse * splinePoint.homogeneous();
+            points.emplace_back(transformedSplinePoint.hnormalized());
         }
     }
 
@@ -2237,9 +2237,9 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
     // Generate pointcloud for visualization
     auto eigen_pcl = convertSplineToPointcloud(
         controlGrid,
-        header.xyCellOrigin,
-        header.xyCellSize,
-        header.xyLimit,
+        header.xzCellOrigin,
+        header.xzCellSize,
+        header.xzLimit,
         header.minMaxAzimuthAngle,
         header.extrinsics,
         header.quadraticParams
