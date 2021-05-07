@@ -185,7 +185,6 @@ private:
     //
     // Data publishers
 
-
     image_transport::Publisher       left_mono_cam_pub_;
     image_transport::Publisher       right_mono_cam_pub_;
     image_transport::CameraPublisher left_rect_cam_pub_;

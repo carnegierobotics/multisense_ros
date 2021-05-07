@@ -379,7 +379,6 @@ FloatT getSplineValue(
     {
         size_t i0PlusK = index0 + kIndex;
 
-        //  FloatT B_k = dot<FloatT>((basisArray)[kIndex], powersOfS);
         FloatT B_k = std::inner_product(
             powersOfS, powersOfS + 4, (basisArray)[kIndex].data(), static_cast<FloatT>(0));
 
@@ -387,11 +386,9 @@ FloatT getSplineValue(
         {
             size_t i1PlusL = index1 + lIndex;
 
-            // FloatT B_l = dot<FloatT>((basisArray)[lIndex], powersOfT);
             FloatT B_l = std::inner_product(
                 powersOfT, powersOfT + 4, (basisArray)[lIndex].data(), static_cast<FloatT>(0));
 
-            // Indexing into control grid is (row, column), not (k, l).
             functionValue += (B_k * B_l * controlGrid(i1PlusL, i0PlusK));
         }
     }
@@ -593,7 +590,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     raw_cam_config_pub_ = calibration_nh_.advertise<multisense_ros::RawCamConfig>(RAW_CAM_CONFIG_TOPIC, 1, true);
     histogram_pub_      = device_nh_.advertise<multisense_ros::Histogram>(HISTOGRAM_TOPIC, 5);
 
-    // TODO(drobinson): guard this inside appropriate hardware / profile conditional
+    // TODO(drobinson): guard this inside appropriate conditional
     ground_surface_cam_pub_ = ground_surface_transport_.advertise(GROUND_SURFACE_IMAGE_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Ground_Surface_Class_Image),
                               std::bind(&Camera::disconnectStream, this, Source_Ground_Surface_Class_Image));
@@ -958,7 +955,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
     //
     // Add ground surface callbacks
-    // TODO(drobinson): guard this inside appropriate hardware / profile conditional
+    // TODO(drobinson): guard this inside appropriate conditional
 
     driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface_Class_Image, this);
     driver_->addIsolatedCallback(groundSurfaceSplineCB, this);
