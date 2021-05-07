@@ -1,11 +1,11 @@
 Panels:
   - Class: rviz/Displays
-    Help Height: 0
+    Help Height: 81
     Name: Displays
     Property Tree Widget:
       Expanded: ~
-      Splitter Ratio: 0.8077858686447144
-    Tree Height: 384
+      Splitter Ratio: 0.493631005
+    Tree Height: 533
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -14,7 +14,7 @@ Panels:
       - /2D Nav Goal1
       - /Publish Point1
     Name: Tool Properties
-    Splitter Ratio: 0.5886790156364441
+    Splitter Ratio: 0.588679016
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -25,10 +25,6 @@ Panels:
     Name: Time
     SyncMode: 0
     SyncSource: Left Rectified
-Preferences:
-  PromptSaveOnExit: true
-Toolbars:
-  toolButtonStyle: 2
 Visualization Manager:
   Class: ""
   Displays:
@@ -38,7 +34,7 @@ Visualization Manager:
       Color: 160; 160; 164
       Enabled: true
       Line Style:
-        Line Width: 0.029999999329447746
+        Line Width: 0.0299999993
         Value: Lines
       Name: Grid
       Normal Cell Count: 0
@@ -162,18 +158,6 @@ Visualization Manager:
       Transport Hint: raw
       Unreliable: false
       Value: false
-    - Class: rviz/Image
-      Enabled: false
-      Image Topic: /multisense/ground_surface/image
-      Max Value: 1
-      Median window: 5
-      Min Value: 0
-      Name: Ground Surface
-      Normalize Range: true
-      Queue Size: 2
-      Transport Hint: raw
-      Unreliable: false
-      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -197,7 +181,7 @@ Visualization Manager:
       Queue Size: 10
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.009999999776482582
+      Size (m): 0.00999999978
       Style: Flat Squares
       Topic: /multisense/lidar_scan
       Unreliable: false
@@ -216,7 +200,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 252
@@ -224,16 +208,16 @@ Visualization Manager:
       Min Intensity: 7
       Name: Disparity Point Cloud
       Position Transformer: XYZ
-      Queue Size: 1
+      Queue Size: 10
       Selectable: true
       Size (Pixels): 2
-      Size (m): 0.009999999776482582
-      Style: Flat Squares
+      Size (m): 0.00999999978
+      Style: Points
       Topic: /multisense/image_points2
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: false
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -246,7 +230,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -257,13 +241,13 @@ Visualization Manager:
       Queue Size: 10
       Selectable: true
       Size (Pixels): 2
-      Size (m): 0.009999999776482582
-      Style: Squares
+      Size (m): 0.00999999978
+      Style: Points
       Topic: /multisense/image_points2_color
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -287,7 +271,7 @@ Visualization Manager:
       Queue Size: 10
       Selectable: true
       Size (Pixels): 1
-      Size (m): 0.009999999776482582
+      Size (m): 0.00999999978
       Style: Points
       Topic: /multisense/lidar_points2
       Unreliable: false
@@ -295,75 +279,22 @@ Visualization Manager:
       Use rainbow: false
       Value: false
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 15
       Frames:
-        All Enabled: false
-        multisense/accel:
-          Value: false
-        multisense/aux_camera_frame:
-          Value: false
-        multisense/aux_camera_optical_frame:
-          Value: false
-        multisense/gyro:
-          Value: false
-        multisense/head:
-          Value: false
-        multisense/left_camera_frame:
-          Value: true
-        multisense/left_camera_optical_frame:
-          Value: false
-        multisense/mag:
-          Value: false
-        multisense/right_camera_frame:
-          Value: false
-        multisense/right_camera_optical_frame:
-          Value: false
-        multisense/top_left_rear_mount:
-          Value: false
-      Marker Alpha: 1
+        All Enabled: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        multisense/head:
-          multisense/accel:
-            {}
-          multisense/gyro:
-            {}
-          multisense/left_camera_optical_frame:
-            multisense/aux_camera_optical_frame:
-              multisense/aux_camera_frame:
-                {}
-            multisense/left_camera_frame:
-              {}
-            multisense/right_camera_optical_frame:
-              multisense/right_camera_frame:
-                {}
-          multisense/mag:
-            {}
-          multisense/top_left_rear_mount:
-            {}
+        {}
       Update Interval: 0
-      Value: true
-    - Class: rviz/Image
-      Enabled: true
-      Image Topic: /multisense/ground_surface/image
-      Max Value: 1
-      Median window: 5
-      Min Value: 0
-      Name: Ground Surface
-      Normalize Range: true
-      Queue Size: 2
-      Transport Hint: raw
-      Unreliable: false
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Default Light: true
     Fixed Frame: multisense/head
     Frame Rate: 30
   Name: root
@@ -375,10 +306,7 @@ Visualization Manager:
     - Class: rviz/FocusCamera
     - Class: rviz/Measure
     - Class: rviz/SetInitialPose
-      Theta std deviation: 0.2617993950843811
       Topic: /initialpose
-      X std deviation: 0.5
-      Y std deviation: 0.5
     - Class: rviz/SetGoal
       Topic: /move_base_simple/goal
     - Class: rviz/PublishPoint
@@ -388,34 +316,31 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 7.267717361450195
+      Distance: 2.28462005
       Enable Stereo Rendering:
-        Stereo Eye Separation: 0.05999999865889549
+        Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
-      Field of View: 0.7853981852531433
       Focal Point:
-        X: 2.5449960231781006
-        Y: -0.7466034889221191
-        Z: 0.7200619578361511
+        X: 0
+        Y: 0
+        Z: 0
       Focal Shape Fixed Size: true
-      Focal Shape Size: 0.05000000074505806
-      Invert Z Axis: false
+      Focal Shape Size: 0.0500000007
       Name: Current View
-      Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2303960919380188
+      Near Clip Distance: 0.00999999978
+      Pitch: 0.055396799
       Target Frame: <Fixed Frame>
-      Yaw: 3.508150100708008
+      Value: Orbit (rviz)
+      Yaw: 3.13814998
     Saved: ~
 Window Geometry:
   Depth:
     collapsed: false
   Displays:
     collapsed: false
-  Ground Surface:
-    collapsed: false
-  Height: 1043
+  Height: 1178
   Hide Left Dock: false
   Hide Right Dock: false
   Left Color:
@@ -428,7 +353,7 @@ Window Geometry:
     collapsed: false
   Left Rectified:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000019b00000375fc0200000019fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000001bd000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb00000014004c00650066007400200043006f006c006f00720200000000000002c00000016a00000178fb00000028004c00650066007400200043006f006c006f007200200052006500630074006900660069006500640000000173000000b90000001600fffffffb00000012004c0065006600740020004d006f006e006f000000016f000000d60000001600fffffffb0000001c004c00650066007400200052006500630074006900660069006500640100000200000000d80000001600fffffffb0000000a004400650070007400680000000247000000c30000001600fffffffb0000001c004c00650066007400200044006900730070006100720069007400790000000185000000c00000001600fffffffb00000014005200690067006800740020004d006f006e006f0000000204000001060000001600fffffffb0000001e00520069006700680074002000520065006300740069006600690065006400000002800000008a0000001600fffffffb0000000c00430061006d00650072006102000002cc0000010f000003c1000002b2fb0000000c00430061006d00650072006102000002870000010e0000026e00000235fb0000000c00430061006d006500720061020000021800000069000003f90000028ffb0000000c00430061006d0065007200610200000279000000e000000347000002b0fb0000001c00470072006f0075006e006400200053007500720066006100630065000000025a000001580000001600fffffffb0000001c00470072006f0075006e00640020005300750072006600610063006501000002ea000000c80000000000000000fb0000000a0049006d00610067006500000002ea000000c80000000000000000fb0000001c00470072006f0075006e00640020005300750072006600610063006501000002d3000000df0000000000000000fb0000001c00470072006f0075006e00640020005300750072006600610063006501000002de000000d40000001600ffffff000000010000010f000003f7fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000041000003f7000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007800000003efc0100000002fb0000000800540069006d0065010000000000000780000002eb00fffffffb0000000800540069006d00650100000000000004500000000000000000000005df0000037500000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000016a00000410fc0200000014fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006400fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730100000028000002a7000000dd00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb00000014004c00650066007400200043006f006c006f00720200000000000003040000016a00000178fb00000028004c00650066007400200043006f006c006f007200200052006500630074006900660069006500640000000173000000b90000001600fffffffb00000012004c0065006600740020004d006f006e006f000000016f000000d60000001600fffffffb0000001c004c006500660074002000520065006300740069006600690065006401000002d5000001630000001600fffffffb0000000a004400650070007400680000000247000000c30000001600fffffffb0000001c004c00650066007400200044006900730070006100720069007400790000000185000000c00000001600fffffffb00000014005200690067006800740020004d006f006e006f0000000204000001060000001600fffffffb0000001e00520069006700680074002000520065006300740069006600690065006400000002800000008a0000001600fffffffb0000000c00430061006d00650072006102000002cc0000010f000003c1000002b2fb0000000c00430061006d00650072006102000002870000010e0000026e00000235fb0000000c00430061006d006500720061020000021800000069000003f90000028ffb0000000c00430061006d0065007200610200000279000000e000000347000002b0000000010000010f000003f7fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000041000003f7000000b000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004380000003efc0100000002fb0000000800540069006d00650100000000000004380000030000fffffffb0000000800540069006d00650100000000000004500000000000000000000002c80000041000000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Right Mono:
     collapsed: false
   Right Rectified:
@@ -441,6 +366,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1920
+  Width: 1080
   X: 1920
-  Y: 0
+  Y: 34
