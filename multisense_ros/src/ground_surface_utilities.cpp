@@ -239,11 +239,9 @@ std::vector<Eigen::Vector3f> convertSplineToPointcloud(
     const auto maxX = xzLimit[0];
     const auto maxZ = xzLimit[1];
 
-    // Precompute number of points
-    size_t numPoints = 0;
-    for (float x = minX; x < maxX; x += drawResolution)
-        for (float y = minZ; y < maxZ; y += drawResolution)
-            numPoints++;
+    // Precompute number of points that will be drawn
+    const size_t numPoints =
+        std::floor((maxX - minX) / drawResolution) * std::floor((maxZ - minZ) / drawResolution);
 
     std::vector<Eigen::Vector3f> points;
     points.reserve(numPoints);
