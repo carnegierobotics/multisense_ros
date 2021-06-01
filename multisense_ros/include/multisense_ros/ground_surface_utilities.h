@@ -35,6 +35,7 @@
 #include <numeric>
 
 #include <Eigen/Geometry>
+#include <Eigen/StdVector>
 
 #include <multisense_ros/point_cloud_utilities.h>
 
@@ -55,7 +56,7 @@ Eigen::Matrix<uint8_t, 3, 1> groundSurfaceClassToPixelColor(const uint8_t value)
 /// @return Pointcloud in sensor_msg format
 ///
 sensor_msgs::PointCloud2 eigenToPointcloud(
-    const std::vector<Eigen::Vector3f> &input,
+    const std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> &input,
     const std::string &frame_id);
 
 ///
@@ -70,7 +71,7 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
 /// @param quadraticParams parameters for the quadratic data transformation prior to spline fitting
 /// @return Eigen representation of spline pointcloud at regularly sample x/z intervals
 ///`
-std::vector<Eigen::Vector3f> convertSplineToPointcloud(
+std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertSplineToPointcloud(
     const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
     const float* xzCellOrigin,
     const float* xzCellSize,

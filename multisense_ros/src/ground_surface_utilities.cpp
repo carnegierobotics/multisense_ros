@@ -178,7 +178,7 @@ Eigen::Matrix<uint8_t, 3, 1> groundSurfaceClassToPixelColor(const uint8_t value)
 }
 
 sensor_msgs::PointCloud2 eigenToPointcloud(
-    const std::vector<Eigen::Vector3f> &input,
+    const std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> &input,
     const std::string &frame_id)
 {
     sensor_msgs::PointCloud2 ret =
@@ -203,7 +203,7 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
     return ret;
 }
 
-std::vector<Eigen::Vector3f> convertSplineToPointcloud(
+std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertSplineToPointcloud(
     const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
     const float* xzCellOrigin,
     const float* xzCellSize,
@@ -243,7 +243,7 @@ std::vector<Eigen::Vector3f> convertSplineToPointcloud(
     const size_t numPoints =
         std::floor((maxX - minX) / drawResolution) * std::floor((maxZ - minZ) / drawResolution);
 
-    std::vector<Eigen::Vector3f> points;
+    std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> points;
     points.reserve(numPoints);
 
     for (float x = minX; x < maxX; x += drawResolution)
