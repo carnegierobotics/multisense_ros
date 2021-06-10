@@ -69,6 +69,7 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
 /// @param extrinsics Camera extrinsics that were used in the ground surface fitting operation
 ///                   Order of parameters is x, y, z in meters then rz, ry, rz in radians
 /// @param quadraticParams parameters for the quadratic data transformation prior to spline fitting
+/// @param baseline Stereo camera baseline in meters
 /// @return Eigen representation of spline pointcloud at regularly sample x/z intervals
 ///`
 std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertSplineToPointcloud(
@@ -78,6 +79,7 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
     const float* xzLimit,
     const float* minMaxAzimuthAngle,
     const float* extrinsics,
-    const float* quadraticParams);
+    const float* quadraticParams,
+    const float baseline);
 
 } // namespace ground_surface_utilities

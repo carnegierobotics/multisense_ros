@@ -1990,15 +1990,23 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
     Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> controlGrid(
         reinterpret_cast<const float*>(header.controlPointsImageDataP), header.controlPointsHeight, header.controlPointsWidth);
 
+    // Calculate frustum azimuth angles
+    const auto config = stereo_calibration_manager_->config();
+
+    float minMaxAzimuthAngle[2];
+    minMaxAzimuthAngle[0] = M_PI_2 - atan(config.cx() / config.fx());
+    minMaxAzimuthAngle[1] = M_PI_2 + atan((config.width() - config.cx()) / config.fx());
+
     // Generate pointcloud for visualization
     auto eigen_pcl = ground_surface_utilities::convertSplineToPointcloud(
         controlGrid,
         header.xzCellOrigin,
         header.xzCellSize,
         header.xzLimit,
-        header.minMaxAzimuthAngle,
+        minMaxAzimuthAngle,
         header.extrinsics,
-        header.quadraticParams
+        header.quadraticParams,
+        config.tx()
     );
 
     // Send pointcloud message

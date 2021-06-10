@@ -210,7 +210,8 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
     const float* xzLimit,
     const float* minMaxAzimuthAngle,
     const float* extrinsics,
-    const float* quadraticParams)
+    const float* quadraticParams,
+    const float baseline)
 {
     static constexpr double drawResolution = 0.1;
     static const auto basisArray = generateBasisArray();
@@ -250,13 +251,18 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
     {
         for (float z = minZ; z < maxZ; z += drawResolution)
         {
-            // Filter points by range and angle for a cleaner "frustum" style visualization
+            // Filter points by range and angle
             const auto distance = computeRange(x, z);
             if (distance > maxZ)
                 continue;
 
-            const auto azimuthAngle = computeAzimuth(x, z);
-            if (azimuthAngle < minMaxAzimuthAngle[0] || azimuthAngle > minMaxAzimuthAngle[1])
+            const auto leftCamAzimuthAngle = computeAzimuth(x, z);
+            if (leftCamAzimuthAngle < minMaxAzimuthAngle[0])
+                continue;
+
+            // Offset max azimuth angle check by baseline for a cleaner "frustum" visualization
+            const auto rightCamAzimuthAngle = computeAzimuth(x + baseline, z);
+            if (rightCamAzimuthAngle > minMaxAzimuthAngle[1])
                 continue;
 
             // Compute spline point and transform into left camera optical frame
