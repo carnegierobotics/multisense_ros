@@ -73,6 +73,8 @@ public:
     void jpegImageCallback(const crl::multisense::image::Header& header);
     void histogramCallback(const crl::multisense::image::Header& header);
     void colorizeCallback(const crl::multisense::image::Header& header);
+    void groundSurfaceCallback(const crl::multisense::image::Header& header);
+    void groundSurfaceSplineCallback(const crl::multisense::ground_surface::Header& header);
 
     void borderClipChanged(const BorderClip &borderClipType, double borderClipValue);
 
@@ -86,6 +88,7 @@ private:
     static constexpr char RIGHT[] = "right";
     static constexpr char AUX[] = "aux";
     static constexpr char CALIBRATION[] = "calibration";
+    static constexpr char GROUND_SURFACE[] = "ground_surface";
 
     //
     // Frames
@@ -125,6 +128,10 @@ private:
     static constexpr char DEPTH_CAMERA_INFO_TOPIC[] = "depth/camera_info";
     static constexpr char DISPARITY_CAMERA_INFO_TOPIC[] = "disparity/camera_info";
     static constexpr char COST_CAMERA_INFO_TOPIC[] = "cost/camera_info";
+    static constexpr char GROUND_SURFACE_IMAGE_TOPIC[] = "image";
+    static constexpr char GROUND_SURFACE_INFO_TOPIC[] = "camera_info";
+    static constexpr char GROUND_SURFACE_POINT_SPLINE_TOPIC[] = "spline";
+
 
     //
     // Device stream control
@@ -152,6 +159,7 @@ private:
     ros::NodeHandle right_nh_;
     ros::NodeHandle aux_nh_;
     ros::NodeHandle calibration_nh_;
+    ros::NodeHandle ground_surface_nh_;
 
     //
     // Image transports
@@ -171,6 +179,7 @@ private:
     image_transport::ImageTransport  aux_rgb_transport_;
     image_transport::ImageTransport  aux_rect_transport_;
     image_transport::ImageTransport  aux_rgb_rect_transport_;
+    image_transport::ImageTransport  ground_surface_transport_;
 
     //
     // Data publishers
@@ -187,6 +196,7 @@ private:
     image_transport::Publisher       aux_mono_cam_pub_;
     image_transport::CameraPublisher aux_rect_cam_pub_;
     image_transport::CameraPublisher aux_rgb_rect_cam_pub_;
+    image_transport::Publisher       ground_surface_cam_pub_;
 
     ros::Publisher                   left_mono_cam_info_pub_;
     ros::Publisher                   right_mono_cam_info_pub_;
@@ -202,9 +212,11 @@ private:
     ros::Publisher                   aux_rgb_cam_info_pub_;
     ros::Publisher                   aux_rect_cam_info_pub_;
     ros::Publisher                   aux_rgb_rect_cam_info_pub_;
+    ros::Publisher                   ground_surface_info_pub_;
 
     ros::Publisher                   luma_point_cloud_pub_;
     ros::Publisher                   color_point_cloud_pub_;
+    ros::Publisher                   ground_surface_spline_pub_;
 
     ros::Publisher                   luma_organized_point_cloud_pub_;
     ros::Publisher                   color_organized_point_cloud_pub_;
@@ -252,6 +264,8 @@ private:
 
     stereo_msgs::DisparityImage left_stereo_disparity_;
     stereo_msgs::DisparityImage right_stereo_disparity_;
+
+    sensor_msgs::Image         ground_surface_image_;
 
     multisense_ros::RawCamData raw_cam_data_;
 
