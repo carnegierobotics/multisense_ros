@@ -353,6 +353,13 @@ private:
 
     void diagnosticTimerCallback(const ros::TimerEvent &);
     ros::Timer diagnostic_trigger_;
+
+    //
+    // Timesync settings
+    bool ptp_time_sync_ = false;
+    bool network_time_sync_ = false;
+
+    int32_t ptp_time_offset_sec_ = 0;
 };
 
 }
