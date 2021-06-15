@@ -359,7 +359,7 @@ private:
     bool ptp_time_sync_ = false;
     bool network_time_sync_ = false;
 
-    int32_t ptp_time_offset_sec_ = 0;
+    int32_t ptp_time_offset_secs_ = 0;
 };
 
 }
