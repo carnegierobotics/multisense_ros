@@ -648,6 +648,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configureSgm(cfg, dyn);                                 \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
+        configurePointCloudRange(dyn);                          \
     } while(0)
 
 #define SL_SGM_IMU_CMV4000()  do {                              \
@@ -669,6 +670,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configurePtp(dyn);                                      \
+        configurePointCloudRange(dyn);                          \
     } while(0)
 
 
