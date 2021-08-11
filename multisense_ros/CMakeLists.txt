@@ -87,7 +87,8 @@ add_library(${PROJECT_NAME} src/camera.cpp
                             src/pps.cpp
                             src/point_cloud_utilities.cpp
                             src/status.cpp
-                            src/reconfigure.cpp)
+                            src/reconfigure.cpp
+                            src/ground_surface_utilities.cpp)
 
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_generate_messages_cpp)

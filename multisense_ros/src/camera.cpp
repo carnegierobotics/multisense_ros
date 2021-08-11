@@ -50,6 +50,7 @@
 #include <multisense_ros/DeviceInfo.h>
 #include <multisense_ros/Histogram.h>
 #include <multisense_ros/point_cloud_utilities.h>
+#include <multisense_ros/ground_surface_utilities.h>
 
 using namespace crl::multisense;
 
@@ -110,6 +111,11 @@ void histCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->histogramCallback(header); }
 void colorizeCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->colorizeCallback(header); }
+void groundSurfaceCB(const image::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->groundSurfaceCallback(header); }
+void groundSurfaceSplineCB(const ground_surface::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->groundSurfaceSplineCallback(header); }
+
 
 bool isValidReprojectedPoint(const Eigen::Vector3f& pt, double squared_max_range)
 {
@@ -221,6 +227,7 @@ constexpr char Camera::LEFT[];
 constexpr char Camera::RIGHT[];
 constexpr char Camera::AUX[];
 constexpr char Camera::CALIBRATION[];
+constexpr char Camera::GROUND_SURFACE[];
 
 constexpr char Camera::LEFT_CAMERA_FRAME[];
 constexpr char Camera::RIGHT_CAMERA_FRAME[];
@@ -254,6 +261,9 @@ constexpr char Camera::RECT_COLOR_CAMERA_INFO_TOPIC[];
 constexpr char Camera::DEPTH_CAMERA_INFO_TOPIC[];
 constexpr char Camera::DISPARITY_CAMERA_INFO_TOPIC[];
 constexpr char Camera::COST_CAMERA_INFO_TOPIC[];
+constexpr char Camera::GROUND_SURFACE_IMAGE_TOPIC[];
+constexpr char Camera::GROUND_SURFACE_INFO_TOPIC[];
+constexpr char Camera::GROUND_SURFACE_POINT_SPLINE_TOPIC[];
 
 Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     driver_(driver),
@@ -262,6 +272,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     right_nh_(device_nh_, RIGHT),
     aux_nh_(device_nh_, AUX),
     calibration_nh_(device_nh_, CALIBRATION),
+    ground_surface_nh_(device_nh_, GROUND_SURFACE),
     left_mono_transport_(left_nh_),
     right_mono_transport_(right_nh_),
     left_rect_transport_(left_nh_),
@@ -277,6 +288,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     aux_rgb_transport_(aux_nh_),
     aux_rect_transport_(aux_nh_),
     aux_rgb_rect_transport_(aux_nh_),
+    ground_surface_transport_(ground_surface_nh_),
     frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
     frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME),
     frame_id_aux_(tf_prefix + AUX_CAMERA_FRAME),
@@ -327,6 +339,23 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     raw_cam_cal_pub_    = calibration_nh_.advertise<multisense_ros::RawCamCal>(RAW_CAM_CAL_TOPIC, 1, true);
     raw_cam_config_pub_ = calibration_nh_.advertise<multisense_ros::RawCamConfig>(RAW_CAM_CONFIG_TOPIC, 1, true);
     histogram_pub_      = device_nh_.advertise<multisense_ros::Histogram>(HISTOGRAM_TOPIC, 5);
+
+    //
+    // Create spline-based ground surface publishers for S27/S30 cameras
+
+    const bool can_support_ground_surface =
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision;
+
+    if (can_support_ground_surface) {
+        ground_surface_cam_pub_ = ground_surface_transport_.advertise(GROUND_SURFACE_IMAGE_TOPIC, 5,
+                                std::bind(&Camera::connectStream, this, Source_Ground_Surface_Class_Image),
+                                std::bind(&Camera::disconnectStream, this, Source_Ground_Surface_Class_Image));
+    }
+
+    ground_surface_info_pub_ = ground_surface_nh_.advertise<sensor_msgs::CameraInfo>(GROUND_SURFACE_INFO_TOPIC, 1, true);
+
+    ground_surface_spline_pub_ = ground_surface_nh_.advertise<sensor_msgs::PointCloud2>(GROUND_SURFACE_POINT_SPLINE_TOPIC, 5, true);
 
     //
     // Create topic publishers (TODO: color topics should not be advertised if the device can't support it)
@@ -683,6 +712,14 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     driver_->addIsolatedCallback(histCB, allImageSources, this);
 
     //
+    // Add ground surface callbacks for S27/S30 cameras
+
+    if (can_support_ground_surface) {
+        driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface_Class_Image, this);
+        driver_->addIsolatedCallback(groundSurfaceSplineCB, this);
+    }
+
+    //
     // Disable color point cloud strict frame syncing, if desired
 
     const char *pcColorFrameSyncEnvStringP = getenv("MULTISENSE_ROS_PC_COLOR_FRAME_SYNC_OFF");
@@ -711,6 +748,9 @@ Camera::~Camera()
         driver_->removeIsolatedCallback(colorCB);
         driver_->removeIsolatedCallback(dispCB);
     }
+
+    driver_->removeIsolatedCallback(groundSurfaceCB);
+    driver_->removeIsolatedCallback(groundSurfaceSplineCB);
 }
 
 void Camera::borderClipChanged(const BorderClip &borderClipType, double borderClipValue)
@@ -1873,6 +1913,105 @@ void Camera::colorizeCallback(const image::Header& header)
     image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
 }
 
+void Camera::groundSurfaceCallback(const image::Header& header)
+{
+    if (Source_Ground_Surface_Class_Image != header.source)
+    {
+        ROS_WARN("Camera: unexpected image source: 0x%x", header.source);
+        return;
+    }
+
+    const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+
+    switch (header.source)
+    {
+    case Source_Ground_Surface_Class_Image:
+    {
+        const auto ground_surface_subscribers = ground_surface_cam_pub_.getNumSubscribers();
+
+        if (ground_surface_subscribers == 0)
+            return;
+
+        const uint32_t height    = header.height;
+        const uint32_t width     = header.width;
+        const uint32_t imageSize = 3 * height * width;
+
+        ground_surface_image_.data.resize(imageSize);
+
+        ground_surface_image_.header.frame_id = frame_id_rectified_left_;
+        ground_surface_image_.header.stamp    = t;
+        ground_surface_image_.height          = height;
+        ground_surface_image_.width           = width;
+
+        ground_surface_image_.encoding        = sensor_msgs::image_encodings::RGB8;
+        ground_surface_image_.is_bigendian    = (htonl(1) == 1);
+        ground_surface_image_.step            = 3* width;
+
+        // Get pointer to output image
+        uint8_t* output = reinterpret_cast<uint8_t*>(&(ground_surface_image_.data[0]));
+
+        // Colorize image with classes
+        const size_t rgb_stride = ground_surface_image_.width * 3;
+
+        for(uint32_t y = 0; y < ground_surface_image_.height; ++y)
+        {
+            const size_t row_offset = y * rgb_stride;
+
+            for(uint32_t x = 0; x < ground_surface_image_.width; ++x)
+            {
+                const uint8_t *imageP = reinterpret_cast<const uint8_t*>(header.imageDataP);
+
+                const size_t image_offset = (y * ground_surface_image_.width) + x;
+                memcpy(output + row_offset + (3 * x), ground_surface_utilities::groundSurfaceClassToPixelColor(imageP[image_offset]).data(), 3);
+            }
+        }
+
+        ground_surface_cam_pub_.publish(ground_surface_image_);
+
+        // Publish info
+        const auto ground_surface_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
+        ground_surface_info_pub_.publish(ground_surface_info);
+
+        break;
+    }
+    }
+}
+
+void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
+{
+    if (header.controlPointsBitsPerPixel != 32)
+    {
+        std::cerr << "Expecting floats for spline control points, got " << header.controlPointsBitsPerPixel
+                  << " bits per pixel instead" << std::endl;
+        return;
+    }
+
+    // Convert row spline control point data to eigen matrix
+    Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> controlGrid(
+        reinterpret_cast<const float*>(header.controlPointsImageDataP), header.controlPointsHeight, header.controlPointsWidth);
+
+    // Calculate frustum azimuth angles
+    const auto config = stereo_calibration_manager_->config();
+
+    float minMaxAzimuthAngle[2];
+    minMaxAzimuthAngle[0] = M_PI_2 - atan(config.cx() / config.fx());
+    minMaxAzimuthAngle[1] = M_PI_2 + atan((config.width() - config.cx()) / config.fx());
+
+    // Generate pointcloud for visualization
+    auto eigen_pcl = ground_surface_utilities::convertSplineToPointcloud(
+        controlGrid,
+        header.xzCellOrigin,
+        header.xzCellSize,
+        header.xzLimit,
+        minMaxAzimuthAngle,
+        header.extrinsics,
+        header.quadraticParams,
+        config.tx()
+    );
+
+    // Send pointcloud message
+    ground_surface_spline_pub_.publish(ground_surface_utilities::eigenToPointcloud(eigen_pcl, frame_id_rectified_left_));
+}
 
 void Camera::updateConfig(const image::Config& config)
 {
