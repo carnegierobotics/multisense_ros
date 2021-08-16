@@ -392,14 +392,17 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     if (dyn.roi_auto_exposure) {
         if (roi_supported_) {
             //
-            // Ensure the commanded ROI region is in the image
+            // Ensure the commanded ROI region is in the full resolution image
 
-            const int32_t x = fmax(0, fmin(dyn.roi_auto_exposure_x, width));
-            const int32_t y = fmax(0, fmin(dyn.roi_auto_exposure_y, height));
+            const int32_t maxX = dyn.__getMax__().roi_auto_exposure_x;
+            const int32_t maxY = dyn.__getMax__().roi_auto_exposure_y;
+
+            const int32_t x = fmax(0, fmin(dyn.roi_auto_exposure_x, maxX));
+            const int32_t y = fmax(0, fmin(dyn.roi_auto_exposure_y, maxY));
 
             cfg.setAutoExposureRoi(x, y,
-                                   fmax(0, fmin(dyn.roi_auto_exposure_width, width - x)),
-                                   fmax(0, fmin(dyn.roi_auto_exposure_height, height - y)));
+                                   fmax(0, fmin(dyn.roi_auto_exposure_width, maxX - x)),
+                                   fmax(0, fmin(dyn.roi_auto_exposure_height, maxY - y)));
         } else {
             ROS_WARN("Reconfigure: ROI auto exposure is not supported with this firmware version");
         }
