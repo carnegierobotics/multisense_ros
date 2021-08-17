@@ -49,6 +49,7 @@ Reconfigure::Reconfigure(Channel* driver,
     motor_supported_(false),
     crop_mode_changed_(false),
     ptp_supported_(false),
+    roi_supported_(false),
     border_clip_type_(BorderClip::NONE),
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
@@ -86,6 +87,10 @@ Reconfigure::Reconfigure(Channel* driver,
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
     {
         ptp_supported_ = true;
+    }
+
+    if (versionInfo.sensorFirmwareVersion >= 0x0403) {
+        roi_supported_ = true;
     }
 
     //
@@ -383,6 +388,28 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     cfg.setAutoWhiteBalanceDecay(dyn.auto_white_balance_decay);
     cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
     cfg.setHdr(dyn.hdr_enable);
+
+    if (dyn.roi_auto_exposure) {
+        if (roi_supported_) {
+            //
+            // Ensure the commanded ROI region is in the full resolution image
+
+            const int32_t maxX = dyn.__getMax__().roi_auto_exposure_x;
+            const int32_t maxY = dyn.__getMax__().roi_auto_exposure_y;
+
+            const int32_t x = fmax(0, fmin(dyn.roi_auto_exposure_x, maxX));
+            const int32_t y = fmax(0, fmin(dyn.roi_auto_exposure_y, maxY));
+
+            cfg.setAutoExposureRoi(x, y,
+                                   fmax(0, fmin(dyn.roi_auto_exposure_width, maxX - x)),
+                                   fmax(0, fmin(dyn.roi_auto_exposure_height, maxY - y)));
+        } else {
+            ROS_WARN("Reconfigure: ROI auto exposure is not supported with this firmware version");
+        }
+
+    } else {
+        cfg.setAutoExposureRoi(0, 0, Roi_Full_Image, Roi_Full_Image);
+    }
 
     //
     // Apply, sensor enforces limits per setting.
