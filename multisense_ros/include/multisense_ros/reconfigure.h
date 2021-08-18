@@ -89,6 +89,7 @@ private:
     bool changeResolution(crl::multisense::image::Config& cfg,
                           int32_t width, int32_t height, int32_t disparities);
     template<class T> void configureSgm(crl::multisense::image::Config& cfg, const T& dyn);
+    template<class T> void configureAuxCamera(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureCamera(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureCropMode(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureMotor(const T& dyn);
@@ -145,6 +146,7 @@ private:
     bool crop_mode_changed_ = false;
     bool ptp_supported_ = false;
     bool roi_supported_ = false;
+    bool aux_supported_ = false;
 
     //
     // Cached value for the boarder clip. These are used to determine if we

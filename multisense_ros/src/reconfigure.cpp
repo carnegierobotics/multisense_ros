@@ -50,6 +50,7 @@ Reconfigure::Reconfigure(Channel* driver,
     crop_mode_changed_(false),
     ptp_supported_(false),
     roi_supported_(false),
+    aux_supported_(false),
     border_clip_type_(BorderClip::NONE),
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
@@ -91,6 +92,12 @@ Reconfigure::Reconfigure(Channel* driver,
 
     if (versionInfo.sensorFirmwareVersion >= 0x0403) {
         roi_supported_ = true;
+    }
+
+    if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision)
+    {
+        aux_supported_ = true;
     }
 
     //
@@ -336,6 +343,62 @@ template<class T> void Reconfigure::configureSgm(image::Config& cfg, const T& dy
     cfg.setStereoPostFilterStrength(dyn.stereo_post_filtering);
 }
 
+template<class T> void Reconfigure::configureAuxCamera(image::Config& cfg, const T& dyn)
+{
+    if (aux_supported_ && dyn.enable_aux_controls) {
+
+        //
+        // See if we already have a secondary exposure we want to modify. If not create one for the aux camera
+
+        auto secondaryExposures = cfg.secondaryExposures();
+        auto auxExposureConfig = std::find_if(std::begin(secondaryExposures), std::end(secondaryExposures),
+                                              [](const image::ExposureConfig &c)
+                                              {
+                                                  return c.exposureSource() == Source_Luma_Aux;
+                                              });
+
+        if (auxExposureConfig != std::end(secondaryExposures)) {
+            image::ExposureConfig auxConfig;
+            auxConfig.setExposureSource(Source_Luma_Aux);
+            secondaryExposures.push_back(auxConfig);
+
+            auxExposureConfig = std::prev(std::end(secondaryExposures));
+        }
+
+        auxExposureConfig->setGain(dyn.aux_gain);
+        auxExposureConfig->setExposure(dyn.aux_exposure_time * 1e6);
+        auxExposureConfig->setAutoExposure(dyn.aux_auto_exposure);
+        auxExposureConfig->setAutoExposureMax(dyn.aux_auto_exposure_max_time * 1e6);
+        auxExposureConfig->setAutoExposureDecay(dyn.aux_auto_exposure_decay);
+        auxExposureConfig->setAutoExposureThresh(dyn.aux_auto_exposure_thresh);
+        auxExposureConfig->setAutoExposureTargetIntensity(dyn.aux_auto_exposure_target_intensity);
+
+        if (dyn.aux_roi_auto_exposure) {
+            if (roi_supported_) {
+                //
+                // Ensure the commanded ROI region is in the full resolution image
+
+                const int32_t maxX = dyn.__getMax__().aux_roi_auto_exposure_x;
+                const int32_t maxY = dyn.__getMax__().aux_roi_auto_exposure_y;
+
+                const int32_t x = fmax(0, fmin(dyn.aux_roi_auto_exposure_x, maxX));
+                const int32_t y = fmax(0, fmin(dyn.aux_roi_auto_exposure_y, maxY));
+
+                auxExposureConfig->setAutoExposureRoi(x, y,
+                                                      fmax(0, fmin(dyn.aux_roi_auto_exposure_width, maxX - x)),
+                                                      fmax(0, fmin(dyn.aux_roi_auto_exposure_height, maxY - y)));
+            } else {
+                ROS_WARN("Reconfigure: ROI auto exposure is not supported with this firmware version");
+            }
+
+        } else {
+            auxExposureConfig->setAutoExposureRoi(0, 0, Roi_Full_Image, Roi_Full_Image);
+        }
+
+        cfg.setSecondaryExposures(secondaryExposures);
+    }
+}
+
 template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T& dyn)
 {
     DataSource    streamsEnabled = 0;
@@ -382,8 +445,8 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     cfg.setAutoExposureMax(dyn.auto_exposure_max_time * 1e6);
     cfg.setAutoExposureDecay(dyn.auto_exposure_decay);
     cfg.setAutoExposureThresh(dyn.auto_exposure_thresh);
-    cfg.setWhiteBalance(dyn.white_balance_red,
-                        dyn.white_balance_blue);
+    cfg.setAutoExposureThresh(dyn.auto_exposure_target_intensity);
+    cfg.setWhiteBalance(dyn.white_balance_red, dyn.white_balance_blue);
     cfg.setAutoWhiteBalance(dyn.auto_white_balance);
     cfg.setAutoWhiteBalanceDecay(dyn.auto_white_balance_decay);
     cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
@@ -700,6 +763,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
         configureStereoProfile(cfg, dyn);                       \
+        configureAuxCamera(cfg, dyn);                           \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configurePtp(dyn);                                      \
