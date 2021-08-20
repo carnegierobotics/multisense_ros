@@ -40,6 +40,8 @@
 
 #include <ros/ros.h>
 
+#include <diagnostic_updater/diagnostic_updater.h>
+#include <diagnostic_updater/publisher.h>
 #include <image_geometry/stereo_camera_model.h>
 #include <image_transport/image_transport.h>
 #include <image_transport/camera_publisher.h>
@@ -47,7 +49,6 @@
 #include <stereo_msgs/DisparityImage.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2_ros/static_transform_broadcaster.h>
-
 
 #include <multisense_lib/MultiSenseChannel.hh>
 #include <multisense_ros/RawCamData.h>
@@ -328,6 +329,16 @@ private:
     // Has a 3rd aux color camera
 
     bool has_aux_camera_ = false;
+
+
+    //
+    // Diagnostics
+    diagnostic_updater::Updater diagnostic_updater_;
+    void deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
+    void deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
+
+    void diagnosticTimerCallback(const ros::TimerEvent &);
+    ros::Timer diagnostic_trigger_;
 };
 
 }
