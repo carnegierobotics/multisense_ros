@@ -1533,6 +1533,22 @@ void Camera::pointCloudCallback(const image::Header& header)
 
         cv::Mat rect_rgb_image(luma.height, luma.width, CV_8UC3, &(pointcloud_rect_color_buffer_[0]));
 
+        //
+        // If we are running in full-aux mode and 1/4 res mode resize the rectified aux image to match the
+        // disparity resolution
+
+        if (stereo_calibration_manager_->config().cameraProfile() == Full_Res_Aux_Cam &&
+            (header.width != luma.width || header.height != luma.height))
+        {
+            cv::Mat resized_rect_rgb_image;
+            cv::resize(rect_rgb_image,
+                       resized_rect_rgb_image,
+                       cv::Size{static_cast<int>(header.width), static_cast<int>(header.height)},
+                       0, 0, cv::INTER_AREA);
+
+            rect_rgb_image = std::move(resized_rect_rgb_image);
+        }
+
         rectified_color = std::move(rect_rgb_image);
     }
 
