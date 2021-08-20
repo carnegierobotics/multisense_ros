@@ -330,7 +330,6 @@ private:
 
     bool has_aux_camera_ = false;
 
-
     //
     // Diagnostics
     diagnostic_updater::Updater diagnostic_updater_;
