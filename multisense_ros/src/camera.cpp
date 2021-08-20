@@ -2162,8 +2162,7 @@ void Camera::deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper&
 {
         crl::multisense::system::StatusMessage statusMessage;
 
-        if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage))
-        {
+        if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage)) {
             stat.add("uptime",              ros::Time(statusMessage.uptime));
             stat.add("system",              statusMessage.systemOk);
             stat.add("laser",               statusMessage.laserOk);
@@ -2182,9 +2181,7 @@ void Camera::deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper&
             stat.add("logic power",         statusMessage.logicPower);
             stat.add("imager power",        statusMessage.imagerPower);
             stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "MultiSense Status: OK");
-        }
-        else
-        {
+        } else {
             stat.summary(diagnostic_msgs::DiagnosticStatus::ERROR, "MultiSense Status: ERROR - Unable to retrieve status");
         }
 }
