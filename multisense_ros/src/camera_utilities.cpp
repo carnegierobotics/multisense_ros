@@ -283,11 +283,11 @@ void StereoCalibrationManger::updateConfig(const crl::multisense::image::Config&
     }
 
     auto q_matrix = makeQ(config, calibration_, device_info_);
-    auto left_camera_info = makeCameraInfo(config, calibration_.left, compute_scale(config_, device_info_));
-    auto right_camera_info = makeCameraInfo(config, calibration_.right, compute_scale(config_, device_info_));
+    auto left_camera_info = makeCameraInfo(config, calibration_.left, compute_scale(config, device_info_));
+    auto right_camera_info = makeCameraInfo(config, calibration_.right, compute_scale(config, device_info_));
 
     const ScaleT aux_scale = config.cameraProfile() == crl::multisense::Full_Res_Aux_Cam ?
-                             ScaleT{1., 1., 0., 0.} : compute_scale(config_, device_info_);
+                             ScaleT{1., 1., 0., 0.} : compute_scale(config, device_info_);
 
     auto aux_camera_info = makeCameraInfo(config, calibration_.aux, aux_scale);
     auto left_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config, calibration_.left, device_info_));
@@ -350,6 +350,28 @@ double StereoCalibrationManger::aux_T() const
     return aux_camera_info_.P[3] / aux_camera_info_.P[0];
 }
 
+OperatingResolutionT StereoCalibrationManger::operatingStereoResolution() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    return OperatingResolutionT{config_.width(), config_.height()};
+}
+
+OperatingResolutionT StereoCalibrationManger::operatingAuxResolution() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (config_.cameraProfile() == crl::multisense::Full_Res_Aux_Cam)
+    {
+        return OperatingResolutionT{S30_AUX_CAM_WIDTH, S30_AUX_CAM_HEIGHT};
+    }
+
+    const auto scale = compute_scale(config_, device_info_);
+
+    return OperatingResolutionT{config_.width(), static_cast<size_t>(S30_AUX_CAM_HEIGHT * scale.y_scale)};
+
+}
+
 bool StereoCalibrationManger::validAux() const
 {
     return std::isfinite(aux_T());
@@ -378,15 +400,25 @@ sensor_msgs::CameraInfo StereoCalibrationManger::rightCameraInfo(const std::stri
 
     return camera_info;
 }
+sensor_msgs::CameraInfo StereoCalibrationManger::auxCameraInfo(const std::string& frame_id,
+                                                               const ros::Time& stamp,
+                                                               const OperatingResolutionT &resolution) const
+{
+    return auxCameraInfo(frame_id, stamp, resolution.width, resolution.height);
+}
 
 sensor_msgs::CameraInfo StereoCalibrationManger::auxCameraInfo(const std::string& frame_id,
-                                                               const ros::Time& stamp) const
+                                                               const ros::Time& stamp,
+                                                               size_t width,
+                                                               size_t height) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto camera_info = aux_camera_info_;
     camera_info.header.frame_id = frame_id;
     camera_info.header.stamp = stamp;
+    camera_info.width = width;
+    camera_info.height = height;
 
     return camera_info;
 }

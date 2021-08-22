@@ -1139,7 +1139,7 @@ void Camera::monoCallback(const image::Header& header)
 
         //
         // Publish a specific camera info message for the aux mono image
-        aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t));
+        aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t, header.width, header.height));
         break;
 
     }
@@ -1257,7 +1257,7 @@ void Camera::rectCallback(const image::Header& header)
 
         aux_rect_image_.is_bigendian = (htonl(1) == 1);
 
-        const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, t);
+        const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, t, header.width, header.height);
 
         //
         // Continue to publish the rect camera info on the
@@ -1859,7 +1859,7 @@ void Camera::colorImageCallback(const image::Header& header)
 
             ycbcrToBgr(luma_ptr->data(), header, reinterpret_cast<uint8_t*>(&(aux_rgb_rect_image_.data[0])));
 
-            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, t);
+            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, t, width, height);
 
             aux_rgb_rect_cam_pub_.publish(aux_rgb_rect_image_, aux_camera_info);
 
@@ -1902,7 +1902,7 @@ void Camera::colorImageCallback(const image::Header& header)
 
             ycbcrToBgr(luma_ptr->data(), header, reinterpret_cast<uint8_t*>(&(aux_rgb_image_.data[0])));
 
-            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t);
+            const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t, width, height);
 
             aux_rgb_cam_pub_.publish(aux_rgb_image_);
 
@@ -2116,11 +2116,18 @@ void Camera::publishAllCameraInfo()
 
         if (has_aux_camera_) {
 
-            aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp));
-            aux_rect_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp));
+            //
+            // The mono aux camera will operate a the native aux camera resolution. The rectifed cameras will match
+            // the main stereo pair
 
-            aux_rgb_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp));
-            aux_rgb_rect_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp));
+            const auto stereoResolution = stereo_calibration_manager_->operatingStereoResolution();
+            const auto auxResolution = stereo_calibration_manager_->operatingStereoResolution();
+
+            aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp, auxResolution));
+            aux_rect_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp, stereoResolution));
+
+            aux_rgb_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp, auxResolution));
+            aux_rgb_rect_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp, stereoResolution));
         }
     }
 }

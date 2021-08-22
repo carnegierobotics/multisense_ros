@@ -48,6 +48,15 @@
 
 namespace multisense_ros {
 
+static constexpr size_t S30_AUX_CAM_WIDTH = 1920;
+static constexpr size_t S30_AUX_CAM_HEIGHT = 1188;
+
+struct OperatingResolutionT
+{
+    size_t width = 0;
+    size_t height = 0;
+};
+
 enum class BorderClip {NONE, RECTANGULAR, CIRCULAR};
 
 struct RectificationRemapT
@@ -165,13 +174,31 @@ public:
     double aux_T() const;
 
     ///
+    /// @brief Get the current main stereo pair operating resolution. This resolution applies for both the mono
+    ///        and rectified topics
+    ///
+    OperatingResolutionT operatingStereoResolution() const;
+
+    ///
+    /// @brief Get the current aux camera operating resolution. This resolution applies for just the mono topics. The
+    ///        Rectified aux topics match the operating stereo resolution
+    ///
+    OperatingResolutionT operatingAuxResolution() const;
+
+    ///
     /// @brief Determine if the Aux calibration is valid
     ///
     bool validAux() const;
 
     sensor_msgs::CameraInfo leftCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
     sensor_msgs::CameraInfo rightCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
-    sensor_msgs::CameraInfo auxCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
+    sensor_msgs::CameraInfo auxCameraInfo(const std::string& frame_id,
+                                            const ros::Time& stamp,
+                                            const OperatingResolutionT& resolution) const;
+    sensor_msgs::CameraInfo auxCameraInfo(const std::string& frame_id,
+                                          const ros::Time& stamp,
+                                          size_t width,
+                                          size_t height) const;
 
     std::shared_ptr<RectificationRemapT> leftRemap() const;
     std::shared_ptr<RectificationRemapT> rightRemap() const;
