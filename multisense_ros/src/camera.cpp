@@ -2124,7 +2124,7 @@ void Camera::publishAllCameraInfo()
         if (has_aux_camera_) {
 
             //
-            // The mono aux camera will operate a the native aux camera resolution. The rectifed cameras will match
+            // The mono aux camera will operate at the native aux camera resolution. The rectified cameras will match
             // the main stereo pair
 
             const auto stereoResolution = stereo_calibration_manager_->operatingStereoResolution();

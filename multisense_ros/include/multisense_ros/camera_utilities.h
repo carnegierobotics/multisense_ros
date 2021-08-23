@@ -193,8 +193,8 @@ public:
     sensor_msgs::CameraInfo leftCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
     sensor_msgs::CameraInfo rightCameraInfo(const std::string& frame_id, const ros::Time& stamp) const;
     sensor_msgs::CameraInfo auxCameraInfo(const std::string& frame_id,
-                                            const ros::Time& stamp,
-                                            const OperatingResolutionT& resolution) const;
+                                          const ros::Time& stamp,
+                                          const OperatingResolutionT& resolution) const;
     sensor_msgs::CameraInfo auxCameraInfo(const std::string& frame_id,
                                           const ros::Time& stamp,
                                           size_t width,
