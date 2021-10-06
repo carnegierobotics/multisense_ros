@@ -445,12 +445,13 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     cfg.setAutoExposureMax(dyn.auto_exposure_max_time * 1e6);
     cfg.setAutoExposureDecay(dyn.auto_exposure_decay);
     cfg.setAutoExposureThresh(dyn.auto_exposure_thresh);
-    cfg.setAutoExposureThresh(dyn.auto_exposure_target_intensity);
+    cfg.setAutoExposureTargetIntensity(dyn.auto_exposure_target_intensity);
     cfg.setWhiteBalance(dyn.white_balance_red, dyn.white_balance_blue);
     cfg.setAutoWhiteBalance(dyn.auto_white_balance);
     cfg.setAutoWhiteBalanceDecay(dyn.auto_white_balance_decay);
     cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
     cfg.setHdr(dyn.hdr_enable);
+    cfg.setExposureSource(Source_Luma_Left);
 
     if (dyn.roi_auto_exposure) {
         if (roi_supported_) {
@@ -486,7 +487,6 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     if (Status_Ok != status)
         ROS_ERROR("Reconfigure: failed to query image config: %s",
                   Channel::statusString(status));
-
 
     resolution_change_callback_(cfg);
 
@@ -934,7 +934,6 @@ void Reconfigure::callback_st21_vga(multisense_ros::st21_sgm_vga_imuConfig& dyn,
     if (Status_Ok != status)
         ROS_ERROR("Reconfigure: failed to query image config: %s",
                   Channel::statusString(status));
-
 
     resolution_change_callback_(cfg);
 
