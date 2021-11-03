@@ -31,7 +31,8 @@ find_package(catkin REQUIRED COMPONENTS roscpp
                                         cv_bridge
                                         dynamic_reconfigure
                                         image_geometry
-                                        message_generation)
+                                        message_generation
+                                        diagnostic_updater)
 
 find_library(LIBTURBOJPEG_LIBRARIES NAMES "libturbojpeg.so.0" "libturbojpeg.so.1")
 
@@ -70,6 +71,7 @@ catkin_package(INCLUDE_DIRS   include
                               image_transport
                               message_runtime
                               message_generation
+                              diagnostic_updater
                LIBRARIES      ${PROJECT_NAME})
 
 include_directories(include
