@@ -50,6 +50,7 @@
 #include <multisense_ros/mono_cmv2000Config.h>
 #include <multisense_ros/mono_cmv4000Config.h>
 #include <multisense_ros/s27_sgm_AR0234Config.h>
+#include <multisense_ros/ks21_sgm_AR0234Config.h>
 #include <multisense_ros/camera_utilities.h>
 
 namespace multisense_ros {
@@ -82,6 +83,7 @@ private:
     void callback_mono_cmv2000      (multisense_ros::mono_cmv2000Config&       config, uint32_t level);
     void callback_mono_cmv4000      (multisense_ros::mono_cmv4000Config&       config, uint32_t level);
     void callback_s27_AR0234        (multisense_ros::s27_sgm_AR0234Config&     config, uint32_t level);
+    void callback_ks21_AR0234       (multisense_ros::ks21_sgm_AR0234Config&    config, uint32_t level);
 
     //
     // Internal helper functions
@@ -136,6 +138,7 @@ private:
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv2000Config> >       server_mono_cmv2000_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv4000Config> >       server_mono_cmv4000_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> >     server_s27_AR0234_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234Config> >    server_ks21_sgm_AR0234;
 
     //
     // Cached values for supported sub-systems (these may be unavailable on
