@@ -91,6 +91,8 @@ private:
     bool changeResolution(crl::multisense::image::Config& cfg,
                           int32_t width, int32_t height, int32_t disparities);
     template<class T> void configureSgm(crl::multisense::image::Config& cfg, const T& dyn);
+    template<class T> void configureHdr(crl::multisense::image::Config& cfg, const T& dyn);
+    template<class T> void configureAutoWhiteBalance(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureAuxCamera(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureCamera(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureCropMode(crl::multisense::image::Config& cfg, const T& dyn);

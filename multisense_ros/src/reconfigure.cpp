@@ -339,6 +339,19 @@ template<class T> void Reconfigure::configureSgm(image::Config& cfg, const T& dy
     cfg.setStereoPostFilterStrength(dyn.stereo_post_filtering);
 }
 
+template<class T> void Reconfigure::configureHdr(image::Config& cfg, const T& dyn)
+{
+    cfg.setHdr(dyn.hdr_enable);
+}
+
+template<class T> void Reconfigure::configureAutoWhiteBalance(image::Config& cfg, const T& dyn)
+{
+    cfg.setWhiteBalance(dyn.white_balance_red, dyn.white_balance_blue);
+    cfg.setAutoWhiteBalance(dyn.auto_white_balance);
+    cfg.setAutoWhiteBalanceDecay(dyn.auto_white_balance_decay);
+    cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
+}
+
 template<class T> void Reconfigure::configureAuxCamera(image::Config& cfg, const T& dyn)
 {
     if (aux_supported_ && dyn.enable_aux_controls) {
@@ -442,11 +455,6 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     cfg.setAutoExposureDecay(dyn.auto_exposure_decay);
     cfg.setAutoExposureThresh(dyn.auto_exposure_thresh);
     cfg.setAutoExposureTargetIntensity(dyn.auto_exposure_target_intensity);
-    cfg.setWhiteBalance(dyn.white_balance_red, dyn.white_balance_blue);
-    cfg.setAutoWhiteBalance(dyn.auto_white_balance);
-    cfg.setAutoWhiteBalanceDecay(dyn.auto_white_balance_decay);
-    cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
-    cfg.setHdr(dyn.hdr_enable);
     cfg.setExposureSource(Source_Luma_Left);
 
     if (dyn.roi_auto_exposure) {
@@ -708,6 +716,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
 
 #define SL_BM()  do {                                           \
         GET_CONFIG();                                           \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureMotor(dyn);                                    \
         configureLeds(dyn);                                     \
@@ -717,6 +726,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
 
 #define SL_BM_IMU()  do {                                       \
         GET_CONFIG();                                           \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureMotor(dyn);                                    \
         configureLeds(dyn);                                     \
@@ -725,8 +735,9 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configurePointCloudRange(dyn);                          \
     } while(0)
 
-#define MONO_BM_IMU()  do {                                       \
+#define MONO_BM_IMU()  do {                                     \
         GET_CONFIG();                                           \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureLeds(dyn);                                     \
         configureImu(dyn);                                      \
@@ -735,6 +746,8 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
 #define SL_SGM_IMU()  do {                                      \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
+        configureHdr(cfg, dyn);                                 \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureMotor(dyn);                                    \
         configureLeds(dyn);                                     \
@@ -746,6 +759,8 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
 #define SL_SGM()  do {                                          \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
+        configureHdr(cfg, dyn);                                 \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
@@ -755,6 +770,8 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
         configureCropMode(cfg, dyn);                            \
+        configureHdr(cfg, dyn);                                 \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureMotor(dyn);                                    \
         configureLeds(dyn);                                     \
@@ -767,6 +784,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
         configureStereoProfile(cfg, dyn);                       \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureAuxCamera(cfg, dyn);                           \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
