@@ -81,6 +81,8 @@ public:
 
     void maxPointCloudRangeChanged(double range);
 
+    void extrinsicsChanged(crl::multisense::system::ExternalCalibration extrinsics);
+
 private:
     //
     // Node names
@@ -308,6 +310,11 @@ private:
     // Max distance from the camera for a point to be considered valid
 
     double pointcloud_max_range_ = 15.0;
+
+    //
+    // Extrinsics to modify pointcloud
+
+    Eigen::Matrix4d extrinsics_;
 
     //
     // Histogram tracking

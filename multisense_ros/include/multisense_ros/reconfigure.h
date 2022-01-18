@@ -60,7 +60,8 @@ public:
     Reconfigure(crl::multisense::Channel* driver,
                 std::function<void (crl::multisense::image::Config)> resolutionChangeCallback,
                 std::function<void (BorderClip, double)> borderClipChangeCallback,
-                std::function<void (double)> maxPointCloudRangeCallback);
+                std::function<void (double)> maxPointCloudRangeCallback,
+                std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback);
 
     ~Reconfigure();
 
@@ -99,6 +100,7 @@ private:
     template<class T> void configurePointCloudRange(const T& dyn);
     template<class T> void configurePtp(const T& dyn);
     template<class T> void configureStereoProfile(crl::multisense::image::Config &cfg, const T& dyn);
+    template<class T> void configureExtrinsics(const T& dyn);
 
     //
     // CRL sensor API
@@ -164,6 +166,11 @@ private:
     // Max point cloud range callback
 
     std::function<void (double)> max_point_cloud_range_callback_;
+
+    //
+    // Extrinsics callback to modify pointcloud
+
+    std::function<void (crl::multisense::system::ExternalCalibration)> extrinsics_callback_;
 };
 
 } // multisense_ros

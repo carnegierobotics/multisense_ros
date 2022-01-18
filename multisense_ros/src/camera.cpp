@@ -774,6 +774,26 @@ void Camera::maxPointCloudRangeChanged(double range)
     pointcloud_max_range_ = range;
 }
 
+void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extrinsics)
+{
+    // Generate extrinsics matrix
+    Eigen::Matrix4d extrinsics_mat;
+    extrinsics_mat.setZero();
+
+    extrinsics_mat(0, 3) = static_cast<double>(extrinsics.x);
+    extrinsics_mat(1, 3) = static_cast<double>(extrinsics.y);
+    extrinsics_mat(2, 3) = static_cast<double>(extrinsics.z);
+    extrinsics_mat(3, 3) = static_cast<double>(1.0);
+    Eigen::Matrix<double, 3, 3> rot =
+        (Eigen::AngleAxis<double>(extrinsics.roll, Eigen::Matrix<double, 3, 1>(0, 0, 1))
+        * Eigen::AngleAxis<double>(extrinsics.pitch, Eigen::Matrix<double, 3, 1>(0, 1, 0))
+        * Eigen::AngleAxis<double>(extrinsics.yaw, Eigen::Matrix<double, 3, 1>(1, 0, 0))).matrix();
+    extrinsics_mat.block(0, 0, 3, 3) = rot;
+
+    // Assign to class member
+    extrinsics_ = extrinsics_mat;
+}
+
 void Camera::histogramCallback(const image::Header& header)
 {
     if (last_frame_id_ >= header.frameId)
@@ -1503,7 +1523,8 @@ void Camera::pointCloudCallback(const image::Header& header)
         color_organized_point_cloud_.row_step = header.width * color_organized_point_cloud_.point_step;
     }
 
-    const Eigen::Matrix4d Q = stereo_calibration_manager_->Q();
+    // Precompute transform matrix
+    const Eigen::Matrix4d tf_matrix = extrinsics_ * stereo_calibration_manager_->Q();
 
     const Eigen::Vector3f invalid_point(std::numeric_limits<float>::quiet_NaN(),
                                         std::numeric_limits<float>::quiet_NaN(),
@@ -1631,7 +1652,7 @@ void Camera::pointCloudCallback(const image::Header& header)
                 continue;
             }
 
-            const Eigen::Vector3f point = ((Q * Eigen::Vector4d(static_cast<double>(x),
+            const Eigen::Vector3f point = ((tf_matrix * Eigen::Vector4d(static_cast<double>(x),
                                                                 static_cast<double>(y),
                                                                 disparity,
                                                                 1.0)).hnormalized()).cast<float>();

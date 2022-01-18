@@ -40,7 +40,9 @@ namespace multisense_ros {
 Reconfigure::Reconfigure(Channel* driver,
                          std::function<void (crl::multisense::image::Config)> resolutionChangeCallback,
                          std::function<void (BorderClip, double)> borderClipChangeCallback,
-                         std::function<void (double)> maxPointCloudRangeCallback):
+                         std::function<void (double)> maxPointCloudRangeCallback,
+                         std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback):
+
     driver_(driver),
     resolution_change_callback_(resolutionChangeCallback),
     device_nh_(""),
@@ -54,7 +56,8 @@ Reconfigure::Reconfigure(Channel* driver,
     border_clip_type_(BorderClip::NONE),
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
-    max_point_cloud_range_callback_(maxPointCloudRangeCallback)
+    max_point_cloud_range_callback_(maxPointCloudRangeCallback),
+    extrinsics_callback_(extrinsicsCallback)
 {
     system::DeviceInfo  deviceInfo;
     system::VersionInfo versionInfo;
@@ -701,6 +704,36 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
     cfg.setCameraProfile(profile);
 }
 
+template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
+{
+    // TODO(drobinson): Initialize to values stored in flash rather than overwriting camera extrinsics to
+    //                  default multisense.cfg values
+
+    //
+    // Update calibration on camera via libmultisense
+    crl::multisense::system::ExternalCalibration calibration;
+
+    calibration.x = dyn.extrinsics_position_x_m;
+    calibration.y = dyn.extrinsics_position_y_m;
+    calibration.z = dyn.extrinsics_position_z_m;
+
+    constexpr float deg_to_rad = M_PI / 180.0f;
+    calibration.roll = dyn.extrinsics_rotation_x_deg * deg_to_rad;
+    calibration.pitch = dyn.extrinsics_rotation_y_deg * deg_to_rad;
+    calibration.yaw = dyn.extrinsics_rotation_z_deg * deg_to_rad;
+
+    // Update extrinsics on camera
+    Status status = driver_->setExternalCalibration(calibration);
+    if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to set external calibration: %s",
+                        Channel::statusString(status));
+        return;
+    }
+
+    // Update camera class locally to modify pointcloud transform in rviz
+    extrinsics_callback_(calibration);
+}
+
 #define GET_CONFIG()                                                    \
     image::Config cfg;                                                  \
     Status status = driver_->getImageConfig(cfg);                       \
@@ -717,6 +750,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configureLeds(dyn);                                     \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
     } while(0)
 
 #define SL_BM_IMU()  do {                                       \
@@ -727,6 +761,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
     } while(0)
 
 #define SL_SGM_IMU()  do {                                      \
@@ -738,6 +773,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
     } while(0)
 
 #define SL_SGM()  do {                                          \
@@ -746,6 +782,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
     } while(0)
 
 #define SL_SGM_IMU_CMV4000()  do {                              \
@@ -758,6 +795,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configureImu(dyn);                                      \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
     } while(0)
 
 #define S27_SGM()  do {                                         \
@@ -769,6 +807,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configureBorderClip(dyn);                               \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
     } while(0)
 
 

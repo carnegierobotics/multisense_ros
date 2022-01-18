@@ -209,30 +209,12 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
     const float* xzCellSize,
     const float* xzLimit,
     const float* minMaxAzimuthAngle,
-    const float* extrinsics,
+    const float*,
     const float* quadraticParams,
     const float baseline)
 {
     static constexpr double drawResolution = 0.1;
     static const auto basisArray = generateBasisArray();
-
-    // Generate extrinsics matrix
-    Eigen::Matrix<float, 4, 4> extrinsicsMat;
-    {
-        extrinsicsMat.setZero();
-        extrinsicsMat(0, 3) = extrinsics[0];
-        extrinsicsMat(1, 3) = extrinsics[1];
-        extrinsicsMat(2, 3) = extrinsics[2];
-        extrinsicsMat(3, 3) = static_cast<float>(1.0);
-        Eigen::Matrix<float, 3, 3> rot =
-            (Eigen::AngleAxis<float>(extrinsics[5], Eigen::Matrix<float, 3, 1>(0, 0, 1))
-            * Eigen::AngleAxis<float>(extrinsics[4], Eigen::Matrix<float, 3, 1>(0, 1, 0))
-            * Eigen::AngleAxis<float>(extrinsics[3], Eigen::Matrix<float, 3, 1>(1, 0, 0))).matrix();
-        extrinsicsMat.block(0, 0, 3, 3) = rot;
-    }
-
-    // Precompute extrinsics inverse
-    const auto extrinsicsInverse = extrinsicsMat.inverse();
 
     // Get boundaries of valid spline area
     const auto minX = xzCellOrigin[0] + xzCellSize[0];
@@ -270,7 +252,7 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
                            + computeQuadraticSurface(x, z, quadraticParams);
 
             auto splinePoint = Eigen::Vector3f(x, y, z);
-            auto transformedSplinePoint = extrinsicsInverse * splinePoint.homogeneous();
+            auto transformedSplinePoint = splinePoint.homogeneous();
             points.emplace_back(transformedSplinePoint.hnormalized());
         }
     }
