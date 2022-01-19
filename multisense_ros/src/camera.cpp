@@ -785,9 +785,9 @@ void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extr
     extrinsics_mat(2, 3) = static_cast<double>(extrinsics.z);
     extrinsics_mat(3, 3) = static_cast<double>(1.0);
     Eigen::Matrix<double, 3, 3> rot =
-        (Eigen::AngleAxis<double>(extrinsics.roll, Eigen::Matrix<double, 3, 1>(0, 0, 1))
+        (Eigen::AngleAxis<double>(extrinsics.yaw, Eigen::Matrix<double, 3, 1>(0, 0, 1))
         * Eigen::AngleAxis<double>(extrinsics.pitch, Eigen::Matrix<double, 3, 1>(0, 1, 0))
-        * Eigen::AngleAxis<double>(extrinsics.yaw, Eigen::Matrix<double, 3, 1>(1, 0, 0))).matrix();
+        * Eigen::AngleAxis<double>(extrinsics.roll, Eigen::Matrix<double, 3, 1>(1, 0, 0))).matrix();
     extrinsics_mat.block(0, 0, 3, 3) = rot;
 
     // Assign to class member
