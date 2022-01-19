@@ -2048,7 +2048,6 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
         header.xzCellSize,
         header.xzLimit,
         minMaxAzimuthAngle,
-        header.extrinsics,
         header.quadraticParams,
         config.tx()
     );

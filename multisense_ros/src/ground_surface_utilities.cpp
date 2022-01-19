@@ -209,7 +209,6 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
     const float* xzCellSize,
     const float* xzLimit,
     const float* minMaxAzimuthAngle,
-    const float*,
     const float* quadraticParams,
     const float baseline)
 {
