@@ -75,7 +75,7 @@ Reconfigure::Reconfigure(Channel* driver,
         return;
     }
 
-    if (deviceInfo.lightingType != 0)
+    if (deviceInfo.lightingType != 0 || system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
     {
         lighting_supported_ = true;
     }
@@ -143,6 +143,22 @@ Reconfigure::Reconfigure(Channel* driver,
 
             break;
         }
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
+               system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision) {
+
+        server_s27_AR0234_ =
+            std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
+                new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
+        server_s27_AR0234_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234, this,
+                                                  std::placeholders::_1, std::placeholders::_2));
+
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision) {
+
+        server_ks21_sgm_AR0234 =
+            std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234Config> > (
+                new dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234Config>(device_nh_));
+        server_ks21_sgm_AR0234->setCallback(std::bind(&Reconfigure::callback_ks21_AR0234, this,
+                                                  std::placeholders::_1, std::placeholders::_2));
 
     } else if (versionInfo.sensorFirmwareVersion <= 0x0202) {
 
@@ -164,16 +180,6 @@ Reconfigure::Reconfigure(Channel* driver,
                 std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::sl_bm_cmv4000Config>(device_nh_));
             server_sl_bm_cmv4000_->setCallback(std::bind(&Reconfigure::callback_sl_bm_cmv4000, this,
-                                                         std::placeholders::_1, std::placeholders::_2));
-
-            break;
-        case system::DeviceInfo::IMAGER_TYPE_AR0239_COLOR:
-        case system::DeviceInfo::IMAGER_TYPE_AR0234_GREY:
-
-            server_s27_AR0234_ =
-                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
-                    new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
-            server_s27_AR0234_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234, this,
                                                          std::placeholders::_1, std::placeholders::_2));
 
             break;
@@ -206,16 +212,6 @@ Reconfigure::Reconfigure(Channel* driver,
                                                              std::placeholders::_1, std::placeholders::_2));
 
             break;
-        case system::DeviceInfo::IMAGER_TYPE_AR0239_COLOR:
-        case system::DeviceInfo::IMAGER_TYPE_AR0234_GREY:
-
-            server_s27_AR0234_ =
-                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
-                    new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
-            server_s27_AR0234_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234, this,
-                                                      std::placeholders::_1, std::placeholders::_2));
-
-            break;
         default:
 
             ROS_ERROR("Reconfigure: unsupported imager type \"%d\"", deviceInfo.imagerType);
@@ -244,16 +240,16 @@ Reconfigure::Reconfigure(Channel* driver,
             server_sl_sgm_cmv4000_imu_->setCallback(std::bind(&Reconfigure::callback_sl_sgm_cmv4000_imu, this,
                                                               std::placeholders::_1, std::placeholders::_2));
             break;
-        case system::DeviceInfo::IMAGER_TYPE_AR0239_COLOR:
         case system::DeviceInfo::IMAGER_TYPE_AR0234_GREY:
+        case system::DeviceInfo::IMAGER_TYPE_AR0239_COLOR:
 
             server_s27_AR0234_ =
                 std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config>(device_nh_));
             server_s27_AR0234_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234, this,
                                                       std::placeholders::_1, std::placeholders::_2));
-
             break;
+
         default:
 
             ROS_ERROR("Reconfigure: unsupported imager type \"%d\"", deviceInfo.imagerType);
@@ -341,6 +337,19 @@ template<class T> void Reconfigure::configureCropMode(crl::multisense::image::Co
 template<class T> void Reconfigure::configureSgm(image::Config& cfg, const T& dyn)
 {
     cfg.setStereoPostFilterStrength(dyn.stereo_post_filtering);
+}
+
+template<class T> void Reconfigure::configureHdr(image::Config& cfg, const T& dyn)
+{
+    cfg.setHdr(dyn.hdr_enable);
+}
+
+template<class T> void Reconfigure::configureAutoWhiteBalance(image::Config& cfg, const T& dyn)
+{
+    cfg.setWhiteBalance(dyn.white_balance_red, dyn.white_balance_blue);
+    cfg.setAutoWhiteBalance(dyn.auto_white_balance);
+    cfg.setAutoWhiteBalanceDecay(dyn.auto_white_balance_decay);
+    cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
 }
 
 template<class T> void Reconfigure::configureAuxCamera(image::Config& cfg, const T& dyn)
@@ -446,11 +455,6 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     cfg.setAutoExposureDecay(dyn.auto_exposure_decay);
     cfg.setAutoExposureThresh(dyn.auto_exposure_thresh);
     cfg.setAutoExposureTargetIntensity(dyn.auto_exposure_target_intensity);
-    cfg.setWhiteBalance(dyn.white_balance_red, dyn.white_balance_blue);
-    cfg.setAutoWhiteBalance(dyn.auto_white_balance);
-    cfg.setAutoWhiteBalanceDecay(dyn.auto_white_balance_decay);
-    cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
-    cfg.setHdr(dyn.hdr_enable);
     cfg.setExposureSource(Source_Luma_Left);
 
     if (dyn.roi_auto_exposure) {
@@ -712,6 +716,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
 
 #define SL_BM()  do {                                           \
         GET_CONFIG();                                           \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureMotor(dyn);                                    \
         configureLeds(dyn);                                     \
@@ -721,6 +726,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
 
 #define SL_BM_IMU()  do {                                       \
         GET_CONFIG();                                           \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureMotor(dyn);                                    \
         configureLeds(dyn);                                     \
@@ -729,9 +735,19 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configurePointCloudRange(dyn);                          \
     } while(0)
 
+#define MONO_BM_IMU()  do {                                     \
+        GET_CONFIG();                                           \
+        configureAutoWhiteBalance(cfg, dyn);                    \
+        configureCamera(cfg, dyn);                              \
+        configureLeds(dyn);                                     \
+        configureImu(dyn);                                      \
+    } while(0)
+
 #define SL_SGM_IMU()  do {                                      \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
+        configureHdr(cfg, dyn);                                 \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureMotor(dyn);                                    \
         configureLeds(dyn);                                     \
@@ -743,6 +759,8 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
 #define SL_SGM()  do {                                          \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
+        configureHdr(cfg, dyn);                                 \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
@@ -752,6 +770,8 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
         configureCropMode(cfg, dyn);                            \
+        configureHdr(cfg, dyn);                                 \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureCamera(cfg, dyn);                              \
         configureMotor(dyn);                                    \
         configureLeds(dyn);                                     \
@@ -764,6 +784,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
         configureStereoProfile(cfg, dyn);                       \
+        configureAutoWhiteBalance(cfg, dyn);                    \
         configureAuxCamera(cfg, dyn);                           \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
@@ -771,6 +792,16 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
         configurePointCloudRange(dyn);                          \
     } while(0)
 
+#define KS21_SGM()  do {                                        \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        configureStereoProfile(cfg, dyn);                       \
+        configureCamera(cfg, dyn);                              \
+        configureBorderClip(dyn);                               \
+        configureLeds(dyn);                                     \
+        configurePtp(dyn);                                      \
+        configurePointCloudRange(dyn);                          \
+    } while(0)
 
 
 //
@@ -782,9 +813,10 @@ void Reconfigure::callback_sl_bm_cmv4000      (multisense_ros::sl_bm_cmv4000Conf
 void Reconfigure::callback_sl_bm_cmv4000_imu  (multisense_ros::sl_bm_cmv4000_imuConfig&  dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
 void Reconfigure::callback_sl_sgm_cmv2000_imu (multisense_ros::sl_sgm_cmv2000_imuConfig& dyn, uint32_t level) { (void) level; SL_SGM_IMU();  }
 void Reconfigure::callback_sl_sgm_cmv4000_imu (multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { (void) level; SL_SGM_IMU_CMV4000();  }
-void Reconfigure::callback_mono_cmv2000       (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
-void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { (void) level; SL_BM_IMU();   }
+void Reconfigure::callback_mono_cmv2000       (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { (void) level; MONO_BM_IMU();   }
+void Reconfigure::callback_mono_cmv4000       (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { (void) level; MONO_BM_IMU();   }
 void Reconfigure::callback_s27_AR0234         (multisense_ros::s27_sgm_AR0234Config&     dyn, uint32_t level) { (void) level; S27_SGM();   }
+void Reconfigure::callback_ks21_AR0234        (multisense_ros::ks21_sgm_AR0234Config&    dyn, uint32_t level) { (void) level; KS21_SGM();   }
 
 //
 // BCAM (Sony IMX104)
