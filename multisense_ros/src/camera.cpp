@@ -1538,7 +1538,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     }
 
     // Precompute transform matrix
-    const Eigen::Matrix4d tf_matrix = stereo_calibration_manager_->Q();
+    const Eigen::Matrix4d Q = stereo_calibration_manager_->Q();
 
     const Eigen::Vector3f invalid_point(std::numeric_limits<float>::quiet_NaN(),
                                         std::numeric_limits<float>::quiet_NaN(),
@@ -1666,7 +1666,7 @@ void Camera::pointCloudCallback(const image::Header& header)
                 continue;
             }
 
-            const Eigen::Vector3f point = ((tf_matrix * Eigen::Vector4d(static_cast<double>(x),
+            const Eigen::Vector3f point = ((Q * Eigen::Vector4d(static_cast<double>(x),
                                                                 static_cast<double>(y),
                                                                 disparity,
                                                                 1.0)).hnormalized()).cast<float>();
