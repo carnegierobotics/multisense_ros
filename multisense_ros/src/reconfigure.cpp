@@ -717,14 +717,14 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
     // Update calibration on camera via libmultisense
     crl::multisense::system::ExternalCalibration calibration;
 
-    calibration.x = dyn.extrinsics_position_x_m;
-    calibration.y = dyn.extrinsics_position_y_m;
-    calibration.z = dyn.extrinsics_position_z_m;
+    calibration.x = dyn.origin_from_camera_position_x_m;
+    calibration.y = dyn.origin_from_camera_position_y_m;
+    calibration.z = dyn.origin_from_camera_position_z_m;
 
     constexpr float deg_to_rad = M_PI / 180.0f;
-    calibration.roll = dyn.extrinsics_rotation_x_deg * deg_to_rad;
-    calibration.pitch = dyn.extrinsics_rotation_y_deg * deg_to_rad;
-    calibration.yaw = dyn.extrinsics_rotation_z_deg * deg_to_rad;
+    calibration.roll = dyn.origin_from_camera_rotation_x_deg * deg_to_rad;
+    calibration.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
+    calibration.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
 
     // Update extrinsics on camera
     Status status = driver_->setExternalCalibration(calibration);
@@ -840,6 +840,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         configureLeds(dyn);                                     \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
     } while(0)
 
 
