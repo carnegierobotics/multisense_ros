@@ -78,7 +78,7 @@ public:
     void groundSurfaceCallback(const crl::multisense::image::Header& header);
     void groundSurfaceSplineCallback(const crl::multisense::ground_surface::Header& header);
 
-    void borderClipChanged(const BorderClip &borderClipType, double borderClipValue);
+    void borderClipChanged(const BorderClip& borderClipType, double borderClipValue);
 
     void maxPointCloudRangeChanged(double range);
 
@@ -348,15 +348,17 @@ private:
     //
     // Diagnostics
     diagnostic_updater::Updater diagnostic_updater_;
-    void deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
-    void deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
+    void deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat);
+    void deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat);
     void ptpStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat);
 
-    void diagnosticTimerCallback(const ros::TimerEvent &);
+    void diagnosticTimerCallback(const ros::TimerEvent&);
     ros::Timer diagnostic_trigger_;
 
     //
-    // Timesync settings
+    // Timestamping and timesync settings
+    ros::Time convertImageTimestamp(uint32_t time_secs, uint32_t time_microsecs);
+
     bool ptp_time_sync_ = false;
     bool network_time_sync_ = false;
     std::atomic_bool ptp_status_;
