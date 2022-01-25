@@ -715,13 +715,6 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     if (NULL != pcColorFrameSyncEnvStringP) {
         ROS_INFO("color point cloud frame sync is disabled");
     }
-
-    //
-    // Diagnostics
-    diagnostic_updater_.setHardwareID(device_info_.name + " " + std::to_string(device_info_.hardwareRevision));
-    diagnostic_updater_.add("device_info", this, &Camera::deviceInfoDiagnostic);
-    diagnostic_updater_.add("device_status", this, &Camera::deviceStatusDiagnostic);
-    diagnostic_trigger_ = device_nh_.createTimer(ros::Duration(1), &Camera::diagnosticTimerCallback, this);
 }
 
 Camera::~Camera()
@@ -774,6 +767,12 @@ void Camera::maxPointCloudRangeChanged(double range)
     pointcloud_max_range_ = range;
 }
 
+void Camera::timeSyncChanged(bool ptp_enabled, int32_t ptp_time_offset_secs)
+{
+    ptp_time_sync_ = ptp_enabled;
+    ptp_time_offset_secs_ = ptp_time_offset_secs;
+}
+
 void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extrinsics)
 {
     // Generate extrinsics matrix
@@ -824,8 +823,7 @@ void Camera::histogramCallback(const image::Header& header)
         Status status = driver_->getImageHistogram(header.frameId, mh);
         if (Status_Ok == status) {
             rh.frame_count = header.frameId;
-            rh.time_stamp  = ros::Time(header.timeSeconds,
-                                       1000 * header.timeMicroSeconds);
+            rh.time_stamp = convertImageTimestamp(header.timeSeconds, header.timeMicroSeconds);
             rh.width  = header.width;
             rh.height = header.height;
             switch(header.source) {
@@ -852,7 +850,7 @@ void Camera::jpegImageCallback(const image::Header& header)
         return;
     }
 
-    const ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    ros::Time t = convertImageTimestamp(header.timeSeconds, header.timeMicroSeconds);
 
     if (!stereo_calibration_manager_)
     {
@@ -927,7 +925,7 @@ void Camera::disparityImageCallback(const image::Header& header)
 
     const uint32_t imageSize = (header.width * header.height * header.bitsPerPixel) / 8;
 
-    const ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    ros::Time t = convertImageTimestamp(header.timeSeconds, header.timeMicroSeconds);
 
     if (!stereo_calibration_manager_)
     {
@@ -1106,7 +1104,7 @@ void Camera::monoCallback(const image::Header& header)
         return;
     }
 
-    ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    ros::Time t = convertImageTimestamp(header.timeSeconds, header.timeMicroSeconds);
 
     if (!stereo_calibration_manager_)
     {
@@ -1218,7 +1216,7 @@ void Camera::rectCallback(const image::Header& header)
         return;
     }
 
-    ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    ros::Time t = convertImageTimestamp(header.timeSeconds, header.timeMicroSeconds);
 
     if (!stereo_calibration_manager_)
     {
@@ -1355,7 +1353,7 @@ void Camera::depthCallback(const image::Header& header)
         return;
     }
 
-    const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    ros::Time t = convertImageTimestamp(header.timeSeconds, header.timeMicroSeconds);
 
     if (!stereo_calibration_manager_)
     {
@@ -1544,7 +1542,7 @@ void Camera::pointCloudCallback(const image::Header& header)
         return;
     }
 
-    const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    ros::Time t = convertImageTimestamp(header.timeSeconds, header.timeMicroSeconds);
 
     //
     // Resize our corresponding pointclouds if we plan on publishing them
@@ -1847,7 +1845,7 @@ void Camera::rawCamDataCallback(const image::Header& header)
             raw_cam_data_.gain              = left_luma_rect.gain;
             raw_cam_data_.exposure_time     = left_luma_rect.exposure;
             raw_cam_data_.frame_count       = left_luma_rect.frameId;
-            raw_cam_data_.time_stamp        = ros::Time(left_luma_rect.timeSeconds, 1000 * left_luma_rect.timeMicroSeconds);
+            raw_cam_data_.time_stamp        = convertImageTimestamp(header.timeSeconds, header.timeMicroSeconds);
             raw_cam_data_.width             = left_luma_rect.width;
             raw_cam_data_.height            = left_luma_rect.height;
 
@@ -1876,7 +1874,7 @@ void Camera::colorImageCallback(const image::Header& header)
         return;
     }
 
-    const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    ros::Time t = convertImageTimestamp(header.timeSeconds, header.timeMicroSeconds);
 
     if (!stereo_calibration_manager_)
     {
@@ -2182,6 +2180,17 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
     ground_surface_spline_pub_.publish(ground_surface_utilities::eigenToPointcloud(eigen_pcl, frame_id_origin_));
 }
 
+ros::Time Camera::convertImageTimestamp(uint32_t time_secs, uint32_t time_microsecs)
+{
+    auto time_stamp = ros::Time(time_secs, 1000 * time_microsecs);
+    if (ptp_time_sync_)
+    {
+        time_stamp += ros::Duration(ptp_time_offset_secs_);
+    }
+
+    return time_stamp;
+}
+
 void Camera::updateConfig(const image::Config& config)
 {
     if (!stereo_calibration_manager_)
@@ -2304,81 +2313,6 @@ void Camera::publishAllCameraInfo()
 
         }
     }
-}
-
-void Camera::deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat)
-{
-    stat.add("device name",               device_info_.name);
-    stat.add("build date",                device_info_.buildDate);
-    stat.add("serial number",             device_info_.serialNumber);
-    stat.add("device revision",           device_info_.hardwareRevision);
-
-    for(const auto &pcb : device_info_.pcbs) {
-        stat.add("pcb: " + pcb.name, pcb.revision);
-    }
-
-    stat.add("imager name",               device_info_.imagerName);
-    stat.add("imager type",               device_info_.imagerType);
-    stat.add("imager width",              device_info_.imagerWidth);
-    stat.add("imager height",             device_info_.imagerHeight);
-
-    stat.add("lens name",                 device_info_.lensName);
-    stat.add("lens type",                 device_info_.lensType);
-    stat.add("nominal baseline",          device_info_.nominalBaseline);
-    stat.add("nominal focal length",      device_info_.nominalFocalLength);
-    stat.add("nominal relative aperture", device_info_.nominalRelativeAperture);
-
-    stat.add("lighting type",             device_info_.lightingType);
-    stat.add("number of lights",          device_info_.numberOfLights);
-
-    stat.add("laser name",                device_info_.laserName);
-    stat.add("laser type",                device_info_.laserType);
-
-    stat.add("motor name",                device_info_.motorName);
-    stat.add("motor type",                device_info_.motorType);
-    stat.add("motor gear reduction",      device_info_.motorGearReduction);
-
-    stat.add("api build date",            version_info_.apiBuildDate);
-    stat.add("api version",               version_info_.apiVersion);
-    stat.add("firmware build date",       version_info_.sensorFirmwareBuildDate);
-    stat.add("firmware version",          version_info_.sensorFirmwareVersion);
-    stat.add("bitstream version",         version_info_.sensorHardwareVersion);
-    stat.add("bitstream magic",           version_info_.sensorHardwareMagic);
-    stat.add("fpga dna",                  version_info_.sensorFpgaDna);
-    stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "MultiSense Device Info");
-}
-
-void Camera::deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat)
-{
-    crl::multisense::system::StatusMessage statusMessage;
-
-    if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage)) {
-        stat.add("uptime",              ros::Time(statusMessage.uptime));
-        stat.add("system",              statusMessage.systemOk);
-        stat.add("laser",               statusMessage.laserOk);
-        stat.add("laser motor",         statusMessage.laserMotorOk);
-        stat.add("cameras",             statusMessage.camerasOk);
-        stat.add("imu",                 statusMessage.imuOk);
-        stat.add("external leds",       statusMessage.externalLedsOk);
-        stat.add("processing pipeline", statusMessage.processingPipelineOk);
-        stat.add("power supply temp",   statusMessage.powerSupplyTemperature);
-        stat.add("fpga temp",           statusMessage.fpgaTemperature);
-        stat.add("left imager temp",    statusMessage.leftImagerTemperature);
-        stat.add("right imager temp",   statusMessage.rightImagerTemperature);
-        stat.add("input voltage",       statusMessage.inputVoltage);
-        stat.add("input current",       statusMessage.inputCurrent);
-        stat.add("fpga power",          statusMessage.fpgaPower);
-        stat.add("logic power",         statusMessage.logicPower);
-        stat.add("imager power",        statusMessage.imagerPower);
-        stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "MultiSense Status: OK");
-    } else {
-        stat.summary(diagnostic_msgs::DiagnosticStatus::ERROR, "MultiSense Status: ERROR - Unable to retrieve status");
-    }
-}
-
-void Camera::diagnosticTimerCallback(const ros::TimerEvent&)
-{
-    diagnostic_updater_.update();
 }
 
 void Camera::stop()
