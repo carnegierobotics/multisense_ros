@@ -730,7 +730,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     //
     // Diagnostics
     diagnostic_updater_.setHardwareID(device_info_.name + " " + std::to_string(device_info_.hardwareRevision));
-    diagnostic_updater_.add("device_status", this, &Camera::deviceInfoDiagnostic);
+    diagnostic_updater_.add("device_info", this, &Camera::deviceInfoDiagnostic);
     diagnostic_updater_.add("device_status", this, &Camera::deviceStatusDiagnostic);
     diagnostic_trigger_ = device_nh_.createTimer(ros::Duration(1), &Camera::diagnosticTimerCallback, this);
 }
@@ -2183,30 +2183,30 @@ void Camera::deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& s
 
 void Camera::deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat)
 {
-        crl::multisense::system::StatusMessage statusMessage;
+    crl::multisense::system::StatusMessage statusMessage;
 
-        if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage)) {
-            stat.add("uptime",              ros::Time(statusMessage.uptime));
-            stat.add("system",              statusMessage.systemOk);
-            stat.add("laser",               statusMessage.laserOk);
-            stat.add("laser motor",         statusMessage.laserMotorOk);
-            stat.add("cameras",             statusMessage.camerasOk);
-            stat.add("imu",                 statusMessage.imuOk);
-            stat.add("external leds",       statusMessage.externalLedsOk);
-            stat.add("processing pipeline", statusMessage.processingPipelineOk);
-            stat.add("power supply temp",   statusMessage.powerSupplyTemperature);
-            stat.add("fpga temp",           statusMessage.fpgaTemperature);
-            stat.add("left imager temp",    statusMessage.leftImagerTemperature);
-            stat.add("right imager temp",   statusMessage.rightImagerTemperature);
-            stat.add("input voltage",       statusMessage.inputVoltage);
-            stat.add("input current",       statusMessage.inputCurrent);
-            stat.add("fpga power",          statusMessage.fpgaPower);
-            stat.add("logic power",         statusMessage.logicPower);
-            stat.add("imager power",        statusMessage.imagerPower);
-            stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "MultiSense Status: OK");
-        } else {
-            stat.summary(diagnostic_msgs::DiagnosticStatus::ERROR, "MultiSense Status: ERROR - Unable to retrieve status");
-        }
+    if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage)) {
+        stat.add("uptime",              ros::Time(statusMessage.uptime));
+        stat.add("system",              statusMessage.systemOk);
+        stat.add("laser",               statusMessage.laserOk);
+        stat.add("laser motor",         statusMessage.laserMotorOk);
+        stat.add("cameras",             statusMessage.camerasOk);
+        stat.add("imu",                 statusMessage.imuOk);
+        stat.add("external leds",       statusMessage.externalLedsOk);
+        stat.add("processing pipeline", statusMessage.processingPipelineOk);
+        stat.add("power supply temp",   statusMessage.powerSupplyTemperature);
+        stat.add("fpga temp",           statusMessage.fpgaTemperature);
+        stat.add("left imager temp",    statusMessage.leftImagerTemperature);
+        stat.add("right imager temp",   statusMessage.rightImagerTemperature);
+        stat.add("input voltage",       statusMessage.inputVoltage);
+        stat.add("input current",       statusMessage.inputCurrent);
+        stat.add("fpga power",          statusMessage.fpgaPower);
+        stat.add("logic power",         statusMessage.logicPower);
+        stat.add("imager power",        statusMessage.imagerPower);
+        stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "MultiSense Status: OK");
+    } else {
+        stat.summary(diagnostic_msgs::DiagnosticStatus::ERROR, "MultiSense Status: ERROR - Unable to retrieve status");
+    }
 }
 
 void Camera::diagnosticTimerCallback(const ros::TimerEvent&)
