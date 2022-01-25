@@ -350,6 +350,7 @@ private:
     diagnostic_updater::Updater diagnostic_updater_;
     void deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
     void deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
+    void ptpStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat);
 
     void diagnosticTimerCallback(const ros::TimerEvent &);
     ros::Timer diagnostic_trigger_;
@@ -358,7 +359,7 @@ private:
     // Timesync settings
     bool ptp_time_sync_ = false;
     bool network_time_sync_ = false;
-
+    std::atomic_bool ptp_status_;
     int32_t ptp_time_offset_secs_ = 0;
 };
 
