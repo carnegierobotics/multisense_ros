@@ -96,6 +96,8 @@ private:
     //
     // Frames
 
+    static constexpr char ORIGIN_FRAME[] = "/origin";
+    static constexpr char HEAD_FRAME[] = "/head";
     static constexpr char LEFT_CAMERA_FRAME[] = "/left_camera_frame";
     static constexpr char LEFT_RECTIFIED_FRAME[] = "/left_camera_optical_frame";
     static constexpr char RIGHT_CAMERA_FRAME[] = "/right_camera_frame";
@@ -290,6 +292,8 @@ private:
     //
     // The frame IDs
 
+    const std::string frame_id_origin_;
+    const std::string frame_id_head_;
     const std::string frame_id_left_;
     const std::string frame_id_right_;
     const std::string frame_id_aux_;
@@ -310,11 +314,6 @@ private:
     // Max distance from the camera for a point to be considered valid
 
     double pointcloud_max_range_ = 15.0;
-
-    //
-    // Extrinsics to modify pointcloud
-
-    Eigen::Matrix4d extrinsics_;
 
     //
     // Histogram tracking

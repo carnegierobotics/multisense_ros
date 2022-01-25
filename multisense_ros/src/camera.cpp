@@ -229,6 +229,8 @@ constexpr char Camera::AUX[];
 constexpr char Camera::CALIBRATION[];
 constexpr char Camera::GROUND_SURFACE[];
 
+constexpr char Camera::ORIGIN_FRAME[];
+constexpr char Camera::HEAD_FRAME[];
 constexpr char Camera::LEFT_CAMERA_FRAME[];
 constexpr char Camera::RIGHT_CAMERA_FRAME[];
 constexpr char Camera::LEFT_RECTIFIED_FRAME[];
@@ -289,6 +291,8 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     aux_rect_transport_(aux_nh_),
     aux_rgb_rect_transport_(aux_nh_),
     ground_surface_transport_(ground_surface_nh_),
+    frame_id_origin_(tf_prefix + ORIGIN_FRAME),
+    frame_id_head_(tf_prefix + HEAD_FRAME),
     frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
     frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME),
     frame_id_aux_(tf_prefix + AUX_CAMERA_FRAME),
@@ -777,21 +781,31 @@ void Camera::maxPointCloudRangeChanged(double range)
 void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extrinsics)
 {
     // Generate extrinsics matrix
-    Eigen::Matrix4d extrinsics_mat;
-    extrinsics_mat.setZero();
+    Eigen::Matrix<float, 3, 3> eigen_rot =
+        (Eigen::AngleAxis<float>(extrinsics.yaw, Eigen::Matrix<float, 3, 1>(0, 0, 1))
+        * Eigen::AngleAxis<float>(extrinsics.pitch, Eigen::Matrix<float, 3, 1>(0, 1, 0))
+        * Eigen::AngleAxis<float>(extrinsics.roll, Eigen::Matrix<float, 3, 1>(1, 0, 0))).matrix();
 
-    extrinsics_mat(0, 3) = static_cast<double>(extrinsics.x);
-    extrinsics_mat(1, 3) = static_cast<double>(extrinsics.y);
-    extrinsics_mat(2, 3) = static_cast<double>(extrinsics.z);
-    extrinsics_mat(3, 3) = static_cast<double>(1.0);
-    Eigen::Matrix<double, 3, 3> rot =
-        (Eigen::AngleAxis<double>(extrinsics.yaw, Eigen::Matrix<double, 3, 1>(0, 0, 1))
-        * Eigen::AngleAxis<double>(extrinsics.pitch, Eigen::Matrix<double, 3, 1>(0, 1, 0))
-        * Eigen::AngleAxis<double>(extrinsics.roll, Eigen::Matrix<double, 3, 1>(1, 0, 0))).matrix();
-    extrinsics_mat.block(0, 0, 3, 3) = rot;
+    tf2::Matrix3x3 tf2_rot{
+        eigen_rot(0, 0),
+        eigen_rot(0, 1),
+        eigen_rot(0, 2),
+        eigen_rot(1, 0),
+        eigen_rot(1, 1),
+        eigen_rot(1, 2),
+        eigen_rot(2, 0),
+        eigen_rot(2, 1),
+        eigen_rot(2, 2)};
 
-    // Assign to class member
-    extrinsics_ = extrinsics_mat;
+    std::vector<geometry_msgs::TransformStamped> extrinsic_transforms_(1);
+
+    tf2::Transform multisense_head_T_origin{tf2_rot, tf2::Vector3{extrinsics.x, extrinsics.y, extrinsics.z}};
+    extrinsic_transforms_[0].header.stamp = ros::Time::now();
+    extrinsic_transforms_[0].header.frame_id = frame_id_origin_;
+    extrinsic_transforms_[0].child_frame_id = frame_id_head_;
+    extrinsic_transforms_[0].transform = tf2::toMsg(multisense_head_T_origin);
+
+    static_tf_broadcaster_.sendTransform(extrinsic_transforms_);
 }
 
 void Camera::histogramCallback(const image::Header& header)
@@ -1524,7 +1538,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     }
 
     // Precompute transform matrix
-    const Eigen::Matrix4d tf_matrix = extrinsics_ * stereo_calibration_manager_->Q();
+    const Eigen::Matrix4d tf_matrix = stereo_calibration_manager_->Q();
 
     const Eigen::Vector3f invalid_point(std::numeric_limits<float>::quiet_NaN(),
                                         std::numeric_limits<float>::quiet_NaN(),
