@@ -78,7 +78,7 @@ public:
     void groundSurfaceCallback(const crl::multisense::image::Header& header);
     void groundSurfaceSplineCallback(const crl::multisense::ground_surface::Header& header);
 
-    void borderClipChanged(const BorderClip& borderClipType, double borderClipValue);
+    void borderClipChanged(const BorderClip &borderClipType, double borderClipValue);
 
     void maxPointCloudRangeChanged(double range);
 
@@ -357,11 +357,11 @@ private:
 
     //
     // Timestamping and timesync settings
-    ros::Time convertImageTimestamp(uint32_t time_secs, uint32_t time_microsecs);
+    ros::Time imageTimestampToRosTime(uint32_t time_secs, uint32_t time_microsecs);
 
     bool ptp_time_sync_ = false;
     bool network_time_sync_ = false;
-    std::atomic_bool ptp_status_;
+    std::atomic_bool ptp_time_stamp_in_use_;
     int32_t ptp_time_offset_secs_ = 0;
 };
 
