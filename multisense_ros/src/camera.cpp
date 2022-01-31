@@ -802,7 +802,7 @@ void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extr
     tf2::Transform multisense_head_T_origin{tf2_rot, tf2::Vector3{extrinsics.x, extrinsics.y, extrinsics.z}};
     extrinsic_transforms_[0].header.stamp = ros::Time::now();
     extrinsic_transforms_[0].header.frame_id = frame_id_origin_;
-    extrinsic_transforms_[0].child_frame_id = frame_id_head_;
+    extrinsic_transforms_[0].child_frame_id = frame_id_rectified_left_;
     extrinsic_transforms_[0].transform = tf2::toMsg(multisense_head_T_origin);
 
     static_tf_broadcaster_.sendTransform(extrinsic_transforms_);
