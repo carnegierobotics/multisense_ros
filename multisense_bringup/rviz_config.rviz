@@ -42,7 +42,7 @@ Visualization Manager:
         X: 0
         Y: 0
         Z: 0
-      Plane: XY
+      Plane: XZ
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
       Value: true
