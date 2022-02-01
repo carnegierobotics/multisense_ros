@@ -76,12 +76,15 @@
       <child link="${name}/head_hokuyo_frame"/>
     </joint>
 
-    <!-- Stereo Camera -->
-    <joint name="${name}/left_camera_frame_joint" type="fixed">
+    <!--
+      Stereo Camera
+      Note that the left camera optical frame is treated as the camera origin
+      -->
+    <joint name="${name}/head_joint" type="fixed">
       <!-- optical frame collocated with tilting DOF -->
-      <origin xyz="0.0 0.035 -0.002" rpy="-1.57079632679 0.0 -1.57079632679" />
-      <parent link="${name}/head"/>
-      <child link="${name}/left_camera_optical_frame"/>
+      <origin xyz="0.035 -0.002 0.0" rpy="0.0 -1.57079632679 1.57079632679" />
+      <parent link="${name}/left_camera_optical_frame"/>
+      <child link="${name}/head"/>
     </joint>
 
     <link name="${name}/left_camera_optical_frame" />

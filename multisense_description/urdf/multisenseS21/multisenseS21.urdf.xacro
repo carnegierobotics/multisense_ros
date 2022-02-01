@@ -2,17 +2,6 @@
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
     <xacro:macro name="multisenseS21" params="name">
 
-        <link name="${name}/left_camera_optical_frame"/>
-
-        <!-- Note the origin of model is 37.3854mm from the rear mounting plane
-             in the x axis -->
-
-        <joint name="${name}/head_joint" type="fixed">
-            <origin xyz="0.105 0 -0.0052046" rpy="0.0 -1.57079632679 1.57079632679"/>
-            <parent link="${name}/left_camera_optical_frame"/>
-            <child link="${name}/head"/>
-        </joint>
-
         <link name="${name}/head">
             <visual>
                 <origin xyz="0 0 0" rpy="1.57079632679 0 1.57079632679" />
@@ -24,6 +13,18 @@
                 </material>
             </visual>
         </link>
+
+        <!-- Note the origin of model is 37.3854mm from the rear mounting plane
+             in the x axis -->
+
+        <!-- Left camera optical frame is treated as the camera origin -->
+        <joint name="${name}/head_joint" type="fixed">
+            <origin xyz="0.105 0 -0.0052046" rpy="0.0 -1.57079632679 1.57079632679"/>
+            <parent link="${name}/left_camera_optical_frame"/>
+            <child link="${name}/head"/>
+        </joint>
+
+        <link name="${name}/left_camera_optical_frame"/>
 
         <joint name="${name}/top_left_rear_mount_joint" type="fixed">
             <origin xyz="-0.0373854 0.1 0.014" rpy="0 0 3.14159"/>

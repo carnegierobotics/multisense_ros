@@ -24,11 +24,11 @@
 
         <link name="${name}/left_camera_frame"/>
 
-
-        <joint name="${name}/left_camera_optical_joint" type="fixed">
-            <origin xyz="0 0 0" rpy="-1.57079632679 0.0 -1.57079632679"/>
-            <parent link="${name}/left_camera_frame"/>
-            <child link="${name}/left_camera_optical_frame"/>
+        <!-- Left camera optical frame is treated as the camera origin -->
+        <joint name="${name}/head_optical_joint" type="fixed">
+            <origin xyz="0 0 -0.03" rpy="0.0 -1.57079632679 1.57079632679"/>
+            <parent link="${name}/left_camera_optical_frame"/>
+            <child link="${name}/head"/>
         </joint>
 
         <link name="${name}/left_camera_optical_frame"/>
