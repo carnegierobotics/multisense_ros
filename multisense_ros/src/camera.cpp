@@ -1537,7 +1537,6 @@ void Camera::pointCloudCallback(const image::Header& header)
         color_organized_point_cloud_.row_step = header.width * color_organized_point_cloud_.point_step;
     }
 
-    // Precompute transform matrix
     const Eigen::Matrix4d Q = stereo_calibration_manager_->Q();
 
     const Eigen::Vector3f invalid_point(std::numeric_limits<float>::quiet_NaN(),
