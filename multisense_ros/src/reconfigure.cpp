@@ -776,6 +776,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         configureCamera(cfg, dyn);                              \
         configureLeds(dyn);                                     \
         configureImu(dyn);                                      \
+        configureExtrinsics(dyn);                               \
     } while(0)
 
 #define SL_SGM_IMU()  do {                                      \
