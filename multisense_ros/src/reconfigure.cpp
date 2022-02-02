@@ -695,11 +695,11 @@ template<class T> void Reconfigure::configurePtp(const T& dyn)
 
 template<class T> void Reconfigure::configureStereoProfile(crl::multisense::image::Config &cfg, const T& dyn)
 {
-
     crl::multisense::CameraProfile profile = crl::multisense::User_Control;
     profile |= (dyn.detail_disparity_profile ? crl::multisense::Detail_Disparity : profile);
     profile |= (dyn.high_contrast_profile ? crl::multisense::High_Contrast : profile);
     profile |= (dyn.show_roi_profile ? crl::multisense::Show_ROIs : profile);
+    profile |= (dyn.ground_surface_profile ? crl::multisense::Ground_Surface : profile);
     profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
 
     cfg.setCameraProfile(profile);
