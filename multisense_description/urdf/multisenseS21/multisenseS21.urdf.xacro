@@ -17,10 +17,11 @@
         <!-- Note the origin of model is 37.3854mm from the rear mounting plane
              in the x axis -->
 
-        <joint name="${name}/left_camera_joint" type="fixed">
-            <origin xyz="0.0052046 0.105 0" rpy="-1.57079632679 0.0 -1.57079632679"/>
-            <parent link="${name}/head"/>
-            <child link="${name}/left_camera_optical_frame"/>
+        <!-- Left camera optical frame is treated as the camera origin -->
+        <joint name="${name}/head_joint" type="fixed">
+            <origin xyz="0.105 0 -0.0052046" rpy="0.0 -1.57079632679 1.57079632679"/>
+            <parent link="${name}/left_camera_optical_frame"/>
+            <child link="${name}/head"/>
         </joint>
 
         <link name="${name}/left_camera_optical_frame"/>

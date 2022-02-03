@@ -229,6 +229,8 @@ constexpr char Camera::AUX[];
 constexpr char Camera::CALIBRATION[];
 constexpr char Camera::GROUND_SURFACE[];
 
+constexpr char Camera::ORIGIN_FRAME[];
+constexpr char Camera::HEAD_FRAME[];
 constexpr char Camera::LEFT_CAMERA_FRAME[];
 constexpr char Camera::RIGHT_CAMERA_FRAME[];
 constexpr char Camera::LEFT_RECTIFIED_FRAME[];
@@ -289,6 +291,8 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     aux_rect_transport_(aux_nh_),
     aux_rgb_rect_transport_(aux_nh_),
     ground_surface_transport_(ground_surface_nh_),
+    frame_id_origin_(tf_prefix + ORIGIN_FRAME),
+    frame_id_head_(tf_prefix + HEAD_FRAME),
     frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
     frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME),
     frame_id_aux_(tf_prefix + AUX_CAMERA_FRAME),
@@ -772,6 +776,36 @@ void Camera::borderClipChanged(const BorderClip &borderClipType, double borderCl
 void Camera::maxPointCloudRangeChanged(double range)
 {
     pointcloud_max_range_ = range;
+}
+
+void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extrinsics)
+{
+    // Generate extrinsics matrix
+    Eigen::Matrix<float, 3, 3> eigen_rot =
+        (Eigen::AngleAxis<float>(extrinsics.yaw, Eigen::Matrix<float, 3, 1>(0, 0, 1))
+        * Eigen::AngleAxis<float>(extrinsics.pitch, Eigen::Matrix<float, 3, 1>(0, 1, 0))
+        * Eigen::AngleAxis<float>(extrinsics.roll, Eigen::Matrix<float, 3, 1>(1, 0, 0))).matrix();
+
+    tf2::Matrix3x3 tf2_rot{
+        eigen_rot(0, 0),
+        eigen_rot(0, 1),
+        eigen_rot(0, 2),
+        eigen_rot(1, 0),
+        eigen_rot(1, 1),
+        eigen_rot(1, 2),
+        eigen_rot(2, 0),
+        eigen_rot(2, 1),
+        eigen_rot(2, 2)};
+
+    std::vector<geometry_msgs::TransformStamped> extrinsic_transforms_(1);
+
+    tf2::Transform multisense_head_T_origin{tf2_rot, tf2::Vector3{extrinsics.x, extrinsics.y, extrinsics.z}};
+    extrinsic_transforms_[0].header.stamp = ros::Time::now();
+    extrinsic_transforms_[0].header.frame_id = frame_id_origin_;
+    extrinsic_transforms_[0].child_frame_id = frame_id_rectified_left_;
+    extrinsic_transforms_[0].transform = tf2::toMsg(multisense_head_T_origin);
+
+    static_tf_broadcaster_.sendTransform(extrinsic_transforms_);
 }
 
 void Camera::histogramCallback(const image::Header& header)
@@ -2027,7 +2061,6 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
         header.xzCellSize,
         header.xzLimit,
         minMaxAzimuthAngle,
-        header.extrinsics,
         header.quadraticParams,
         config.tx()
     );

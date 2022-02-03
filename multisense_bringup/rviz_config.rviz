@@ -42,7 +42,7 @@ Visualization Manager:
         X: 0
         Y: 0
         Z: 0
-      Plane: XY
+      Plane: XZ
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
       Value: true
@@ -295,7 +295,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: multisense/head
+    Fixed Frame: multisense/origin
     Frame Rate: 30
   Name: root
   Tools:
