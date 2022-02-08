@@ -738,6 +738,44 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
     extrinsics_callback_(calibration);
 }
 
+template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
+{
+    // TODO(drobinson): Initialize to values stored in flash rather than overwriting to default
+    //                  multisense.cfg values
+
+    //
+    // Update calibration on camera via libmultisense
+    crl::multisense::system::GroundSurfaceParams params;
+
+    std::cout << dyn.ground_surface_base_model << std::endl;
+
+    params.ground_surface_number_of_levels_x = dyn.ground_surface_number_of_levels_x;
+    params.ground_surface_number_of_levels_z = dyn.ground_surface_number_of_levels_z;
+    params.ground_surface_base_model = dyn.ground_surface_base_model;
+    params.ground_surface_pointcloud_grid_size = dyn.ground_surface_pointcloud_grid_size;
+    params.ground_surface_min_points_per_grid = dyn.ground_surface_min_points_per_grid;
+    params.ground_surface_pointcloud_decimation = dyn.ground_surface_pointcloud_decimation;
+    params.ground_surface_pointcloud_max_range_m = dyn.ground_surface_pointcloud_max_range_m;
+    params.ground_surface_pointcloud_min_range_m = dyn.ground_surface_pointcloud_min_range_m;
+    params.ground_surface_pointcloud_max_width_m = dyn.ground_surface_pointcloud_max_width_m;
+    params.ground_surface_pointcloud_min_width_m = dyn.ground_surface_pointcloud_min_width_m;
+    params.ground_surface_pointcloud_max_height_m = dyn.ground_surface_pointcloud_max_height_m;
+    params.ground_surface_pointcloud_min_height_m = dyn.ground_surface_pointcloud_min_height_m;
+    params.ground_surface_obstacle_height_thresh_m = dyn.ground_surface_obstacle_height_thresh_m;
+    params.ground_surface_obstacle_percentage_thresh = dyn.ground_surface_obstacle_percentage_thresh;
+    params.ground_surface_spline_draw_resolution = dyn.ground_surface_spline_draw_resolution;
+    params.ground_surface_max_fitting_iterations = dyn.ground_surface_max_fitting_iterations;
+    params.ground_surface_adjacent_cell_search_size_m = dyn.ground_surface_adjacent_cell_search_size_m;
+
+    // Update ground surface params on camera
+    Status status = driver_->setGroundSurfaceParams(params);
+    if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to set ground surface params: %s",
+                        Channel::statusString(status));
+        return;
+    }
+}
+
 #define GET_CONFIG()                                                    \
     image::Config cfg;                                                  \
     Status status = driver_->getImageConfig(cfg);                       \
@@ -756,6 +794,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define SL_BM_IMU()  do {                                       \
@@ -768,6 +807,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define MONO_BM_IMU()  do {                                     \
@@ -777,6 +817,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         configureLeds(dyn);                                     \
         configureImu(dyn);                                      \
         configureExtrinsics(dyn);                               \
+        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define SL_SGM_IMU()  do {                                      \
@@ -791,6 +832,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define SL_SGM()  do {                                          \
@@ -802,6 +844,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define SL_SGM_IMU_CMV4000()  do {                              \
@@ -817,6 +860,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define S27_SGM()  do {                                         \
@@ -830,6 +874,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define KS21_SGM()  do {                                        \
@@ -842,6 +887,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 
