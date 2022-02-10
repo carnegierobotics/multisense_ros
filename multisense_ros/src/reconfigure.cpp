@@ -711,54 +711,8 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
     cfg.setCameraProfile(profile);
 }
 
-template<typename T> inline void setDynamicParameter(const std::string &param, const T &value) {
-    std::string cmd("rosrun dynamic_reconfigure dynparam set /multisense " + param + " " + std::to_string(value));
-    std::cout << "cmd: " << cmd << std::endl;
-
-    int err = 0;
-    err = std::system(cmd.c_str());
-    if (err) {
-        ROS_ERROR("Reconfigure: failed to set dynamic parameter %s", param.c_str());
-    }
-}
-
-template<class T> void Reconfigure::configureExtrinsics(const T& dyn) {
-    //
-    // Initialize to values stored in flash rather than overwriting camera extrinsics to default multisense.cfg values
-#if 0
-    if (!external_calibration_retrieved_from_flash_) {
-        crl::multisense::system::ExternalCalibration calibration_from_flash;
-
-        Status status = driver_->getExternalCalibration(calibration_from_flash);
-        if (Status_Ok != status) {
-                ROS_ERROR("Reconfigure: failed to get external calibration: %s",
-                            Channel::statusString(status));
-            return;
-        }
-
-        // FORNOW: wait for parameter server to start up
-        std::this_thread::sleep_for(std::chrono::seconds(10));
-
-        // Set dynamic parameters
-        setDynamicParameter("origin_from_camera_position_x_m", calibration_from_flash.x);
-        setDynamicParameter("origin_from_camera_position_y_m", calibration_from_flash.y);
-        setDynamicParameter("origin_from_camera_position_z_m", calibration_from_flash.z);
-
-        constexpr float rad_to_deg = 180.0f / M_PI;
-        setDynamicParameter("origin_from_camera_rotation_x_deg", calibration_from_flash.roll * rad_to_deg);
-        setDynamicParameter("origin_from_camera_rotation_y_deg", calibration_from_flash.pitch * rad_to_deg);
-        setDynamicParameter("origin_from_camera_rotation_z_deg", calibration_from_flash.yaw * rad_to_deg);
-
-        // Update internal copy of calibration
-        calibration_ = calibration_from_flash;
-
-        ROS_INFO("Retrieved external calibration from multisense flash");
-        external_calibration_retrieved_from_flash_ = true;
-
-        return;
-    }
-#endif
-
+template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
+{
     //
     // Update calibration on camera via libmultisense
     crl::multisense::system::ExternalCalibration calibration;
@@ -772,7 +726,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn) {
     calibration.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
     calibration.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
 
-    // Check against internal copy to see if params have actually changed!
+    // Check against internal copy to see if params have actually changed
     if (calibration_.x == calibration.x &&
         calibration_.y == calibration.y &&
         calibration_.z == calibration.z &&
@@ -781,12 +735,11 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn) {
         calibration_.yaw == calibration.yaw)
         return;
 
-    // If they have changed, update!
+    // If they have changed, update the intrernal copy of the calibration
     calibration_ = calibration;
 
-    const std::lock_guard<std::mutex> lock(flash_write_);
-
     // Update extrinsics on camera
+    const std::lock_guard<std::mutex> lock(flash_write_);
     Status status = driver_->setExternalCalibration(calibration);
     if (Status_Ok != status) {
             ROS_ERROR("Reconfigure: failed to set external calibration: %s",
@@ -797,18 +750,13 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn) {
     // Update camera class locally to modify pointcloud transform in rviz
     extrinsics_callback_(calibration);
 
+    // TODO(drobinson): Handle multiple calls to asyncronous flash write
     // FORNOW: Delay to ensure that other callbacks can write to flash
     std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
 template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 {
-    // TODO(drobinson): Initialize to values stored in flash rather than overwriting to default
-    //                  multisense.cfg values
-    //
-    // std::system("rosrun dynamic_reconfigure dynparam set /multisense ground_surface_pointcloud_grid_size 0.5")
-    //
-
     // Update spline drawing resolution (this is handled by the ros driver)
     ground_surface_spline_resolution_callback_(dyn.ground_surface_spline_draw_resolution);
 
@@ -840,7 +788,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
     params.ground_surface_max_fitting_iterations = dyn.ground_surface_max_fitting_iterations;
     params.ground_surface_adjacent_cell_search_size_m = dyn.ground_surface_adjacent_cell_search_size_m;
 
-    // Check against internal copy to see if params have actually changed!
+    // Check against internal copy to see if params have actually changed
     if (params_.ground_surface_number_of_levels_x == params.ground_surface_number_of_levels_x &&
         params_.ground_surface_number_of_levels_z == params.ground_surface_number_of_levels_z &&
         params_.ground_surface_base_model == params.ground_surface_base_model &&
@@ -859,12 +807,11 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         params_.ground_surface_adjacent_cell_search_size_m == params.ground_surface_adjacent_cell_search_size_m)
         return;
 
-    // If they have changed, update!
+    // If they have changed, update the intrernal copy of the parameters
     params_ = params;
 
-    const std::lock_guard<std::mutex> lock(flash_write_);
-
     // Update ground surface params on camera
+    const std::lock_guard<std::mutex> lock(flash_write_);
     Status status = driver_->setGroundSurfaceParams(params);
     if (Status_Ok != status) {
             ROS_ERROR("Reconfigure: failed to set ground surface params: %s",
@@ -872,6 +819,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         return;
     }
 
+    // TODO(drobinson): Handle multiple calls to asyncronous flash write
     // FORNOW: Delay to ensure that other callbacks can write to flash
     std::this_thread::sleep_for(std::chrono::seconds(1));
 }
