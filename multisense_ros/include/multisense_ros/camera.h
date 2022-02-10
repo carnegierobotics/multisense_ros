@@ -83,6 +83,8 @@ public:
 
     void extrinsicsChanged(crl::multisense::system::ExternalCalibration extrinsics);
 
+    void groundSurfaceSplineResolutionChanged(double ground_surface_spline_resolution);
+
 private:
     //
     // Node names
@@ -325,6 +327,11 @@ private:
 
     BorderClip border_clip_type_ = BorderClip::NONE;
     double border_clip_value_ = 0.0;
+
+    //
+    // Resolution to draw ground surface spline
+
+    double ground_surface_spline_resolution_ = 0.1;
 
     //
     // Storage of images which we use for pointcloud colorizing

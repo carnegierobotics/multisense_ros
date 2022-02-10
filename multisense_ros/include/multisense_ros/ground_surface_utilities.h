@@ -68,6 +68,7 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
 /// @param minMaxAzimuthAngle Min and max limit to the spline fitting angle in radians, for visualization purposes
 /// @param quadraticParams parameters for the quadratic data transformation prior to spline fitting
 /// @param baseline Stereo camera baseline in meters
+/// @param drawResolution Resolution to draw the spline ground surface with in RVIZ
 /// @return Eigen representation of spline pointcloud at regularly sample x/z intervals
 ///`
 std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertSplineToPointcloud(
@@ -77,6 +78,7 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
     const float* xzLimit,
     const float* minMaxAzimuthAngle,
     const float* quadraticParams,
-    const float baseline);
+    const float baseline,
+    const double drawResolution);
 
 } // namespace ground_surface_utilities

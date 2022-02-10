@@ -808,6 +808,11 @@ void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extr
     static_tf_broadcaster_.sendTransform(extrinsic_transforms_);
 }
 
+void Camera::groundSurfaceSplineResolutionChanged(double ground_surface_spline_resolution)
+{
+    ground_surface_spline_resolution_ = ground_surface_spline_resolution;
+}
+
 void Camera::histogramCallback(const image::Header& header)
 {
     if (last_frame_id_ >= header.frameId)
@@ -2062,11 +2067,12 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
         header.xzLimit,
         minMaxAzimuthAngle,
         header.quadraticParams,
-        config.tx()
+        config.tx(),
+        ground_surface_spline_resolution_
     );
 
     // Send pointcloud message
-    ground_surface_spline_pub_.publish(ground_surface_utilities::eigenToPointcloud(eigen_pcl, frame_id_rectified_left_));
+    ground_surface_spline_pub_.publish(ground_surface_utilities::eigenToPointcloud(eigen_pcl, frame_id_origin_));
 }
 
 void Camera::updateConfig(const image::Config& config)

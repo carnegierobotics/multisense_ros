@@ -35,6 +35,8 @@
 #define MULTISENSE_ROS_RECONFIGURE_H
 
 #include <ros/ros.h>
+#include <chrono>
+#include <thread>
 
 #include <multisense_lib/MultiSenseChannel.hh>
 
@@ -62,7 +64,8 @@ public:
                 std::function<void (crl::multisense::image::Config)> resolutionChangeCallback,
                 std::function<void (BorderClip, double)> borderClipChangeCallback,
                 std::function<void (double)> maxPointCloudRangeCallback,
-                std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback);
+                std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback,
+                std::function<void (double)> groundSurfaceSplineResolutionCallback);
 
     ~Reconfigure();
 
@@ -106,6 +109,23 @@ private:
     template<class T> void configureStereoProfile(crl::multisense::image::Config &cfg, const T& dyn);
     template<class T> void configureExtrinsics(const T& dyn);
     template<class T> void configureGroundSurfaceParams(const T& dyn);
+
+    //
+    // Mutex to allow multiple callbacks to write to camera flash
+
+    std::mutex flash_write_;
+
+    //
+    // Internal copy of calibration values to check whether they've changed in callbacks
+
+    bool external_calibration_retrieved_from_flash_;
+    crl::multisense::system::ExternalCalibration calibration_;
+
+    //
+    // Internal copy of ground surface params to check whether they've changed in callbacks
+
+    bool ground_surface_params_retrieved_from_flash_;
+    crl::multisense::system::GroundSurfaceParams params_;
 
     //
     // CRL sensor API
@@ -177,6 +197,11 @@ private:
     // Extrinsics callback to modify pointcloud
 
     std::function<void (crl::multisense::system::ExternalCalibration)> extrinsics_callback_;
+
+    //
+    // Extrinsics callback to modify pointcloud
+
+    std::function<void (double)> ground_surface_spline_resolution_callback_;
 };
 
 } // multisense_ros

@@ -41,8 +41,10 @@ Reconfigure::Reconfigure(Channel* driver,
                          std::function<void (crl::multisense::image::Config)> resolutionChangeCallback,
                          std::function<void (BorderClip, double)> borderClipChangeCallback,
                          std::function<void (double)> maxPointCloudRangeCallback,
-                         std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback):
-
+                         std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback,
+                         std::function<void (double)> groundSurfaceSplineResolutionCallback):
+    external_calibration_retrieved_from_flash_(false),
+    ground_surface_params_retrieved_from_flash_(false),
     driver_(driver),
     resolution_change_callback_(resolutionChangeCallback),
     device_nh_(""),
@@ -57,7 +59,8 @@ Reconfigure::Reconfigure(Channel* driver,
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
     max_point_cloud_range_callback_(maxPointCloudRangeCallback),
-    extrinsics_callback_(extrinsicsCallback)
+    extrinsics_callback_(extrinsicsCallback),
+    ground_surface_spline_resolution_callback_(groundSurfaceSplineResolutionCallback)
 {
     system::DeviceInfo  deviceInfo;
     system::VersionInfo versionInfo;
@@ -708,10 +711,53 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
     cfg.setCameraProfile(profile);
 }
 
-template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
-{
-    // TODO(drobinson): Initialize to values stored in flash rather than overwriting camera extrinsics to
-    //                  default multisense.cfg values
+template<typename T> inline void setDynamicParameter(const std::string &param, const T &value) {
+    std::string cmd("rosrun dynamic_reconfigure dynparam set /multisense " + param + " " + std::to_string(value));
+    std::cout << "cmd: " << cmd << std::endl;
+
+    int err = 0;
+    err = std::system(cmd.c_str());
+    if (err) {
+        ROS_ERROR("Reconfigure: failed to set dynamic parameter %s", param.c_str());
+    }
+}
+
+template<class T> void Reconfigure::configureExtrinsics(const T& dyn) {
+    //
+    // Initialize to values stored in flash rather than overwriting camera extrinsics to default multisense.cfg values
+#if 0
+    if (!external_calibration_retrieved_from_flash_) {
+        crl::multisense::system::ExternalCalibration calibration_from_flash;
+
+        Status status = driver_->getExternalCalibration(calibration_from_flash);
+        if (Status_Ok != status) {
+                ROS_ERROR("Reconfigure: failed to get external calibration: %s",
+                            Channel::statusString(status));
+            return;
+        }
+
+        // FORNOW: wait for parameter server to start up
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+
+        // Set dynamic parameters
+        setDynamicParameter("origin_from_camera_position_x_m", calibration_from_flash.x);
+        setDynamicParameter("origin_from_camera_position_y_m", calibration_from_flash.y);
+        setDynamicParameter("origin_from_camera_position_z_m", calibration_from_flash.z);
+
+        constexpr float rad_to_deg = 180.0f / M_PI;
+        setDynamicParameter("origin_from_camera_rotation_x_deg", calibration_from_flash.roll * rad_to_deg);
+        setDynamicParameter("origin_from_camera_rotation_y_deg", calibration_from_flash.pitch * rad_to_deg);
+        setDynamicParameter("origin_from_camera_rotation_z_deg", calibration_from_flash.yaw * rad_to_deg);
+
+        // Update internal copy of calibration
+        calibration_ = calibration_from_flash;
+
+        ROS_INFO("Retrieved external calibration from multisense flash");
+        external_calibration_retrieved_from_flash_ = true;
+
+        return;
+    }
+#endif
 
     //
     // Update calibration on camera via libmultisense
@@ -726,6 +772,20 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
     calibration.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
     calibration.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
 
+    // Check against internal copy to see if params have actually changed!
+    if (calibration_.x == calibration.x &&
+        calibration_.y == calibration.y &&
+        calibration_.z == calibration.z &&
+        calibration_.roll == calibration.roll &&
+        calibration_.pitch == calibration.pitch &&
+        calibration_.yaw == calibration.yaw)
+        return;
+
+    // If they have changed, update!
+    calibration_ = calibration;
+
+    const std::lock_guard<std::mutex> lock(flash_write_);
+
     // Update extrinsics on camera
     Status status = driver_->setExternalCalibration(calibration);
     if (Status_Ok != status) {
@@ -736,22 +796,36 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 
     // Update camera class locally to modify pointcloud transform in rviz
     extrinsics_callback_(calibration);
+
+    // FORNOW: Delay to ensure that other callbacks can write to flash
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
 template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 {
     // TODO(drobinson): Initialize to values stored in flash rather than overwriting to default
     //                  multisense.cfg values
+    //
+    // std::system("rosrun dynamic_reconfigure dynparam set /multisense ground_surface_pointcloud_grid_size 0.5")
+    //
+
+    // Update spline drawing resolution (this is handled by the ros driver)
+    ground_surface_spline_resolution_callback_(dyn.ground_surface_spline_draw_resolution);
 
     //
     // Update calibration on camera via libmultisense
     crl::multisense::system::GroundSurfaceParams params;
 
-    std::cout << dyn.ground_surface_base_model << std::endl;
+    params.ground_surface_number_of_levels_x = dyn.ground_surface_spline_resolution_x;
+    params.ground_surface_number_of_levels_z = dyn.ground_surface_spline_resolution_z;
 
-    params.ground_surface_number_of_levels_x = dyn.ground_surface_number_of_levels_x;
-    params.ground_surface_number_of_levels_z = dyn.ground_surface_number_of_levels_z;
-    params.ground_surface_base_model = dyn.ground_surface_base_model;
+    if (dyn.ground_surface_pre_transform_data == "Quadratic")
+        params.ground_surface_base_model = 0;
+    else if (dyn.ground_surface_pre_transform_data == "Mean")
+        params.ground_surface_base_model = 1;
+    else if (dyn.ground_surface_pre_transform_data == "Zero")
+        params.ground_surface_base_model = 2;
+
     params.ground_surface_pointcloud_grid_size = dyn.ground_surface_pointcloud_grid_size;
     params.ground_surface_min_points_per_grid = dyn.ground_surface_min_points_per_grid;
     params.ground_surface_pointcloud_decimation = dyn.ground_surface_pointcloud_decimation;
@@ -763,9 +837,32 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
     params.ground_surface_pointcloud_min_height_m = dyn.ground_surface_pointcloud_min_height_m;
     params.ground_surface_obstacle_height_thresh_m = dyn.ground_surface_obstacle_height_thresh_m;
     params.ground_surface_obstacle_percentage_thresh = dyn.ground_surface_obstacle_percentage_thresh;
-    params.ground_surface_spline_draw_resolution = dyn.ground_surface_spline_draw_resolution;
     params.ground_surface_max_fitting_iterations = dyn.ground_surface_max_fitting_iterations;
     params.ground_surface_adjacent_cell_search_size_m = dyn.ground_surface_adjacent_cell_search_size_m;
+
+    // Check against internal copy to see if params have actually changed!
+    if (params_.ground_surface_number_of_levels_x == params.ground_surface_number_of_levels_x &&
+        params_.ground_surface_number_of_levels_z == params.ground_surface_number_of_levels_z &&
+        params_.ground_surface_base_model == params.ground_surface_base_model &&
+        params_.ground_surface_pointcloud_grid_size == params.ground_surface_pointcloud_grid_size &&
+        params_.ground_surface_min_points_per_grid == params.ground_surface_min_points_per_grid &&
+        params_.ground_surface_pointcloud_decimation == params.ground_surface_pointcloud_decimation &&
+        params_.ground_surface_pointcloud_max_range_m == params.ground_surface_pointcloud_max_range_m &&
+        params_.ground_surface_pointcloud_min_range_m == params.ground_surface_pointcloud_min_range_m &&
+        params_.ground_surface_pointcloud_max_width_m == params.ground_surface_pointcloud_max_width_m &&
+        params_.ground_surface_pointcloud_min_width_m == params.ground_surface_pointcloud_min_width_m &&
+        params_.ground_surface_pointcloud_max_height_m == params.ground_surface_pointcloud_max_height_m &&
+        params_.ground_surface_pointcloud_min_height_m == params.ground_surface_pointcloud_min_height_m &&
+        params_.ground_surface_obstacle_height_thresh_m == params.ground_surface_obstacle_height_thresh_m &&
+        params_.ground_surface_obstacle_percentage_thresh == params.ground_surface_obstacle_percentage_thresh &&
+        params_.ground_surface_max_fitting_iterations == params.ground_surface_max_fitting_iterations &&
+        params_.ground_surface_adjacent_cell_search_size_m == params.ground_surface_adjacent_cell_search_size_m)
+        return;
+
+    // If they have changed, update!
+    params_ = params;
+
+    const std::lock_guard<std::mutex> lock(flash_write_);
 
     // Update ground surface params on camera
     Status status = driver_->setGroundSurfaceParams(params);
@@ -774,6 +871,9 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
                         Channel::statusString(status));
         return;
     }
+
+    // FORNOW: Delay to ensure that other callbacks can write to flash
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
 #define GET_CONFIG()                                                    \

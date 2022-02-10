@@ -95,6 +95,8 @@ int main(int argc, char** argvPP)
                                              std::bind(&multisense_ros::Camera::maxPointCloudRangeChanged, &camera,
                                                        std::placeholders::_1),
                                              std::bind(&multisense_ros::Camera::extrinsicsChanged, &camera,
+                                                       std::placeholders::_1),
+                                             std::bind(&multisense_ros::Camera::groundSurfaceSplineResolutionChanged, &camera,
                                                        std::placeholders::_1));
             ros::spin();
         }

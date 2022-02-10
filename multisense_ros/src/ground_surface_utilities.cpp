@@ -210,9 +210,9 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
     const float* xzLimit,
     const float* minMaxAzimuthAngle,
     const float* quadraticParams,
-    const float baseline)
+    const float baseline,
+    const double drawResolution)
 {
-    static constexpr double drawResolution = 0.1;
     static const auto basisArray = generateBasisArray();
 
     // Get boundaries of valid spline area
