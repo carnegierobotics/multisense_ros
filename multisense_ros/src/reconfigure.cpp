@@ -735,7 +735,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         calibration_.yaw == calibration.yaw)
         return;
 
-    // If they have changed, update the intrernal copy of the calibration
+    // If they have changed, update the internal copy of the calibration
     calibration_ = calibration;
 
     // Update extrinsics on camera
@@ -807,7 +807,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         params_.ground_surface_adjacent_cell_search_size_m == params.ground_surface_adjacent_cell_search_size_m)
         return;
 
-    // If they have changed, update the intrernal copy of the parameters
+    // If they have changed, update the internal copy of the parameters
     params_ = params;
 
     // Update ground surface params on camera

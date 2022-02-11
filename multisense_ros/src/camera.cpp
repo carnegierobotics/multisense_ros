@@ -2043,8 +2043,13 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
 {
     if (header.controlPointsBitsPerPixel != 32)
     {
-        std::cerr << "Expecting floats for spline control points, got " << header.controlPointsBitsPerPixel
-                  << " bits per pixel instead" << std::endl;
+        ROS_WARN("Expecting floats for spline control points, got %u bits per pixel instead", header.controlPointsBitsPerPixel);
+        return;
+    }
+
+    if (!header.success)
+    {
+        ROS_WARN("Ground surface modelling failed, consider modifying camera extrinsics and/or algorithm parameters");
         return;
     }
 
