@@ -705,6 +705,17 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
     profile |= (dyn.detail_disparity_profile ? crl::multisense::Detail_Disparity : profile);
     profile |= (dyn.high_contrast_profile ? crl::multisense::High_Contrast : profile);
     profile |= (dyn.show_roi_profile ? crl::multisense::Show_ROIs : profile);
+    profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
+
+    cfg.setCameraProfile(profile);
+}
+
+template<class T> void Reconfigure::configureStereoProfileWithGroundSurface(crl::multisense::image::Config &cfg, const T& dyn)
+{
+    crl::multisense::CameraProfile profile = crl::multisense::User_Control;
+    profile |= (dyn.detail_disparity_profile ? crl::multisense::Detail_Disparity : profile);
+    profile |= (dyn.high_contrast_profile ? crl::multisense::High_Contrast : profile);
+    profile |= (dyn.show_roi_profile ? crl::multisense::Show_ROIs : profile);
     profile |= (dyn.ground_surface_profile ? crl::multisense::Ground_Surface : profile);
     profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
 
@@ -749,10 +760,6 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 
     // Update camera class locally to modify pointcloud transform in rviz
     extrinsics_callback_(calibration);
-
-    // TODO(drobinson): Handle multiple calls to asyncronous flash write
-    // FORNOW: Delay to ensure that other callbacks can write to flash
-    std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
 template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
@@ -818,10 +825,6 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
                         Channel::statusString(status));
         return;
     }
-
-    // TODO(drobinson): Handle multiple calls to asyncronous flash write
-    // FORNOW: Delay to ensure that other callbacks can write to flash
-    std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
 #define GET_CONFIG()                                                    \
@@ -842,7 +845,6 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
-        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define SL_BM_IMU()  do {                                       \
@@ -855,7 +857,6 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
-        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define MONO_BM_IMU()  do {                                     \
@@ -865,7 +866,6 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureLeds(dyn);                                     \
         configureImu(dyn);                                      \
         configureExtrinsics(dyn);                               \
-        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define SL_SGM_IMU()  do {                                      \
@@ -880,7 +880,6 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
-        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define SL_SGM()  do {                                          \
@@ -892,7 +891,6 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
-        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define SL_SGM_IMU_CMV4000()  do {                              \
@@ -908,13 +906,12 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureBorderClip(dyn);                               \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
-        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 #define S27_SGM()  do {                                         \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
-        configureStereoProfile(cfg, dyn);                       \
+        configureStereoProfileWithGroundSurface(cfg, dyn);      \
         configureAutoWhiteBalance(cfg, dyn);                    \
         configureAuxCamera(cfg, dyn);                           \
         configureCamera(cfg, dyn);                              \
@@ -922,7 +919,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
-        configureGroundSurfaceParams(dyn);                            \
+        configureGroundSurfaceParams(dyn);                      \
     } while(0)
 
 #define KS21_SGM()  do {                                        \
@@ -935,7 +932,6 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
-        configureGroundSurfaceParams(dyn);                            \
     } while(0)
 
 
