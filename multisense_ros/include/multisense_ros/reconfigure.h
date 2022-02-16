@@ -113,23 +113,6 @@ private:
     template<class T> void configureGroundSurfaceParams(const T& dyn);
 
     //
-    // Mutex to allow multiple callbacks to write to camera flash
-
-    std::mutex flash_write_;
-
-    //
-    // Internal copy of calibration values to check whether they've changed in callbacks
-
-    bool external_calibration_retrieved_from_flash_;
-    crl::multisense::system::ExternalCalibration calibration_;
-
-    //
-    // Internal copy of ground surface params to check whether they've changed in callbacks
-
-    bool ground_surface_params_retrieved_from_flash_;
-    crl::multisense::system::GroundSurfaceParams params_;
-
-    //
     // CRL sensor API
 
     crl::multisense::Channel* driver_ = nullptr;

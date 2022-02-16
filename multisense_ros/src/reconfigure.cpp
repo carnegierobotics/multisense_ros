@@ -43,8 +43,6 @@ Reconfigure::Reconfigure(Channel* driver,
                          std::function<void (double)> maxPointCloudRangeCallback,
                          std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback,
                          std::function<void (ground_surface_utilities::SplineDrawingParams)> groundSurfaceSplineResolutionCallback):
-    external_calibration_retrieved_from_flash_(false),
-    ground_surface_params_retrieved_from_flash_(false),
     driver_(driver),
     resolution_change_callback_(resolutionChangeCallback),
     device_nh_(""),
@@ -737,11 +735,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
     calibration.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
     calibration.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
 
-    // If they have changed, update the internal copy of the calibration
-    calibration_ = calibration;
-
     // Update extrinsics on camera
-    const std::lock_guard<std::mutex> lock(flash_write_);
     Status status = driver_->setExternalCalibration(calibration);
     if (Status_Ok != status) {
             ROS_ERROR("Reconfigure: failed to set external calibration: %s",
@@ -794,11 +788,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
     params.ground_surface_max_fitting_iterations = dyn.ground_surface_max_fitting_iterations;
     params.ground_surface_adjacent_cell_search_size_m = dyn.ground_surface_adjacent_cell_search_size_m;
 
-    // If they have changed, update the internal copy of the parameters
-    params_ = params;
-
     // Update ground surface params on camera
-    const std::lock_guard<std::mutex> lock(flash_write_);
     Status status = driver_->setGroundSurfaceParams(params);
     if (Status_Ok != status) {
             ROS_ERROR("Reconfigure: failed to set ground surface params: %s",
