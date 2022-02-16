@@ -53,6 +53,7 @@
 #include <multisense_lib/MultiSenseChannel.hh>
 #include <multisense_ros/RawCamData.h>
 #include <multisense_ros/camera_utilities.h>
+#include <multisense_ros/ground_surface_utilities.h>
 
 namespace multisense_ros {
 
@@ -84,11 +85,7 @@ public:
     void extrinsicsChanged(crl::multisense::system::ExternalCalibration extrinsics);
 
     void groundSurfaceSplineResolutionChanged(
-        double ground_surface_spline_resolution,
-        double ground_surface_pointcloud_global_max_z_m,
-        double ground_surface_pointcloud_global_min_z_m,
-        double ground_surface_pointcloud_global_max_x_m,
-        double ground_surface_pointcloud_global_min_x_m);
+        const ground_surface_utilities::SplineDrawingParams &spline_params);
 
 private:
     //
@@ -334,13 +331,9 @@ private:
     double border_clip_value_ = 0.0;
 
     //
-    // Resolution to draw ground surface spline
+    // Parameters for drawing ground surface spline
 
-    double ground_surface_spline_resolution_ = 0.1;
-    double ground_surface_pointcloud_global_max_z_m_;
-    double ground_surface_pointcloud_global_min_z_m_;
-    double ground_surface_pointcloud_global_max_x_m_;
-    double ground_surface_pointcloud_global_min_x_m_;
+    ground_surface_utilities::SplineDrawingParams spline_params_;
 
     //
     // Storage of images which we use for pointcloud colorizing

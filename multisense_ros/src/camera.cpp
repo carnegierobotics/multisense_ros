@@ -50,7 +50,6 @@
 #include <multisense_ros/DeviceInfo.h>
 #include <multisense_ros/Histogram.h>
 #include <multisense_ros/point_cloud_utilities.h>
-#include <multisense_ros/ground_surface_utilities.h>
 
 using namespace crl::multisense;
 
@@ -809,17 +808,9 @@ void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extr
 }
 
 void Camera::groundSurfaceSplineResolutionChanged(
-    double ground_surface_spline_resolution,
-    double ground_surface_pointcloud_global_max_z_m,
-    double ground_surface_pointcloud_global_min_z_m,
-    double ground_surface_pointcloud_global_max_x_m,
-    double ground_surface_pointcloud_global_min_x_m)
+    const ground_surface_utilities::SplineDrawingParams &spline_params)
 {
-    ground_surface_spline_resolution_ = ground_surface_spline_resolution;
-    ground_surface_pointcloud_global_max_z_m_ = ground_surface_pointcloud_global_max_z_m;
-    ground_surface_pointcloud_global_min_z_m_ = ground_surface_pointcloud_global_min_z_m;
-    ground_surface_pointcloud_global_max_x_m_ = ground_surface_pointcloud_global_max_x_m;
-    ground_surface_pointcloud_global_min_x_m_ = ground_surface_pointcloud_global_min_x_m;
+    spline_params_ = spline_params;
 }
 
 void Camera::histogramCallback(const image::Header& header)
@@ -2076,20 +2067,14 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
     // Generate pointcloud for visualization
     auto eigen_pcl = ground_surface_utilities::convertSplineToPointcloud(
         controlGrid,
+        spline_params_,
+        pointcloud_max_range_,
         header.xzCellOrigin,
         header.xzCellSize,
-        header.xzLimit,
-        ground_surface_pointcloud_global_max_z_m_,
-        ground_surface_pointcloud_global_min_z_m_,
-        ground_surface_pointcloud_global_max_x_m_,
-        ground_surface_pointcloud_global_min_x_m_,
-        pointcloud_max_range_,
         minMaxAzimuthAngle,
         header.extrinsics,
         header.quadraticParams,
-        config.tx(),
-        ground_surface_spline_resolution_
-    );
+        config.tx());
 
     // Send pointcloud message
     ground_surface_spline_pub_.publish(ground_surface_utilities::eigenToPointcloud(eigen_pcl, frame_id_origin_));

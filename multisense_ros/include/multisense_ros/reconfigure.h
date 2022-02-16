@@ -54,6 +54,7 @@
 #include <multisense_ros/s27_sgm_AR0234Config.h>
 #include <multisense_ros/ks21_sgm_AR0234Config.h>
 #include <multisense_ros/camera_utilities.h>
+#include <multisense_ros/ground_surface_utilities.h>
 
 namespace multisense_ros {
 
@@ -65,7 +66,7 @@ public:
                 std::function<void (BorderClip, double)> borderClipChangeCallback,
                 std::function<void (double)> maxPointCloudRangeCallback,
                 std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback,
-                std::function<void (double, double, double, double, double)> groundSurfaceSplineResolutionCallback);
+                std::function<void (ground_surface_utilities::SplineDrawingParams)> groundSurfaceSplineResolutionCallback);
 
     ~Reconfigure();
 
@@ -202,7 +203,7 @@ private:
     //
     // Extrinsics callback to modify pointcloud
 
-    std::function<void (double, double, double, double, double)> ground_surface_spline_resolution_callback_;
+    std::function<void (ground_surface_utilities::SplineDrawingParams)> ground_surface_spline_resolution_callback_;
 };
 
 } // multisense_ros

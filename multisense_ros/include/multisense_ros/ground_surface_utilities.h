@@ -31,6 +31,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+#ifndef MULTISENSE_ROS_GROUND_SURFACE_UTILITIES_H
+#define MULTISENSE_ROS_GROUND_SURFACE_UTILITIES_H
+
 #include <vector>
 #include <numeric>
 
@@ -60,31 +63,41 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
     const std::string &frame_id);
 
 ///
+/// @brief Struct containing parameters for drawing a pointcloud representation of a B-Spline model
+///
+struct SplineDrawingParams
+{
+    double max_z_m;
+    double min_z_m;
+    double max_x_m;
+    double min_x_m;
+    double resolution;
+};
+
+///
 /// @brief Generate a pointcloud representation of a b-spline ground surface model for visualization
 /// @param controlGrid Control points grid used to determine interpolated spline values
+/// @param splineParams Parameters for drawing a pointcloud representation of a B-Spline model
+/// @param pointcloudMaxRange Max range to draw spline model to from camera frame
 /// @param xzCellOrigin X,Z cell origin of the spline fitting algorithm in meters
 /// @param xzCellSize Size of the X,Z plane containing the spline fit in meters
-/// @param xzLimit X,Z limit to the spline fitting area in meters
 /// @param minMaxAzimuthAngle Min and max limit to the spline fitting angle in radians, for visualization purposes
+/// @param extrinsics Extrinsic transform for stereo pointcloud used during B-Spline modelling
 /// @param quadraticParams parameters for the quadratic data transformation prior to spline fitting
 /// @param baseline Stereo camera baseline in meters
-/// @param drawResolution Resolution to draw the spline ground surface with in RVIZ
 /// @return Eigen representation of spline pointcloud at regularly sample x/z intervals
-///`
+///
 std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertSplineToPointcloud(
     const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
+    const SplineDrawingParams &splineParams,
+    const double pointcloudMaxRange,
     const float* xzCellOrigin,
     const float* xzCellSize,
-    const float* xzLimit,
-    double ground_surface_pointcloud_global_max_z_m,
-    double ground_surface_pointcloud_global_min_z_m,
-    double ground_surface_pointcloud_global_max_x_m,
-    double ground_surface_pointcloud_global_min_x_m,
-    double pointcloud_max_range,
     const float* minMaxAzimuthAngle,
     const float* extrinsics,
     const float* quadraticParams,
-    const float baseline,
-    const double drawResolution);
+    const float baseline);
 
 } // namespace ground_surface_utilities
+
+#endif

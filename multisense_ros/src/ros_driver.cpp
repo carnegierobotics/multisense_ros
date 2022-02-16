@@ -97,7 +97,7 @@ int main(int argc, char** argvPP)
                                              std::bind(&multisense_ros::Camera::extrinsicsChanged, &camera,
                                                        std::placeholders::_1),
                                              std::bind(&multisense_ros::Camera::groundSurfaceSplineResolutionChanged, &camera,
-                                                       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
+                                                       std::placeholders::_1));
             ros::spin();
         }
 

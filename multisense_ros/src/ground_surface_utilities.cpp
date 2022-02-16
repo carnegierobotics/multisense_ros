@@ -205,19 +205,14 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
 
 std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertSplineToPointcloud(
     const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
+    const SplineDrawingParams &splineParams,
+    const double pointcloudMaxRange,
     const float* xzCellOrigin,
     const float* xzCellSize,
-    const float* ,
-    double ground_surface_pointcloud_global_max_z_m,
-    double ground_surface_pointcloud_global_min_z_m,
-    double ground_surface_pointcloud_global_max_x_m,
-    double ground_surface_pointcloud_global_min_x_m,
-    double pointcloud_max_range,
     const float* minMaxAzimuthAngle,
     const float* extrinsics,
     const float* quadraticParams,
-    const float baseline,
-    const double drawResolution)
+    const float baseline)
 {
     static const auto basisArray = generateBasisArray();
 
@@ -241,15 +236,15 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
 
     // Precompute number of points that will be drawn
     const size_t numPoints =
-        std::floor((ground_surface_pointcloud_global_max_x_m - ground_surface_pointcloud_global_min_x_m) / drawResolution) *
-        std::floor((ground_surface_pointcloud_global_max_z_m - ground_surface_pointcloud_global_min_z_m) / drawResolution);
+        std::floor((splineParams.max_x_m - splineParams.min_x_m) / splineParams.resolution) *
+        std::floor((splineParams.max_z_m - splineParams.min_z_m) / splineParams.resolution);
 
     std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> points;
     points.reserve(numPoints);
 
-    for (float x = ground_surface_pointcloud_global_min_x_m; x < ground_surface_pointcloud_global_max_x_m; x += drawResolution)
+    for (float x = splineParams.min_x_m; x < splineParams.max_x_m; x += splineParams.resolution)
     {
-        for (float z = ground_surface_pointcloud_global_min_z_m; z < ground_surface_pointcloud_global_max_z_m; z += drawResolution)
+        for (float z = splineParams.min_z_m; z < splineParams.max_z_m; z += splineParams.resolution)
         {
             // Compute spline point and transform into left camera optical frame
             const auto y = getSplineValue(xzCellOrigin, xzCellSize, x, z, controlGrid, basisArray)
@@ -260,7 +255,7 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
 
             // Filter points by range and angle
             const auto distance = computeRange(transformedSplinePoint(0), transformedSplinePoint(2));
-            if (distance > pointcloud_max_range)
+            if (distance > pointcloudMaxRange)
                 continue;
 
             const auto leftCamAzimuthAngle = computeAzimuth(transformedSplinePoint(0), transformedSplinePoint(2));

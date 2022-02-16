@@ -42,7 +42,7 @@ Reconfigure::Reconfigure(Channel* driver,
                          std::function<void (BorderClip, double)> borderClipChangeCallback,
                          std::function<void (double)> maxPointCloudRangeCallback,
                          std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback,
-                         std::function<void (double, double, double, double, double)> groundSurfaceSplineResolutionCallback):
+                         std::function<void (ground_surface_utilities::SplineDrawingParams)> groundSurfaceSplineResolutionCallback):
     external_calibration_retrieved_from_flash_(false),
     ground_surface_params_retrieved_from_flash_(false),
     driver_(driver),
@@ -755,13 +755,16 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 
 template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 {
-    // Update spline drawing resolution (this is handled by the ros driver)
+    //
+    // Update spline drawing parameters locally
     ground_surface_spline_resolution_callback_(
-        dyn.ground_surface_spline_draw_resolution,
+        ground_surface_utilities::SplineDrawingParams{
         dyn.ground_surface_pointcloud_global_max_z_m,
         dyn.ground_surface_pointcloud_global_min_z_m,
         dyn.ground_surface_pointcloud_global_max_x_m,
-        dyn.ground_surface_pointcloud_global_min_x_m);
+        dyn.ground_surface_pointcloud_global_min_x_m,
+        dyn.ground_surface_spline_draw_resolution}
+    );
 
     //
     // Update calibration on camera via libmultisense
