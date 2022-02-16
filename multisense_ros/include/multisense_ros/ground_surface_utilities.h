@@ -76,7 +76,13 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertS
     const float* xzCellOrigin,
     const float* xzCellSize,
     const float* xzLimit,
+    double ground_surface_pointcloud_global_max_z_m,
+    double ground_surface_pointcloud_global_min_z_m,
+    double ground_surface_pointcloud_global_max_x_m,
+    double ground_surface_pointcloud_global_min_x_m,
+    double pointcloud_max_range,
     const float* minMaxAzimuthAngle,
+    const float* extrinsics,
     const float* quadraticParams,
     const float baseline,
     const double drawResolution);

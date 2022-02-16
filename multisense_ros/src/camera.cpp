@@ -808,9 +808,18 @@ void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extr
     static_tf_broadcaster_.sendTransform(extrinsic_transforms_);
 }
 
-void Camera::groundSurfaceSplineResolutionChanged(double ground_surface_spline_resolution)
+void Camera::groundSurfaceSplineResolutionChanged(
+    double ground_surface_spline_resolution,
+    double ground_surface_pointcloud_global_max_z_m,
+    double ground_surface_pointcloud_global_min_z_m,
+    double ground_surface_pointcloud_global_max_x_m,
+    double ground_surface_pointcloud_global_min_x_m)
 {
     ground_surface_spline_resolution_ = ground_surface_spline_resolution;
+    ground_surface_pointcloud_global_max_z_m_ = ground_surface_pointcloud_global_max_z_m;
+    ground_surface_pointcloud_global_min_z_m_ = ground_surface_pointcloud_global_min_z_m;
+    ground_surface_pointcloud_global_max_x_m_ = ground_surface_pointcloud_global_max_x_m;
+    ground_surface_pointcloud_global_min_x_m_ = ground_surface_pointcloud_global_min_x_m;
 }
 
 void Camera::histogramCallback(const image::Header& header)
@@ -2070,7 +2079,13 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
         header.xzCellOrigin,
         header.xzCellSize,
         header.xzLimit,
+        ground_surface_pointcloud_global_max_z_m_,
+        ground_surface_pointcloud_global_min_z_m_,
+        ground_surface_pointcloud_global_max_x_m_,
+        ground_surface_pointcloud_global_min_x_m_,
+        pointcloud_max_range_,
         minMaxAzimuthAngle,
+        header.extrinsics,
         header.quadraticParams,
         config.tx(),
         ground_surface_spline_resolution_

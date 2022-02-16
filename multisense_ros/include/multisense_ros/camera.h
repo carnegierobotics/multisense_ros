@@ -83,7 +83,12 @@ public:
 
     void extrinsicsChanged(crl::multisense::system::ExternalCalibration extrinsics);
 
-    void groundSurfaceSplineResolutionChanged(double ground_surface_spline_resolution);
+    void groundSurfaceSplineResolutionChanged(
+        double ground_surface_spline_resolution,
+        double ground_surface_pointcloud_global_max_z_m,
+        double ground_surface_pointcloud_global_min_z_m,
+        double ground_surface_pointcloud_global_max_x_m,
+        double ground_surface_pointcloud_global_min_x_m);
 
 private:
     //
@@ -332,6 +337,10 @@ private:
     // Resolution to draw ground surface spline
 
     double ground_surface_spline_resolution_ = 0.1;
+    double ground_surface_pointcloud_global_max_z_m_;
+    double ground_surface_pointcloud_global_min_z_m_;
+    double ground_surface_pointcloud_global_max_x_m_;
+    double ground_surface_pointcloud_global_min_x_m_;
 
     //
     // Storage of images which we use for pointcloud colorizing

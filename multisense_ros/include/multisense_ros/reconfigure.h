@@ -65,7 +65,7 @@ public:
                 std::function<void (BorderClip, double)> borderClipChangeCallback,
                 std::function<void (double)> maxPointCloudRangeCallback,
                 std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback,
-                std::function<void (double)> groundSurfaceSplineResolutionCallback);
+                std::function<void (double, double, double, double, double)> groundSurfaceSplineResolutionCallback);
 
     ~Reconfigure();
 
@@ -202,7 +202,7 @@ private:
     //
     // Extrinsics callback to modify pointcloud
 
-    std::function<void (double)> ground_surface_spline_resolution_callback_;
+    std::function<void (double, double, double, double, double)> ground_surface_spline_resolution_callback_;
 };
 
 } // multisense_ros

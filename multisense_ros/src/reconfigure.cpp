@@ -42,7 +42,7 @@ Reconfigure::Reconfigure(Channel* driver,
                          std::function<void (BorderClip, double)> borderClipChangeCallback,
                          std::function<void (double)> maxPointCloudRangeCallback,
                          std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback,
-                         std::function<void (double)> groundSurfaceSplineResolutionCallback):
+                         std::function<void (double, double, double, double, double)> groundSurfaceSplineResolutionCallback):
     external_calibration_retrieved_from_flash_(false),
     ground_surface_params_retrieved_from_flash_(false),
     driver_(driver),
@@ -737,15 +737,6 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
     calibration.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
     calibration.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
 
-    // Check against internal copy to see if params have actually changed
-    if (calibration_.x == calibration.x &&
-        calibration_.y == calibration.y &&
-        calibration_.z == calibration.z &&
-        calibration_.roll == calibration.roll &&
-        calibration_.pitch == calibration.pitch &&
-        calibration_.yaw == calibration.yaw)
-        return;
-
     // If they have changed, update the internal copy of the calibration
     calibration_ = calibration;
 
@@ -765,7 +756,12 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 {
     // Update spline drawing resolution (this is handled by the ros driver)
-    ground_surface_spline_resolution_callback_(dyn.ground_surface_spline_draw_resolution);
+    ground_surface_spline_resolution_callback_(
+        dyn.ground_surface_spline_draw_resolution,
+        dyn.ground_surface_pointcloud_global_max_z_m,
+        dyn.ground_surface_pointcloud_global_min_z_m,
+        dyn.ground_surface_pointcloud_global_max_x_m,
+        dyn.ground_surface_pointcloud_global_min_x_m);
 
     //
     // Update calibration on camera via libmultisense
@@ -784,35 +780,16 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
     params.ground_surface_pointcloud_grid_size = dyn.ground_surface_pointcloud_grid_size;
     params.ground_surface_min_points_per_grid = dyn.ground_surface_min_points_per_grid;
     params.ground_surface_pointcloud_decimation = dyn.ground_surface_pointcloud_decimation;
-    params.ground_surface_pointcloud_max_range_m = dyn.ground_surface_pointcloud_max_range_m;
-    params.ground_surface_pointcloud_min_range_m = dyn.ground_surface_pointcloud_min_range_m;
-    params.ground_surface_pointcloud_max_width_m = dyn.ground_surface_pointcloud_max_width_m;
-    params.ground_surface_pointcloud_min_width_m = dyn.ground_surface_pointcloud_min_width_m;
-    params.ground_surface_pointcloud_max_height_m = dyn.ground_surface_pointcloud_max_height_m;
-    params.ground_surface_pointcloud_min_height_m = dyn.ground_surface_pointcloud_min_height_m;
+    params.ground_surface_pointcloud_max_range_m = dyn.ground_surface_pointcloud_global_max_z_m;
+    params.ground_surface_pointcloud_min_range_m = dyn.ground_surface_pointcloud_global_min_z_m;
+    params.ground_surface_pointcloud_max_width_m = dyn.ground_surface_pointcloud_global_max_x_m;
+    params.ground_surface_pointcloud_min_width_m = dyn.ground_surface_pointcloud_global_min_x_m;
+    params.ground_surface_pointcloud_max_height_m = dyn.ground_surface_pointcloud_global_max_height_m;
+    params.ground_surface_pointcloud_min_height_m = dyn.ground_surface_pointcloud_global_min_height_m;
     params.ground_surface_obstacle_height_thresh_m = dyn.ground_surface_obstacle_height_thresh_m;
     params.ground_surface_obstacle_percentage_thresh = dyn.ground_surface_obstacle_percentage_thresh;
     params.ground_surface_max_fitting_iterations = dyn.ground_surface_max_fitting_iterations;
     params.ground_surface_adjacent_cell_search_size_m = dyn.ground_surface_adjacent_cell_search_size_m;
-
-    // Check against internal copy to see if params have actually changed
-    if (params_.ground_surface_number_of_levels_x == params.ground_surface_number_of_levels_x &&
-        params_.ground_surface_number_of_levels_z == params.ground_surface_number_of_levels_z &&
-        params_.ground_surface_base_model == params.ground_surface_base_model &&
-        params_.ground_surface_pointcloud_grid_size == params.ground_surface_pointcloud_grid_size &&
-        params_.ground_surface_min_points_per_grid == params.ground_surface_min_points_per_grid &&
-        params_.ground_surface_pointcloud_decimation == params.ground_surface_pointcloud_decimation &&
-        params_.ground_surface_pointcloud_max_range_m == params.ground_surface_pointcloud_max_range_m &&
-        params_.ground_surface_pointcloud_min_range_m == params.ground_surface_pointcloud_min_range_m &&
-        params_.ground_surface_pointcloud_max_width_m == params.ground_surface_pointcloud_max_width_m &&
-        params_.ground_surface_pointcloud_min_width_m == params.ground_surface_pointcloud_min_width_m &&
-        params_.ground_surface_pointcloud_max_height_m == params.ground_surface_pointcloud_max_height_m &&
-        params_.ground_surface_pointcloud_min_height_m == params.ground_surface_pointcloud_min_height_m &&
-        params_.ground_surface_obstacle_height_thresh_m == params.ground_surface_obstacle_height_thresh_m &&
-        params_.ground_surface_obstacle_percentage_thresh == params.ground_surface_obstacle_percentage_thresh &&
-        params_.ground_surface_max_fitting_iterations == params.ground_surface_max_fitting_iterations &&
-        params_.ground_surface_adjacent_cell_search_size_m == params.ground_surface_adjacent_cell_search_size_m)
-        return;
 
     // If they have changed, update the internal copy of the parameters
     params_ = params;
