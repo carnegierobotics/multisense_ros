@@ -25,7 +25,7 @@ set (OpenCV_LIBS ${catkin_LIBRARIES})
 
 ## Mark cpp header files for installation
 file(GLOB LIBMULTISENSE_HEADERS
-  "sensor_api/source/LibMultiSense/*.hh"
+    "sensor_api/source/LibMultiSense/include/MultiSense/*.hh"
 )
 
 file(MAKE_DIRECTORY ${BASE_DIRECTORY}/include/${PROJECT_NAME})
