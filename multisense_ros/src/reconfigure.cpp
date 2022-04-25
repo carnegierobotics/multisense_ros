@@ -42,7 +42,7 @@ Reconfigure::Reconfigure(Channel* driver,
                          std::function<void (BorderClip, double)> borderClipChangeCallback,
                          std::function<void (double)> maxPointCloudRangeCallback,
                          std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback,
-                         std::function<void (ground_surface_utilities::SplineDrawingParams)> groundSurfaceSplineResolutionCallback):
+                         std::function<void (ground_surface_utilities::SplineDrawParameters)> groundSurfaceSplineDrawParametersCallback):
     driver_(driver),
     resolution_change_callback_(resolutionChangeCallback),
     device_nh_(""),
@@ -58,7 +58,7 @@ Reconfigure::Reconfigure(Channel* driver,
     border_clip_change_callback_(borderClipChangeCallback),
     max_point_cloud_range_callback_(maxPointCloudRangeCallback),
     extrinsics_callback_(extrinsicsCallback),
-    ground_surface_spline_resolution_callback_(groundSurfaceSplineResolutionCallback)
+    spline_draw_parameters_callback_(groundSurfaceSplineDrawParametersCallback)
 {
     system::DeviceInfo  deviceInfo;
     system::VersionInfo versionInfo;
@@ -740,8 +740,8 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 {
     //
     // Update spline drawing parameters locally
-    ground_surface_spline_resolution_callback_(
-        ground_surface_utilities::SplineDrawingParams{
+    spline_draw_parameters_callback_(
+        ground_surface_utilities::SplineDrawParameters{
         dyn.ground_surface_pointcloud_global_max_z_m,
         dyn.ground_surface_pointcloud_global_min_z_m,
         dyn.ground_surface_pointcloud_global_max_x_m,

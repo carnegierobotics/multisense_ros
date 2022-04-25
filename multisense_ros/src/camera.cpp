@@ -807,10 +807,10 @@ void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extr
     static_tf_broadcaster_.sendTransform(extrinsic_transforms_);
 }
 
-void Camera::groundSurfaceSplineResolutionChanged(
-    const ground_surface_utilities::SplineDrawingParams &spline_params)
+void Camera::groundSurfaceSplineDrawParametersChanged(
+    const ground_surface_utilities::SplineDrawParameters &spline_draw_params)
 {
-    spline_params_ = spline_params;
+    spline_draw_params_ = spline_draw_params;
 }
 
 void Camera::histogramCallback(const image::Header& header)
@@ -2067,7 +2067,7 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
     // Generate pointcloud for visualization
     auto eigen_pcl = ground_surface_utilities::convertSplineToPointcloud(
         controlGrid,
-        spline_params_,
+        spline_draw_params_,
         pointcloud_max_range_,
         header.xzCellOrigin,
         header.xzCellSize,

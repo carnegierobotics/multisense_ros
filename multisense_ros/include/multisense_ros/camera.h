@@ -84,8 +84,8 @@ public:
 
     void extrinsicsChanged(crl::multisense::system::ExternalCalibration extrinsics);
 
-    void groundSurfaceSplineResolutionChanged(
-        const ground_surface_utilities::SplineDrawingParams &spline_params);
+    void groundSurfaceSplineDrawParametersChanged(
+        const ground_surface_utilities::SplineDrawParameters &spline_draw_params);
 
 private:
     //
@@ -333,7 +333,7 @@ private:
     //
     // Parameters for drawing ground surface spline
 
-    ground_surface_utilities::SplineDrawingParams spline_params_;
+    ground_surface_utilities::SplineDrawParameters spline_draw_params_;
 
     //
     // Storage of images which we use for pointcloud colorizing

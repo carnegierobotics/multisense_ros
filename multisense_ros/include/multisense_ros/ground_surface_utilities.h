@@ -65,7 +65,7 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
 ///
 /// @brief Struct containing parameters for drawing a pointcloud representation of a B-Spline model
 ///
-struct SplineDrawingParams
+struct SplineDrawParameters
 {
     double max_z_m;
     double min_z_m;
@@ -77,7 +77,7 @@ struct SplineDrawingParams
 ///
 /// @brief Generate a pointcloud representation of a b-spline ground surface model for visualization
 /// @param controlGrid Control points grid used to determine interpolated spline values
-/// @param splineParams Parameters for drawing a pointcloud representation of a B-Spline model
+/// @param splineDrawParams Parameters for drawing a pointcloud representation of a B-Spline model
 /// @param pointcloudMaxRange Max range to draw spline model to from camera frame
 /// @param xzCellOrigin X,Z cell origin of the spline fitting algorithm in meters
 /// @param xzCellSize Size of the X,Z plane containing the spline fit in meters
@@ -89,7 +89,7 @@ struct SplineDrawingParams
 ///
 std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertSplineToPointcloud(
     const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
-    const SplineDrawingParams &splineParams,
+    const SplineDrawParameters &splineDrawParams,
     const double pointcloudMaxRange,
     const float* xzCellOrigin,
     const float* xzCellSize,
