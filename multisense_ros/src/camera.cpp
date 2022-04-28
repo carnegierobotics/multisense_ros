@@ -2137,8 +2137,19 @@ void Camera::publishAllCameraInfo()
 
         if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision) {
 
-            left_rgb_cam_info_pub_.publish(left_camera_info);
-            left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
+            if (has_aux_camera_) {
+
+                aux_mono_cam_info_pub_.publish(left_camera_info);
+                aux_rgb_cam_info_pub_.publish(left_camera_info);
+                aux_rect_cam_info_pub_.publish(left_rectified_camera_info);
+                aux_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
+
+            } else {
+
+                left_rgb_cam_info_pub_.publish(left_camera_info);
+                left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
+
+            }
         }
 
         if (version_info_.sensorFirmwareVersion >= 0x0300) {
