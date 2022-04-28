@@ -369,7 +369,7 @@ template<class T> void Reconfigure::configureAuxCamera(image::Config& cfg, const
                                                   return c.exposureSource() == Source_Luma_Aux;
                                               });
 
-        if (auxExposureConfig != std::end(secondaryExposures)) {
+        if (auxExposureConfig == std::end(secondaryExposures)) {
             image::ExposureConfig auxConfig;
             auxConfig.setExposureSource(Source_Luma_Aux);
             secondaryExposures.push_back(auxConfig);
