@@ -712,22 +712,37 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 {
     // TODO(drobinson): Initialize to values stored in flash rather than overwriting camera extrinsics to
     //                  default multisense.cfg values
+    crl::multisense::system::ExternalCalibration calibration;
+    Status status = driver_->getExternalCalibration(calibration);
+    if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to get external calibration: %s",
+                        Channel::statusString(status));
+        return;
+    }
+
+    constexpr float deg_to_rad = M_PI / 180.0f;
+    if (std::abs(dyn.origin_from_camera_position_x_m - calibration.x) < 1e-3 &&
+        std::abs(dyn.origin_from_camera_position_y_m - calibration.y) < 1e-3 &&
+        std::abs(dyn.origin_from_camera_position_z_m - calibration.z) < 1e-3 &&
+        std::abs(dyn.origin_from_camera_rotation_x_deg * deg_to_rad - calibration.roll) < 1e-3 &&
+        std::abs(dyn.origin_from_camera_rotation_y_deg * deg_to_rad - calibration.pitch) < 1e-3 &&
+        std::abs(dyn.origin_from_camera_rotation_z_deg * deg_to_rad - calibration.yaw) < 1e-3) {
+        return;
+    }
 
     //
     // Update calibration on camera via libmultisense
-    crl::multisense::system::ExternalCalibration calibration;
 
     calibration.x = dyn.origin_from_camera_position_x_m;
     calibration.y = dyn.origin_from_camera_position_y_m;
     calibration.z = dyn.origin_from_camera_position_z_m;
 
-    constexpr float deg_to_rad = M_PI / 180.0f;
     calibration.roll = dyn.origin_from_camera_rotation_x_deg * deg_to_rad;
     calibration.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
     calibration.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
 
     // Update extrinsics on camera
-    Status status = driver_->setExternalCalibration(calibration);
+    status = driver_->setExternalCalibration(calibration);
     if (Status_Ok != status) {
             ROS_ERROR("Reconfigure: failed to set external calibration: %s",
                         Channel::statusString(status));
