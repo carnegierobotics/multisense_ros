@@ -598,7 +598,9 @@ template<class T> void Reconfigure::configureS19Leds(const T& dyn)
             leds.setFlash(dyn.flash);
             leds.setDutyCycle(dyn.led_duty_cycle * 100.0);
             leds.setNumberOfPulses(dyn.number_of_pulses);
-            leds.setLedStartupTime(dyn.led_startup_time_us);
+            leds.setLedStartupTime(dyn.invert_led_output ?
+                                       dyn.led_startup_time_us :
+                                       dyn.led_startup_time_us + 1000000);
         }
 
         Status status = driver_->setLightingConfig(leds);
