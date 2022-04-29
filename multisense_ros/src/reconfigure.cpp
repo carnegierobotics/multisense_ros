@@ -57,6 +57,7 @@ Reconfigure::Reconfigure(Channel* driver,
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
     max_point_cloud_range_callback_(maxPointCloudRangeCallback),
+    set_extrinsics_(false),
     extrinsics_callback_(extrinsicsCallback)
 {
     system::DeviceInfo  deviceInfo;
@@ -727,6 +728,11 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
         std::abs(dyn.origin_from_camera_rotation_x_deg * deg_to_rad - calibration.roll) < 1e-3 &&
         std::abs(dyn.origin_from_camera_rotation_y_deg * deg_to_rad - calibration.pitch) < 1e-3 &&
         std::abs(dyn.origin_from_camera_rotation_z_deg * deg_to_rad - calibration.yaw) < 1e-3) {
+
+        if (!set_extrinsics_) {
+            extrinsics_callback_(calibration);
+            set_extrinsics_ = true;
+        }
         return;
     }
 
@@ -742,11 +748,13 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
     calibration.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
 
     // Update extrinsics on camera
-    status = driver_->setExternalCalibration(calibration);
-    if (Status_Ok != status) {
-            ROS_ERROR("Reconfigure: failed to set external calibration: %s",
-                        Channel::statusString(status));
-        return;
+    if (dyn.write_extrinsics_to_flash) {
+        status = driver_->setExternalCalibration(calibration);
+        if (Status_Ok != status) {
+                ROS_ERROR("Reconfigure: failed to set external calibration: %s",
+                            Channel::statusString(status));
+            return;
+        }
     }
 
     // Update camera class locally to modify pointcloud transform in rviz

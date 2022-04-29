@@ -175,6 +175,7 @@ private:
     //
     // Extrinsics callback to modify pointcloud
 
+    bool set_extrinsics_ = false;
     std::function<void (crl::multisense::system::ExternalCalibration)> extrinsics_callback_;
 };
 
