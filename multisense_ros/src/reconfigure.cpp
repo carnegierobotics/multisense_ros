@@ -87,12 +87,10 @@ Reconfigure::Reconfigure(Channel* driver,
         return;
     }
 
-    bool ground_surface_supported = false;
-    for (auto &mode : deviceModes)
-    {
-        ground_surface_supported |= (mode.supportedDataSources & Source_Ground_Surface_Spline_Data) &&
-                                    (mode.supportedDataSources & Source_Ground_Surface_Class_Image);
-    }
+    const bool ground_surface_supported =
+        std::any_of(deviceModes.begin(), deviceModes.end(), [](const auto &mode) {
+            return (mode.supportedDataSources & Source_Ground_Surface_Spline_Data) &&
+                   (mode.supportedDataSources & Source_Ground_Surface_Class_Image); });
 
     if (deviceInfo.lightingType != 0 || system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
     {
