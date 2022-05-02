@@ -788,17 +788,6 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 {
     //
-    // Update spline drawing parameters locally
-    spline_draw_parameters_callback_(
-        ground_surface_utilities::SplineDrawParameters{
-        dyn.ground_surface_pointcloud_global_max_z_m,
-        dyn.ground_surface_pointcloud_global_min_z_m,
-        dyn.ground_surface_pointcloud_global_max_x_m,
-        dyn.ground_surface_pointcloud_global_min_x_m,
-        dyn.ground_surface_spline_draw_resolution}
-    );
-
-    //
     // Update calibration on camera via libmultisense
     crl::multisense::system::GroundSurfaceParams params;
 
@@ -833,6 +822,17 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
                         Channel::statusString(status));
         return;
     }
+
+    //
+    // Update spline drawing parameters locally
+    spline_draw_parameters_callback_(
+        ground_surface_utilities::SplineDrawParameters{
+        dyn.ground_surface_pointcloud_global_max_z_m,
+        dyn.ground_surface_pointcloud_global_min_z_m,
+        dyn.ground_surface_pointcloud_global_max_x_m,
+        dyn.ground_surface_pointcloud_global_min_x_m,
+        dyn.ground_surface_spline_draw_resolution}
+    );
 }
 
 #define GET_CONFIG()                                                    \
