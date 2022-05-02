@@ -67,11 +67,20 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
 ///
 struct SplineDrawParameters
 {
-    double max_z_m;
-    double min_z_m;
-    double max_x_m;
-    double min_x_m;
-    double resolution;
+    /// @brief The max range (along the z dimension / optical axis) to draw the B-spline model
+    double max_z_m = 30.0;
+
+    /// @brief The min range (along the z dimension / optical axis) to draw the B-spline model
+    double min_z_m = 0.5;
+
+    /// @brief The max width (along the x dimension) to draw the B-spline model
+    double max_x_m = 25.0;
+
+    /// @brief The min width (along the x dimension) to draw the B-spline model
+    double min_x_m = -25.0;
+
+    /// @brief The resolution to sample the B-Spline model for drawing
+    double resolution = 0.1;
 };
 
 ///
