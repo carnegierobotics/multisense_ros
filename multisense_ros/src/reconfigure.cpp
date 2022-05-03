@@ -714,8 +714,6 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
 
 template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 {
-    // TODO(drobinson): Initialize to values stored in flash rather than overwriting camera extrinsics to
-    //                  default multisense.cfg values
     constexpr float deg_to_rad = M_PI / 180.0f;
     if (std::abs(dyn.origin_from_camera_position_x_m - calibration_.x) < 1e-3 &&
         std::abs(dyn.origin_from_camera_position_y_m - calibration_.y) < 1e-3 &&
