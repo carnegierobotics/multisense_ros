@@ -78,6 +78,7 @@ Reconfigure::Reconfigure(Channel* driver,
         return;
     }
 
+
     if (deviceInfo.lightingType != 0 || system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
     {
         lighting_supported_ = true;
@@ -259,6 +260,9 @@ Reconfigure::Reconfigure(Channel* driver,
             return;
         }
     }
+
+    calibration_ = crl::multisense::system::ExternalCalibration{};
+    extrinsics_callback_(calibration_);
 }
 
 Reconfigure::~Reconfigure()
@@ -710,32 +714,29 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
 
 template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 {
-    // TODO(drobinson): Initialize to values stored in flash rather than overwriting camera extrinsics to
-    //                  default multisense.cfg values
-
-    //
-    // Update calibration on camera via libmultisense
-    crl::multisense::system::ExternalCalibration calibration;
-
-    calibration.x = dyn.origin_from_camera_position_x_m;
-    calibration.y = dyn.origin_from_camera_position_y_m;
-    calibration.z = dyn.origin_from_camera_position_z_m;
-
     constexpr float deg_to_rad = M_PI / 180.0f;
-    calibration.roll = dyn.origin_from_camera_rotation_x_deg * deg_to_rad;
-    calibration.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
-    calibration.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
-
-    // Update extrinsics on camera
-    Status status = driver_->setExternalCalibration(calibration);
-    if (Status_Ok != status) {
-            ROS_ERROR("Reconfigure: failed to set external calibration: %s",
-                        Channel::statusString(status));
+    if (std::abs(dyn.origin_from_camera_position_x_m - calibration_.x) < 1e-3 &&
+        std::abs(dyn.origin_from_camera_position_y_m - calibration_.y) < 1e-3 &&
+        std::abs(dyn.origin_from_camera_position_z_m - calibration_.z) < 1e-3 &&
+        std::abs(dyn.origin_from_camera_rotation_x_deg * deg_to_rad - calibration_.roll) < 1e-3 &&
+        std::abs(dyn.origin_from_camera_rotation_y_deg * deg_to_rad - calibration_.pitch) < 1e-3 &&
+        std::abs(dyn.origin_from_camera_rotation_z_deg * deg_to_rad - calibration_.yaw) < 1e-3) {
         return;
     }
 
+    //
+    // Update calibration on camera via libmultisense
+
+    calibration_.x = dyn.origin_from_camera_position_x_m;
+    calibration_.y = dyn.origin_from_camera_position_y_m;
+    calibration_.z = dyn.origin_from_camera_position_z_m;
+
+    calibration_.roll = dyn.origin_from_camera_rotation_x_deg * deg_to_rad;
+    calibration_.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
+    calibration_.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
+
     // Update camera class locally to modify pointcloud transform in rviz
-    extrinsics_callback_(calibration);
+    extrinsics_callback_(calibration_);
 }
 
 #define GET_CONFIG()                                                    \
