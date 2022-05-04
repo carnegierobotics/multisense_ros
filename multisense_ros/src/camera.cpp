@@ -50,7 +50,6 @@
 #include <multisense_ros/DeviceInfo.h>
 #include <multisense_ros/Histogram.h>
 #include <multisense_ros/point_cloud_utilities.h>
-#include <multisense_ros/ground_surface_utilities.h>
 
 using namespace crl::multisense;
 
@@ -806,6 +805,12 @@ void Camera::extrinsicsChanged(crl::multisense::system::ExternalCalibration extr
     extrinsic_transforms_[0].transform = tf2::toMsg(multisense_head_T_origin);
 
     static_tf_broadcaster_.sendTransform(extrinsic_transforms_);
+}
+
+void Camera::groundSurfaceSplineDrawParametersChanged(
+    const ground_surface_utilities::SplineDrawParameters &spline_draw_params)
+{
+    spline_draw_params_ = spline_draw_params;
 }
 
 void Camera::histogramCallback(const image::Header& header)
@@ -2038,8 +2043,13 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
 {
     if (header.controlPointsBitsPerPixel != 32)
     {
-        std::cerr << "Expecting floats for spline control points, got " << header.controlPointsBitsPerPixel
-                  << " bits per pixel instead" << std::endl;
+        ROS_WARN("Expecting floats for spline control points, got %u bits per pixel instead", header.controlPointsBitsPerPixel);
+        return;
+    }
+
+    if (!header.success)
+    {
+        ROS_WARN("Ground surface modelling failed, consider modifying camera extrinsics and/or algorithm parameters");
         return;
     }
 
@@ -2057,16 +2067,17 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
     // Generate pointcloud for visualization
     auto eigen_pcl = ground_surface_utilities::convertSplineToPointcloud(
         controlGrid,
+        spline_draw_params_,
+        pointcloud_max_range_,
         header.xzCellOrigin,
         header.xzCellSize,
-        header.xzLimit,
         minMaxAzimuthAngle,
+        header.extrinsics,
         header.quadraticParams,
-        config.tx()
-    );
+        config.tx());
 
     // Send pointcloud message
-    ground_surface_spline_pub_.publish(ground_surface_utilities::eigenToPointcloud(eigen_pcl, frame_id_rectified_left_));
+    ground_surface_spline_pub_.publish(ground_surface_utilities::eigenToPointcloud(eigen_pcl, frame_id_origin_));
 }
 
 void Camera::updateConfig(const image::Config& config)

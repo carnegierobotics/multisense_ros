@@ -205,54 +205,69 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
 
 std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> convertSplineToPointcloud(
     const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &controlGrid,
+    const SplineDrawParameters &splineDrawParams,
+    const double pointcloudMaxRange,
     const float* xzCellOrigin,
     const float* xzCellSize,
-    const float* xzLimit,
     const float* minMaxAzimuthAngle,
+    const float* extrinsics,
     const float* quadraticParams,
     const float baseline)
 {
-    static constexpr double drawResolution = 0.1;
     static const auto basisArray = generateBasisArray();
 
-    // Get boundaries of valid spline area
-    const auto minX = xzCellOrigin[0] + xzCellSize[0];
-    const auto minZ = xzCellOrigin[1] + xzCellSize[1];
-    const auto maxX = xzLimit[0];
-    const auto maxZ = xzLimit[1];
+    // Generate extrinsics matrix
+    Eigen::Matrix<float, 4, 4> extrinsicsMat;
+    {
+        extrinsicsMat.setZero();
+        extrinsicsMat(0, 3) = extrinsics[0];
+        extrinsicsMat(1, 3) = extrinsics[1];
+        extrinsicsMat(2, 3) = extrinsics[2];
+        extrinsicsMat(3, 3) = static_cast<float>(1.0);
+        Eigen::Matrix<float, 3, 3> rot =
+            (Eigen::AngleAxis<float>(extrinsics[5], Eigen::Matrix<float, 3, 1>(0, 0, 1))
+            * Eigen::AngleAxis<float>(extrinsics[4], Eigen::Matrix<float, 3, 1>(0, 1, 0))
+            * Eigen::AngleAxis<float>(extrinsics[3], Eigen::Matrix<float, 3, 1>(1, 0, 0))).matrix();
+        extrinsicsMat.block(0, 0, 3, 3) = rot;
+    }
+
+    // Precompute extrinsics inverse
+    const auto extrinsicsInverse = extrinsicsMat.inverse();
 
     // Precompute number of points that will be drawn
     const size_t numPoints =
-        std::floor((maxX - minX) / drawResolution) * std::floor((maxZ - minZ) / drawResolution);
+        std::floor((splineDrawParams.max_x_m - splineDrawParams.min_x_m) / splineDrawParams.resolution) *
+        std::floor((splineDrawParams.max_z_m - splineDrawParams.min_z_m) / splineDrawParams.resolution);
 
     std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> points;
     points.reserve(numPoints);
 
-    for (float x = minX; x < maxX; x += drawResolution)
+    for (float x = splineDrawParams.min_x_m; x < splineDrawParams.max_x_m; x += splineDrawParams.resolution)
     {
-        for (float z = minZ; z < maxZ; z += drawResolution)
+        for (float z = splineDrawParams.min_z_m; z < splineDrawParams.max_z_m; z += splineDrawParams.resolution)
         {
-            // Filter points by range and angle
-            const auto distance = computeRange(x, z);
-            if (distance > maxZ)
-                continue;
-
-            const auto leftCamAzimuthAngle = computeAzimuth(x, z);
-            if (leftCamAzimuthAngle < minMaxAzimuthAngle[0])
-                continue;
-
-            // Offset max azimuth angle check by baseline for a cleaner "frustum" visualization
-            const auto rightCamAzimuthAngle = computeAzimuth(x + baseline, z);
-            if (rightCamAzimuthAngle > minMaxAzimuthAngle[1])
-                continue;
-
             // Compute spline point and transform into left camera optical frame
             const auto y = getSplineValue(xzCellOrigin, xzCellSize, x, z, controlGrid, basisArray)
                            + computeQuadraticSurface(x, z, quadraticParams);
 
-            auto splinePoint = Eigen::Vector3f(x, y, z);
-            auto transformedSplinePoint = splinePoint.homogeneous();
-            points.emplace_back(transformedSplinePoint.hnormalized());
+            const Eigen::Vector3f splinePoint = Eigen::Vector3f(x, y, z);
+            const Eigen::Vector3f transformedSplinePoint = (extrinsicsInverse * splinePoint.homogeneous()).hnormalized();
+
+            // Filter points by range and angle
+            const auto distance = computeRange(transformedSplinePoint(0), transformedSplinePoint(2));
+            if (distance > pointcloudMaxRange)
+                continue;
+
+            const auto leftCamAzimuthAngle = computeAzimuth(transformedSplinePoint(0), transformedSplinePoint(2));
+            if (leftCamAzimuthAngle < minMaxAzimuthAngle[0])
+                continue;
+
+            // Offset max azimuth angle check by baseline for a cleaner "frustum" visualization
+            const auto rightCamAzimuthAngle = computeAzimuth(transformedSplinePoint(0) + baseline, transformedSplinePoint(2));
+            if (rightCamAzimuthAngle > minMaxAzimuthAngle[1])
+                continue;
+
+            points.emplace_back(splinePoint);
         }
     }
 
