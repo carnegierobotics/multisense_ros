@@ -116,7 +116,7 @@ void groundSurfaceSplineCB(const ground_surface::Header& header, void* userDataP
 { reinterpret_cast<Camera*>(userDataP)->groundSurfaceSplineCallback(header); }
 
 
-bool isValidReprojectedPoint(const Eigen::Vector3f& pt, double squared_max_range)
+bool isValidReprojectedPoint(const Eigen::Vector3f& pt, float squared_max_range)
 {
     return pt[2] > 0.0f && std::isfinite(pt[2]) && pt.squaredNorm() < squared_max_range;
 }
@@ -195,26 +195,38 @@ bool clipPoint(const BorderClip& borderClipType,
     return true;
 }
 
-cv::Vec3b u_interpolate_color(double u, double v, const cv::Mat &image)
+cv::Vec3b interpolate_color(const Eigen::Vector2f &pixel, const cv::Mat &image)
 {
-    const double width = image.cols;
+    const float width = image.cols;
+    const float height = image.rows;
+
+    const float &u = pixel(0);
+    const float &v = pixel(1);
 
     //
-    // Interpolate in just the u dimension
+    // Implement a basic bileinar interpolation scheme
+    // https://en.wikipedia.org/wiki/Bilinear_interpolation
     //
-    const size_t min_u = static_cast<size_t>(std::min(std::max(std::floor(u), 0.), width - 1.));
-    const size_t max_u = static_cast<size_t>(std::min(std::max(std::ceil(u), 0.), width - 1.));
+    const size_t min_u = static_cast<size_t>(std::min(std::max(std::floor(u), 0.f), width - 1.f));
+    const size_t max_u = static_cast<size_t>(std::min(std::max(std::floor(u) + 1, 0.f), width - 1.f));
+    const size_t min_v = static_cast<size_t>(std::min(std::max(std::floor(v), 0.f), height - 1.f));
+    const size_t max_v = static_cast<size_t>(std::min(std::max(std::floor(v) + 1, 0.f), height - 1.f));
 
-    const cv::Vec3d element0 = image.at<cv::Vec3b>(width * v + min_u);
-    const cv::Vec3d element1 = image.at<cv::Vec3b>(width * v + max_u);
+    const cv::Vec3d element00 = image.at<cv::Vec3b>(width * min_v + min_u);
+    const cv::Vec3d element01 = image.at<cv::Vec3b>(width * min_v + max_u);
+    const cv::Vec3d element10 = image.at<cv::Vec3b>(width * max_v + min_u);
+    const cv::Vec3d element11 = image.at<cv::Vec3b>(width * max_v + max_u);
 
     const size_t delta_u = max_u - min_u;
+    const size_t delta_v = max_u - min_u;
 
     const double u_ratio = delta_u == 0 ? 1. : (static_cast<double>(max_u) - u) / static_cast<double>(delta_u);
+    const double v_ratio = delta_v == 0 ? 1. : (static_cast<double>(max_v) - v) / static_cast<double>(delta_v);
 
-    const cv::Vec3b result = (element0 * u_ratio + element1 * (1. - u_ratio));
+    const cv::Vec3b f_xy0 = element00 * u_ratio + element01 * (1. - u_ratio);
+    const cv::Vec3b f_xy1 = element10 * u_ratio + element11 * (1. - u_ratio);
 
-    return result;
+    return (f_xy0 * v_ratio + f_xy1 * (1. - v_ratio));
 }
 
 } // anonymous
@@ -655,8 +667,10 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
     if (has_aux_extrinsics)
     {
+        const Eigen::Vector3d aux_T = stereo_calibration_manager_->aux_T();
+
         tf2::Transform rectified_aux_T_rectified_left{tf2::Matrix3x3::getIdentity(),
-                                                      tf2::Vector3{stereo_calibration_manager_->aux_T(), 0., 0.}};
+                                                      tf2::Vector3{aux_T(0), aux_T(1), aux_T(2)}};
         stamped_transforms[3].header.stamp = ros::Time::now();
         stamped_transforms[3].header.frame_id = frame_id_rectified_left_;
         stamped_transforms[3].child_frame_id = frame_id_rectified_aux_;
@@ -1542,8 +1556,6 @@ void Camera::pointCloudCallback(const image::Header& header)
         color_organized_point_cloud_.row_step = header.width * color_organized_point_cloud_.point_step;
     }
 
-    const Eigen::Matrix4d Q = stereo_calibration_manager_->Q();
-
     const Eigen::Vector3f invalid_point(std::numeric_limits<float>::quiet_NaN(),
                                         std::numeric_limits<float>::quiet_NaN(),
                                         std::numeric_limits<float>::quiet_NaN());
@@ -1603,10 +1615,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 
     uint32_t packed_color = 0;
 
-    const double squared_max_range = pointcloud_max_range_ * pointcloud_max_range_;
-
-    const double aux_T = has_aux_camera_ ? stereo_calibration_manager_->aux_T() : stereo_calibration_manager_->T();
-    const double T = stereo_calibration_manager_->T();
+    const float squared_max_range = pointcloud_max_range_ * pointcloud_max_range_;
 
     size_t valid_points = 0;
     for (size_t y = 0 ; y < header.height ; ++y)
@@ -1615,17 +1624,17 @@ void Camera::pointCloudCallback(const image::Header& header)
         {
             const size_t index = y * header.width + x;
 
-            double disparity = 0.0f;
+            float disparity = 0.0f;
             switch(header.bitsPerPixel)
             {
                 case 16:
                 {
-                    disparity = static_cast<double>(reinterpret_cast<const uint16_t*>(header.imageDataP)[index]) / 16.0f;
+                    disparity = static_cast<float>(reinterpret_cast<const uint16_t*>(header.imageDataP)[index]) / 16.0f;
                     break;
                 }
                 case 32:
                 {
-                    disparity = static_cast<double>(reinterpret_cast<const float*>(header.imageDataP)[index]);
+                    disparity = static_cast<float>(reinterpret_cast<const float*>(header.imageDataP)[index]);
                     break;
                 }
                 default:
@@ -1635,6 +1644,8 @@ void Camera::pointCloudCallback(const image::Header& header)
                 }
             }
 
+            const Eigen::Vector3f point = stereo_calibration_manager_->reproject(x, y, disparity);
+
             //
             // We have a valid rectified color image meaning we plan to publish color pointcloud topics. Assemble the
             // color pixel here since it may be needed in our organized pointclouds
@@ -1643,10 +1654,10 @@ void Camera::pointCloudCallback(const image::Header& header)
             {
                 packed_color = 0;
 
-                const double color_d = has_aux_camera_ ? (disparity * aux_T) / T : 0.0;
+                const auto color_pixel = (has_aux_camera_ && disparity != 0.0) ?
+                    interpolate_color(stereo_calibration_manager_->rectifiedAuxProject(point), rectified_color) :
+                    rectified_color.at<cv::Vec3b>(y, x);
 
-                const auto color_pixel = has_aux_camera_ ? u_interpolate_color(std::max(x - color_d, 0.), y, rectified_color) :
-                                                          rectified_color.at<cv::Vec3b>(y, x);
 
                 packed_color |= color_pixel[2] << 16 | color_pixel[1] << 8 | color_pixel[0];
             }
@@ -1655,7 +1666,7 @@ void Camera::pointCloudCallback(const image::Header& header)
             // If our disparity is 0 pixels our corresponding 3D point is infinite. If we plan to publish organized
             // pointclouds we will need to add a invalid point to our pointcloud(s)
 
-            if (disparity == 0.0f || clipPoint(border_clip_type_, border_clip_value_, header.width, header.height, x, y))
+            if (disparity == 0.0 || clipPoint(border_clip_type_, border_clip_value_, header.width, header.height, x, y))
             {
                 if (pub_organized_pointcloud)
                 {
@@ -1669,12 +1680,6 @@ void Camera::pointCloudCallback(const image::Header& header)
 
                 continue;
             }
-
-            const Eigen::Vector3f point = ((Q * Eigen::Vector4d(static_cast<double>(x),
-                                                                static_cast<double>(y),
-                                                                disparity,
-                                                                1.0)).hnormalized()).cast<float>();
-
 
             const bool valid = isValidReprojectedPoint(point, squared_max_range);
 
