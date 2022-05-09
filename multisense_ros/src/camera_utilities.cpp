@@ -393,8 +393,8 @@ Eigen::Vector2f StereoCalibrationManger::rectifiedAuxProject(const Eigen::Vector
     //
     // Project the left_rectified_point into the aux image using the auxP matrix
     //
-    const double uB = (fx * left_rectified_point(0) + cx + fxtx);
-    const double vB = (fy * left_rectified_point(1) + cy + fyty);
+    const double uB = (fx * left_rectified_point(0) + (cx * left_rectified_point(2)) + fxtx);
+    const double vB = (fy * left_rectified_point(1) + (cy * left_rectified_point(2)) + fyty);
     const double invB = 1.0 / (left_rectified_point(2) + tz);
 
     return Eigen::Vector2f{static_cast<float>(uB * invB), static_cast<float>(vB * invB)};
