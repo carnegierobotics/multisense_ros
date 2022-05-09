@@ -1610,6 +1610,11 @@ void Camera::pointCloudCallback(const image::Header& header)
         rectified_color = std::move(rect_rgb_image);
     }
 
+    const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
+    const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_right_, t);
+    const auto aux_camera_info = stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, t,
+                                                                            rectified_color.cols, rectified_color.rows);
+
     //
     // Iterate through our disparity image once populating our pointcloud structures if we plan to publish them
 
@@ -1644,7 +1649,8 @@ void Camera::pointCloudCallback(const image::Header& header)
                 }
             }
 
-            const Eigen::Vector3f point = stereo_calibration_manager_->reproject(x, y, disparity);
+            const Eigen::Vector3f point = stereo_calibration_manager_->reproject(x, y, disparity,
+                                                                                 left_camera_info, right_camera_info);
 
             //
             // We have a valid rectified color image meaning we plan to publish color pointcloud topics. Assemble the
@@ -1655,7 +1661,8 @@ void Camera::pointCloudCallback(const image::Header& header)
                 packed_color = 0;
 
                 const auto color_pixel = (has_aux_camera_ && disparity != 0.0) ?
-                    interpolate_color(stereo_calibration_manager_->rectifiedAuxProject(point), rectified_color) :
+                    interpolate_color(stereo_calibration_manager_->rectifiedAuxProject(point, aux_camera_info),
+                                      rectified_color) :
                     rectified_color.at<cv::Vec3b>(y, x);
 
 

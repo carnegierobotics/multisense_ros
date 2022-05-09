@@ -352,7 +352,18 @@ Eigen::Vector3d StereoCalibrationManger::aux_T() const
                            aux_camera_info_.P[11]};
 }
 
-Eigen::Vector3f StereoCalibrationManger::reproject(size_t u, size_t v, double d)
+Eigen::Vector3f StereoCalibrationManger::reproject(size_t u, size_t v, double d) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    return reproject(u, v, d, left_camera_info_, right_camera_info_);
+}
+
+Eigen::Vector3f StereoCalibrationManger::reproject(size_t u,
+                                                   size_t v,
+                                                   double d,
+                                                   const sensor_msgs::CameraInfo &left_camera_info,
+                                                   const sensor_msgs::CameraInfo &right_camera_info) const
 {
     if (d == 0.0)
     {
@@ -361,14 +372,13 @@ Eigen::Vector3f StereoCalibrationManger::reproject(size_t u, size_t v, double d)
                                std::numeric_limits<float>::max()};
     }
 
-    std::lock_guard<std::mutex> lock(mutex_);
 
-    const double &fx = left_camera_info_.P[0];
-    const double &fy = left_camera_info_.P[5];
-    const double &cx = left_camera_info_.P[2];
-    const double &cy = left_camera_info_.P[6];
-    const double &cx_right = right_camera_info_.P[2];
-    const double tx = right_camera_info_.P[3] / right_camera_info_.P[0];
+    const double &fx = left_camera_info.P[0];
+    const double &fy = left_camera_info.P[5];
+    const double &cx = left_camera_info.P[2];
+    const double &cy = left_camera_info.P[6];
+    const double &cx_right = right_camera_info.P[2];
+    const double tx = right_camera_info.P[3] / right_camera_info.P[0];
 
     const double xB = ((fy * tx) * u) + (-fy * cx * tx);
     const double yB = ((fx * tx) * v) + (-fx * cy * tx);
@@ -378,17 +388,23 @@ Eigen::Vector3f StereoCalibrationManger::reproject(size_t u, size_t v, double d)
     return Eigen::Vector3f{static_cast<float>(xB * invB), static_cast<float>(yB * invB), static_cast<float>(zB * invB)};
 }
 
-Eigen::Vector2f StereoCalibrationManger::rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point)
+Eigen::Vector2f StereoCalibrationManger::rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    const double &fx = aux_camera_info_.P[0];
-    const double &fy = aux_camera_info_.P[5];
-    const double &cx = aux_camera_info_.P[2];
-    const double &cy = aux_camera_info_.P[6];
-    const double &fxtx = aux_camera_info_.P[3];
-    const double &fyty = aux_camera_info_.P[7];
-    const double &tz = aux_camera_info_.P[11];
+    return rectifiedAuxProject(left_rectified_point, aux_camera_info_);
+}
+
+Eigen::Vector2f StereoCalibrationManger::rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point,
+                                                             const sensor_msgs::CameraInfo &aux_camera_info) const
+{
+    const double &fx = aux_camera_info.P[0];
+    const double &fy = aux_camera_info.P[5];
+    const double &cx = aux_camera_info.P[2];
+    const double &cy = aux_camera_info.P[6];
+    const double &fxtx = aux_camera_info.P[3];
+    const double &fyty = aux_camera_info.P[7];
+    const double &tz = aux_camera_info.P[11];
 
     //
     // Project the left_rectified_point into the aux image using the auxP matrix
