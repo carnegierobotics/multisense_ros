@@ -1,6 +1,7 @@
 <launch>
 
-  <!-- Valid Sensor types are SL, S7, S7S, S21, S27, and BCAM -->
+  <!-- Valid Sensor types are SL, S7, S7S, S21, S27, BCAM,
+                              remote_head_vpb, remote_head_stereo, remote_head_monocam -->
 
   <arg name="ip_address" default="10.66.171.21" />
   <arg name="namespace"  default="multisense" />

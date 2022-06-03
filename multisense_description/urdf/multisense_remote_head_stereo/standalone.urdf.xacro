@@ -1,0 +1,6 @@
+<robot name="multisense" xmlns:xacro="http://ros.org/wiki/xacro">
+    <xacro:include filename="$(find multisense_description)/urdf/multisense_remote_head_stereo/multisense_remote_head_stereo.urdf.xacro"/>
+
+    <xacro:multisense_remote_head_stereo name="$(arg name)"/>
+</robot>
+
