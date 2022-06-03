@@ -55,20 +55,22 @@ int main(int argc, char** argvPP)
     std::string sensor_ip;
     std::string tf_prefix;
     int         sensor_mtu;
+    int         head_id;
 
 
     nh_private_.param<std::string>("sensor_ip", sensor_ip, "10.66.171.21");
     nh_private_.param<std::string>("tf_prefix", tf_prefix, "multisense");
     nh_private_.param<int>("sensor_mtu", sensor_mtu, 7200);
+    nh_private_.param<int>("head_id", head_id, 0);
 
     Channel *d = NULL;
 
     try {
 
-        d = Channel::Create(sensor_ip);
-	if (NULL == d) {
-            ROS_ERROR("multisense_ros: failed to create communication channel to sensor @ \"%s\"",
-                      sensor_ip.c_str());
+        d = Channel::Create(sensor_ip, head_id);
+        if (NULL == d) {
+            ROS_ERROR("multisense_ros: failed to create communication channel to sensor @ \"%s\" with head ID %d",
+                      sensor_ip.c_str(), head_id);
             return -2;
         }
 

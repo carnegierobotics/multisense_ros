@@ -102,7 +102,10 @@ Reconfigure::Reconfigure(Channel* driver,
     }
     if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision ||
-        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_VPB == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM == deviceInfo.hardwareRevision)
     {
         ptp_supported_ = true;
     }
@@ -191,6 +194,32 @@ Reconfigure::Reconfigure(Channel* driver,
             server_ks21_sgm_AR0234_->setCallback(std::bind(&Reconfigure::callback_ks21_AR0234, this,
                                                 std::placeholders::_1, std::placeholders::_2));
         }
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_VPB) {
+        server_remote_head_vpb_ =
+            std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_vpbConfig > > (
+                new dynamic_reconfigure::Server<multisense_ros::remote_head_vpbConfig>(device_nh_));
+        server_remote_head_vpb_->setCallback(std::bind(&Reconfigure::callback_remote_head_vpb, this,
+                                                       std::placeholders::_1, std::placeholders::_2));
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO) {
+        if (ground_surface_supported) {
+            server_remote_head_sgm_AR0234_ground_surface_ =
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_sgm_AR0234_ground_surfaceConfig > > (
+                    new dynamic_reconfigure::Server<multisense_ros::remote_head_sgm_AR0234_ground_surfaceConfig>(device_nh_));
+            server_remote_head_sgm_AR0234_ground_surface_->setCallback(std::bind(&Reconfigure::callback_remote_head_sgm_AR0234_ground_surface, this,
+                                                                                 std::placeholders::_1, std::placeholders::_2));
+        } else {
+            server_remote_head_sgm_AR0234_ =
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_sgm_AR0234Config > > (
+                    new dynamic_reconfigure::Server<multisense_ros::remote_head_sgm_AR0234Config>(device_nh_));
+            server_remote_head_sgm_AR0234_->setCallback(std::bind(&Reconfigure::callback_remote_head_sgm_AR0234, this,
+                                                                  std::placeholders::_1, std::placeholders::_2));
+        }
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM) {
+        server_remote_head_monocam_AR0234_ =
+            std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_monocam_AR0234Config > > (
+                new dynamic_reconfigure::Server<multisense_ros::remote_head_monocam_AR0234Config>(device_nh_));
+        server_remote_head_monocam_AR0234_->setCallback(std::bind(&Reconfigure::callback_remote_head_monocam_AR0234, this,
+                                                                  std::placeholders::_1, std::placeholders::_2));
     } else if (versionInfo.sensorFirmwareVersion <= 0x0202) {
 
         switch(deviceInfo.imagerType) {
@@ -736,27 +765,25 @@ template<class T> void Reconfigure::configurePtp(const T& dyn)
     }
 }
 
-template<class T> void Reconfigure::configureStereoProfile(crl::multisense::image::Config &cfg, const T& dyn)
+template<class T> void Reconfigure::configureStereoProfile(crl::multisense::CameraProfile &profile, const T& dyn)
 {
-    crl::multisense::CameraProfile profile = crl::multisense::User_Control;
-    profile |= (dyn.detail_disparity_profile ? crl::multisense::Detail_Disparity : profile);
     profile |= (dyn.high_contrast_profile ? crl::multisense::High_Contrast : profile);
     profile |= (dyn.show_roi_profile ? crl::multisense::Show_ROIs : profile);
-    profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
-
-    cfg.setCameraProfile(profile);
 }
 
-template<class T> void Reconfigure::configureStereoProfileWithGroundSurface(crl::multisense::image::Config &cfg, const T& dyn)
+template<class T> void Reconfigure::configureGroundSurfaceStereoProfile(crl::multisense::CameraProfile &profile, const T& dyn)
 {
-    crl::multisense::CameraProfile profile = crl::multisense::User_Control;
-    profile |= (dyn.detail_disparity_profile ? crl::multisense::Detail_Disparity : profile);
-    profile |= (dyn.high_contrast_profile ? crl::multisense::High_Contrast : profile);
-    profile |= (dyn.show_roi_profile ? crl::multisense::Show_ROIs : profile);
-    profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
     profile |= (dyn.ground_surface_profile ? crl::multisense::Ground_Surface : profile);
+}
 
-    cfg.setCameraProfile(profile);
+template<class T> void Reconfigure::configureFullResAuxStereoProfile(crl::multisense::CameraProfile &profile, const T& dyn)
+{
+    profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
+}
+
+template<class T> void Reconfigure::configureDetailDisparityStereoProfile(crl::multisense::CameraProfile &profile, const T& dyn)
+{
+    profile |= (dyn.detail_disparity_profile ? crl::multisense::Detail_Disparity : profile);
 }
 
 template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
@@ -920,7 +947,11 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 #define S27_SGM()  do {                                         \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
-        configureStereoProfile(cfg, dyn);                       \
+        crl::multisense::CameraProfile profile = crl::multisense::User_Control; \
+        configureStereoProfile(profile, dyn);                   \
+        configureDetailDisparityStereoProfile(profile, dyn);    \
+        configureFullResAuxStereoProfile(profile, dyn);         \
+        cfg.setCameraProfile(profile);                          \
         configureAutoWhiteBalance(cfg, dyn);                    \
         configureAuxCamera(cfg, dyn);                           \
         configureCamera(cfg, dyn);                              \
@@ -933,7 +964,10 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 #define KS21_SGM()  do {                                        \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
-        configureStereoProfile(cfg, dyn);                       \
+        crl::multisense::CameraProfile profile = crl::multisense::User_Control; \
+        configureStereoProfile(profile, dyn);                   \
+        configureDetailDisparityStereoProfile(profile, dyn);    \
+        cfg.setCameraProfile(profile);                          \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configureLeds(dyn);                                     \
@@ -945,7 +979,12 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 #define S27_SGM_GROUND_SURFACE()  do {                          \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
-        configureStereoProfileWithGroundSurface(cfg, dyn);      \
+        crl::multisense::CameraProfile profile = crl::multisense::User_Control; \
+        configureStereoProfile(profile, dyn);                   \
+        configureDetailDisparityStereoProfile(profile, dyn);    \
+        configureGroundSurfaceStereoProfile(profile, dyn);      \
+        configureFullResAuxStereoProfile(profile, dyn);         \
+        cfg.setCameraProfile(profile);                          \
         configureAutoWhiteBalance(cfg, dyn);                    \
         configureAuxCamera(cfg, dyn);                           \
         configureCamera(cfg, dyn);                              \
@@ -959,7 +998,11 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 #define KS21_SGM_GROUND_SURFACE()  do {                         \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
-        configureStereoProfileWithGroundSurface(cfg, dyn);      \
+        crl::multisense::CameraProfile profile = crl::multisense::User_Control; \
+        configureStereoProfile(profile, dyn);                   \
+        configureDetailDisparityStereoProfile(profile, dyn);    \
+        configureGroundSurfaceStereoProfile(profile, dyn);      \
+        cfg.setCameraProfile(profile);                          \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configureLeds(dyn);                                     \
@@ -969,6 +1012,54 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureGroundSurfaceParams(dyn);                      \
     } while(0)
 
+#define REMOTE_HEAD_VPB()  do {                                 \
+        GET_CONFIG();                                           \
+        configurePtp(dyn);                                      \
+        configureExtrinsics(dyn);                               \
+    } while(0)
+
+#define REMOTE_HEAD_SGM_AR0234()  do {                          \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        crl::multisense::CameraProfile profile = crl::multisense::User_Control; \
+        configureStereoProfile(profile, dyn);                   \
+        configureDetailDisparityStereoProfile(profile, dyn);    \
+        cfg.setCameraProfile(profile);                          \
+        configureCamera(cfg, dyn);                              \
+        configureBorderClip(dyn);                               \
+        configureLeds(dyn);                                     \
+        configurePtp(dyn);                                      \
+        configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
+    } while(0)
+
+#define REMOTE_HEAD_SGM_AR0234_GROUND_SURFACE()  do {           \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        crl::multisense::CameraProfile profile = crl::multisense::User_Control; \
+        configureStereoProfile(profile, dyn);                   \
+        configureDetailDisparityStereoProfile(profile, dyn);    \
+        configureGroundSurfaceStereoProfile(profile, dyn);      \
+        cfg.setCameraProfile(profile);                          \
+        configureCamera(cfg, dyn);                              \
+        configureBorderClip(dyn);                               \
+        configureLeds(dyn);                                     \
+        configurePtp(dyn);                                      \
+        configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
+        configureGroundSurfaceParams(dyn);                      \
+    } while(0)
+
+#define REMOTE_HEAD_MONOCAM_AR0234()  do {                      \
+        GET_CONFIG();                                           \
+        crl::multisense::CameraProfile profile = crl::multisense::User_Control; \
+        configureStereoProfile(profile, dyn);                   \
+        cfg.setCameraProfile(profile);                          \
+        configureCamera(cfg, dyn);                              \
+        configureLeds(dyn);                                     \
+        configurePtp(dyn);                                      \
+        configureExtrinsics(dyn);                               \
+    } while(0)
 
 //
 // The dynamic reconfigure callbacks (MultiSense S* & feature variations)
@@ -986,6 +1077,11 @@ void Reconfigure::callback_ks21_AR0234       (multisense_ros::ks21_sgm_AR0234Con
 
 void Reconfigure::callback_s27_AR0234_ground_surface        (multisense_ros::s27_sgm_AR0234_ground_surfaceConfig&     dyn, uint32_t level) { (void) level; S27_SGM_GROUND_SURFACE();  }
 void Reconfigure::callback_ks21_AR0234_ground_surface       (multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig&    dyn, uint32_t level) { (void) level; KS21_SGM_GROUND_SURFACE(); }
+
+void Reconfigure::callback_remote_head_vpb                       (multisense_ros::remote_head_vpbConfig&                       dyn, uint32_t level) { (void) level; REMOTE_HEAD_VPB(); }
+void Reconfigure::callback_remote_head_sgm_AR0234                (multisense_ros::remote_head_sgm_AR0234Config&                dyn, uint32_t level) { (void) level; REMOTE_HEAD_SGM_AR0234(); }
+void Reconfigure::callback_remote_head_sgm_AR0234_ground_surface (multisense_ros::remote_head_sgm_AR0234_ground_surfaceConfig& dyn, uint32_t level) { (void) level; REMOTE_HEAD_SGM_AR0234_GROUND_SURFACE(); }
+void Reconfigure::callback_remote_head_monocam_AR0234            (multisense_ros::remote_head_monocam_AR0234Config&            dyn, uint32_t level) { (void) level; REMOTE_HEAD_MONOCAM_AR0234(); }
 
 //
 // BCAM (Sony IMX104)
