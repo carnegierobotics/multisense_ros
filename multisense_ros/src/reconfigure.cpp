@@ -1064,24 +1064,23 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 //
 // The dynamic reconfigure callbacks (MultiSense S* & feature variations)
 
-void Reconfigure::callback_sl_bm_cmv2000     (multisense_ros::sl_bm_cmv2000Config&      dyn, uint32_t level) { (void) level; SL_BM();              }
-void Reconfigure::callback_sl_bm_cmv2000_imu (multisense_ros::sl_bm_cmv2000_imuConfig&  dyn, uint32_t level) { (void) level; SL_BM_IMU();          }
-void Reconfigure::callback_sl_bm_cmv4000     (multisense_ros::sl_bm_cmv4000Config&      dyn, uint32_t level) { (void) level; SL_BM();              }
-void Reconfigure::callback_sl_bm_cmv4000_imu (multisense_ros::sl_bm_cmv4000_imuConfig&  dyn, uint32_t level) { (void) level; SL_BM_IMU();          }
-void Reconfigure::callback_sl_sgm_cmv2000_imu(multisense_ros::sl_sgm_cmv2000_imuConfig& dyn, uint32_t level) { (void) level; SL_SGM_IMU();         }
-void Reconfigure::callback_sl_sgm_cmv4000_imu(multisense_ros::sl_sgm_cmv4000_imuConfig& dyn, uint32_t level) { (void) level; SL_SGM_IMU_CMV4000(); }
-void Reconfigure::callback_mono_cmv2000      (multisense_ros::mono_cmv2000Config&       dyn, uint32_t level) { (void) level; MONO_BM_IMU();        }
-void Reconfigure::callback_mono_cmv4000      (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { (void) level; MONO_BM_IMU();        }
-void Reconfigure::callback_s27_AR0234        (multisense_ros::s27_sgm_AR0234Config&     dyn, uint32_t level) { (void) level; S27_SGM();            }
-void Reconfigure::callback_ks21_AR0234       (multisense_ros::ks21_sgm_AR0234Config&    dyn, uint32_t level) { (void) level; KS21_SGM();           }
+void Reconfigure::callback_sl_bm_cmv2000             (multisense_ros::sl_bm_cmv2000Config&              dyn, uint32_t level) { (void) level; SL_BM(); }
+void Reconfigure::callback_sl_bm_cmv2000_imu         (multisense_ros::sl_bm_cmv2000_imuConfig&          dyn, uint32_t level) { (void) level; SL_BM_IMU(); }
+void Reconfigure::callback_sl_bm_cmv4000             (multisense_ros::sl_bm_cmv4000Config&              dyn, uint32_t level) { (void) level; SL_BM(); }
+void Reconfigure::callback_sl_bm_cmv4000_imu         (multisense_ros::sl_bm_cmv4000_imuConfig&          dyn, uint32_t level) { (void) level; SL_BM_IMU(); }
+void Reconfigure::callback_sl_sgm_cmv2000_imu        (multisense_ros::sl_sgm_cmv2000_imuConfig&         dyn, uint32_t level) { (void) level; SL_SGM_IMU(); }
+void Reconfigure::callback_sl_sgm_cmv4000_imu        (multisense_ros::sl_sgm_cmv4000_imuConfig&         dyn, uint32_t level) { (void) level; SL_SGM_IMU_CMV4000(); }
+void Reconfigure::callback_mono_cmv2000              (multisense_ros::mono_cmv2000Config&               dyn, uint32_t level) { (void) level; MONO_BM_IMU(); }
+void Reconfigure::callback_mono_cmv4000              (multisense_ros::mono_cmv4000Config&               dyn, uint32_t level) { (void) level; MONO_BM_IMU(); }
+void Reconfigure::callback_s27_AR0234                (multisense_ros::s27_sgm_AR0234Config&             dyn, uint32_t level) { (void) level; S27_SGM(); }
+void Reconfigure::callback_ks21_AR0234               (multisense_ros::ks21_sgm_AR0234Config&            dyn, uint32_t level) { (void) level; KS21_SGM(); }
+void Reconfigure::callback_remote_head_vpb           (multisense_ros::remote_head_vpbConfig&            dyn, uint32_t level) { (void) level; REMOTE_HEAD_VPB(); }
+void Reconfigure::callback_remote_head_sgm_AR0234    (multisense_ros::remote_head_sgm_AR0234Config&     dyn, uint32_t level) { (void) level; REMOTE_HEAD_SGM_AR0234(); }
+void Reconfigure::callback_remote_head_monocam_AR0234(multisense_ros::remote_head_monocam_AR0234Config& dyn, uint32_t level) { (void) level; REMOTE_HEAD_MONOCAM_AR0234(); }
 
-void Reconfigure::callback_s27_AR0234_ground_surface        (multisense_ros::s27_sgm_AR0234_ground_surfaceConfig&     dyn, uint32_t level) { (void) level; S27_SGM_GROUND_SURFACE();  }
-void Reconfigure::callback_ks21_AR0234_ground_surface       (multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig&    dyn, uint32_t level) { (void) level; KS21_SGM_GROUND_SURFACE(); }
-
-void Reconfigure::callback_remote_head_vpb                       (multisense_ros::remote_head_vpbConfig&                       dyn, uint32_t level) { (void) level; REMOTE_HEAD_VPB(); }
-void Reconfigure::callback_remote_head_sgm_AR0234                (multisense_ros::remote_head_sgm_AR0234Config&                dyn, uint32_t level) { (void) level; REMOTE_HEAD_SGM_AR0234(); }
-void Reconfigure::callback_remote_head_sgm_AR0234_ground_surface (multisense_ros::remote_head_sgm_AR0234_ground_surfaceConfig& dyn, uint32_t level) { (void) level; REMOTE_HEAD_SGM_AR0234_GROUND_SURFACE(); }
-void Reconfigure::callback_remote_head_monocam_AR0234            (multisense_ros::remote_head_monocam_AR0234Config&            dyn, uint32_t level) { (void) level; REMOTE_HEAD_MONOCAM_AR0234(); }
+void Reconfigure::callback_s27_AR0234_ground_surface            (multisense_ros::s27_sgm_AR0234_ground_surfaceConfig&         dyn, uint32_t level) { (void) level; S27_SGM_GROUND_SURFACE();  }
+void Reconfigure::callback_ks21_AR0234_ground_surface           (multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig&        dyn, uint32_t level) { (void) level; KS21_SGM_GROUND_SURFACE(); }
+void Reconfigure::callback_remote_head_sgm_AR0234_ground_surface(multisense_ros::remote_head_sgm_AR0234_ground_surfaceConfig& dyn, uint32_t level) { (void) level; REMOTE_HEAD_SGM_AR0234_GROUND_SURFACE(); }
 
 //
 // BCAM (Sony IMX104)
