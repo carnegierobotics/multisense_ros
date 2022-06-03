@@ -194,13 +194,13 @@ Reconfigure::Reconfigure(Channel* driver,
             server_ks21_sgm_AR0234_->setCallback(std::bind(&Reconfigure::callback_ks21_AR0234, this,
                                                 std::placeholders::_1, std::placeholders::_2));
         }
-    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_VPB) {
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_VPB == deviceInfo.hardwareRevision) {
         server_remote_head_vpb_ =
             std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_vpbConfig > > (
                 new dynamic_reconfigure::Server<multisense_ros::remote_head_vpbConfig>(device_nh_));
         server_remote_head_vpb_->setCallback(std::bind(&Reconfigure::callback_remote_head_vpb, this,
                                                        std::placeholders::_1, std::placeholders::_2));
-    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO) {
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == deviceInfo.hardwareRevision) {
         if (ground_surface_supported) {
             server_remote_head_sgm_AR0234_ground_surface_ =
                 std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_sgm_AR0234_ground_surfaceConfig > > (
@@ -214,7 +214,7 @@ Reconfigure::Reconfigure(Channel* driver,
             server_remote_head_sgm_AR0234_->setCallback(std::bind(&Reconfigure::callback_remote_head_sgm_AR0234, this,
                                                                   std::placeholders::_1, std::placeholders::_2));
         }
-    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM) {
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM == deviceInfo.hardwareRevision) {
         server_remote_head_monocam_AR0234_ =
             std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_monocam_AR0234Config > > (
                 new dynamic_reconfigure::Server<multisense_ros::remote_head_monocam_AR0234Config>(device_nh_));
