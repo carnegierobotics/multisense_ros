@@ -2096,15 +2096,13 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
 
 void Camera::apriltagCallback(const apriltag::Header& header)
 {
+    // Convert camera timestamp to ROS timestamp
+    int64_t seconds = std::floor(header.timestamp / 1e9);
+    int64_t nanoseconds = header.timestamp - seconds * 1e9;
+    const ros::Time ros_time(static_cast<uint32_t>(seconds), static_cast<uint32_t>(nanoseconds));
+
     // Publish Apriltags as ROS message
     AprilTagDetectionArray tag_detection_array;
-
-    // TODO(drobinson): Simplify this conversion
-    const time_t TICKS_PER_US = 1000ll;
-    int64_t microseconds = header.timestamp / TICKS_PER_US;
-    int64_t seconds = (microseconds / 1000000ll);
-    microseconds -= (seconds * 1000000ll);
-    const ros::Time ros_time(static_cast<uint32_t>(seconds), 1000 * static_cast<uint32_t>(microseconds));
 
     tag_detection_array.header.seq = static_cast<uint32_t>(header.frameId);
     tag_detection_array.header.stamp = ros_time;
