@@ -12,10 +12,10 @@ uint8 hamming
 # Higher is better. Only useful for small tags
 float32 decisionMargin
 
-# The 3x3 homography matrix describing the projection from an
-# "ideal" tag (with corners at (-1,1), (1,1), (1,-1), and (-1,
-# -1)) to pixels in the image
-std_msgs/Float64MultiArray tagToImageHomography
+# The 3x3 homography matrix (in row-major order) describing the projection
+# from an "ideal" tag (with corners at (-1,1), (1,1), (1,-1), and (-1,-1))
+# to pixels in the image
+float64[9] tagToImageHomography
 
 # The 2D position of the origin of the tag in the image
 float64[2] center

@@ -2117,10 +2117,15 @@ void Camera::apriltagCallback(const apriltag::Header& header)
         std::cout << "\tdecisionMargin: " << d.decisionMargin << std::endl;
 
         std::cout << "\ttagToImageHomography: " << std::endl;
-        for (unsigned int i = 0; i < 3; i++)
-            std::cout << "\t\t" << d.tagToImageHomography[i][0] << " "
-                      << d.tagToImageHomography[i][1] << " "
-                      << d.tagToImageHomography[i][2] << std::endl;
+        for (unsigned int col = 0; col < 3; col++)
+        {
+            std::cout << "\t\t";
+            for (unsigned int row = 0; row < 3; row++)
+            {
+                std::cout << d.tagToImageHomography[row][col] << " ";
+            }
+            std::cout << std::endl;
+        }
 
         std::cout << "\tcenter: " << std::endl;
         for (unsigned int i = 0; i < 2; i++)
@@ -2134,7 +2139,7 @@ void Camera::apriltagCallback(const apriltag::Header& header)
     // Publish ROS message
     AprilTagDetectionArray tag_detection_array;
 
-    // TODO(drobinson): Simplify this
+    // TODO(drobinson): Simplify this conversion
     const time_t TICKS_PER_US   = 1000ll;
     int64_t microseconds = header.timestamp / TICKS_PER_US;
     int64_t seconds = (microseconds / 1000000ll);
@@ -2159,27 +2164,11 @@ void Camera::apriltagCallback(const apriltag::Header& header)
         tag_detection.decisionMargin = d.decisionMargin;
 
         // Send tagToImageHomography array
+        for (unsigned int col = 0; col < 3; col++)
         {
-            std_msgs::MultiArrayDimension height;
-            height.label = "height";
-            height.size = 3;
-            height.stride = 9;
-            tag_detection.tagToImageHomography.layout.dim.push_back(height);
-
-            std_msgs::MultiArrayDimension width;
-            width.label = "width";
-            width.size = 3;
-            width.stride = 3;
-            tag_detection.tagToImageHomography.layout.dim.push_back(width);
-
-            tag_detection.tagToImageHomography.layout.data_offset = 0;
-
-            for (unsigned int i = 0; i < 3; i++)
+            for (unsigned int row = 0; row < 3; row++)
             {
-                for (unsigned int j = 0; j < 3; j++)
-                {
-                    tag_detection.tagToImageHomography.data.push_back(d.tagToImageHomography[i][j]);
-                }
+                tag_detection.tagToImageHomography[row + col * 3] = d.tagToImageHomography[row][col];
             }
         }
 
