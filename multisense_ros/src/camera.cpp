@@ -50,6 +50,10 @@
 #include <multisense_ros/DeviceInfo.h>
 #include <multisense_ros/Histogram.h>
 #include <multisense_ros/point_cloud_utilities.h>
+#include <multisense_ros/AprilTagCornerPoint.h>
+#include <multisense_ros/AprilTagDetection.h>
+#include <multisense_ros/AprilTagDetectionArray.h>
+
 
 using namespace crl::multisense;
 
@@ -114,6 +118,8 @@ void groundSurfaceCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->groundSurfaceCallback(header); }
 void groundSurfaceSplineCB(const ground_surface::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->groundSurfaceSplineCallback(header); }
+void apriltagCB(const apriltag::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->apriltagCallback(header); }
 
 
 bool isValidReprojectedPoint(const Eigen::Vector3f& pt, double squared_max_range)
@@ -265,6 +271,7 @@ constexpr char Camera::COST_CAMERA_INFO_TOPIC[];
 constexpr char Camera::GROUND_SURFACE_IMAGE_TOPIC[];
 constexpr char Camera::GROUND_SURFACE_INFO_TOPIC[];
 constexpr char Camera::GROUND_SURFACE_POINT_SPLINE_TOPIC[];
+constexpr char Camera::APRILTAG_DETECTION_TOPIC[];
 
 Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     driver_(driver),
@@ -274,6 +281,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     aux_nh_(device_nh_, AUX),
     calibration_nh_(device_nh_, CALIBRATION),
     ground_surface_nh_(device_nh_, GROUND_SURFACE),
+    apriltag_nh_(device_nh_, LEFT),
     left_mono_transport_(left_nh_),
     right_mono_transport_(right_nh_),
     left_rect_transport_(left_nh_),
@@ -346,14 +354,18 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     //
     // Create spline-based ground surface publishers for S27/S30 cameras
 
-    const bool can_support_ground_surface =
+    const bool can_support_on_board_algorithms =
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision;
 
-    if (can_support_ground_surface) {
+    if (can_support_on_board_algorithms) {
         ground_surface_cam_pub_ = ground_surface_transport_.advertise(GROUND_SURFACE_IMAGE_TOPIC, 5,
                                 std::bind(&Camera::connectStream, this, Source_Ground_Surface_Class_Image),
                                 std::bind(&Camera::disconnectStream, this, Source_Ground_Surface_Class_Image));
+
+        apriltag_detection_pub_ = apriltag_nh_.advertise<AprilTagDetectionArray>(APRILTAG_DETECTION_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_AprilTag_Detections),
+                                  std::bind(&Camera::disconnectStream, this, Source_AprilTag_Detections));
     }
 
     ground_surface_info_pub_ = ground_surface_nh_.advertise<sensor_msgs::CameraInfo>(GROUND_SURFACE_INFO_TOPIC, 1, true);
@@ -672,7 +684,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     static_tf_broadcaster_.sendTransform(stamped_transforms);
 
     //
-    // Update our internal image config and publish intitial camera info
+    // Update our internal image config and publish initial camera info
 
     updateConfig(image_config);
 
@@ -717,9 +729,16 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     //
     // Add ground surface callbacks for S27/S30 cameras
 
-    if (can_support_ground_surface) {
+    if (can_support_on_board_algorithms) {
         driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface_Class_Image, this);
         driver_->addIsolatedCallback(groundSurfaceSplineCB, this);
+        driver_->addIsolatedCallback(apriltagCB, this);
+
+        // // TODO(drobinson): Link to reconfigure
+        // Status status = driver_->startStreams(Source_AprilTag_Detections);
+        // if (Status_Ok != status) {
+        //     std::cerr << "Failed to start streams: " << Channel::statusString(status) << std::endl;
+        // }
     }
 
     //
@@ -761,6 +780,7 @@ Camera::~Camera()
 
     driver_->removeIsolatedCallback(groundSurfaceCB);
     driver_->removeIsolatedCallback(groundSurfaceSplineCB);
+    driver_->removeIsolatedCallback(apriltagCB);
 }
 
 void Camera::borderClipChanged(const BorderClip &borderClipType, double borderClipValue)
@@ -2078,6 +2098,111 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
 
     // Send pointcloud message
     ground_surface_spline_pub_.publish(ground_surface_utilities::eigenToPointcloud(eigen_pcl, frame_id_origin_));
+}
+
+void Camera::apriltagCallback(const apriltag::Header& header)
+{
+    (void)header;
+
+    std::cout << "----------------------------" << std::endl;
+    std::cout << "frameId: " << header.frameId << std::endl;
+    std::cout << "timestamp: " << header.timestamp << std::endl;
+    std::cout << "success: " << (header.success ? "true" : "false") << std::endl;
+    std::cout << "numDetections: " << header.numDetections << std::endl;
+
+    for (auto &d : header.detections)
+    {
+        std::cout << "tag ID: " << d.id << ", family ID: " << d.family << std::endl;
+        std::cout << "\thamming: " << (int)d.hamming << std::endl;
+        std::cout << "\tdecisionMargin: " << d.decisionMargin << std::endl;
+
+        std::cout << "\ttagToImageHomography: " << std::endl;
+        for (unsigned int i = 0; i < 3; i++)
+            std::cout << "\t\t" << d.tagToImageHomography[i][0] << " "
+                      << d.tagToImageHomography[i][1] << " "
+                      << d.tagToImageHomography[i][2] << std::endl;
+
+        std::cout << "\tcenter: " << std::endl;
+        for (unsigned int i = 0; i < 2; i++)
+            std::cout << "\t\t" << d.center[i] << std::endl;
+
+        std::cout << "\tcorners: " << std::endl;
+        for (unsigned int i = 0; i < 4; i++)
+            std::cout << "\t\t" << d.corners[i][0] << " " << d.corners[i][1] << std::endl;
+    }
+
+    // Publish ROS message
+    AprilTagDetectionArray tag_detection_array;
+
+    // TODO(drobinson): Simplify this
+    const time_t TICKS_PER_US   = 1000ll;
+    int64_t microseconds = header.timestamp / TICKS_PER_US;
+    int64_t seconds = (microseconds / 1000000ll);
+    microseconds -= (seconds * 1000000ll);
+    const ros::Time ros_time((uint32_t)seconds, 1000 * (uint32_t)microseconds);
+
+    tag_detection_array.header.seq = static_cast<uint32_t>(header.frameId);
+    tag_detection_array.header.stamp = ros_time;
+    tag_detection_array.header.frame_id = frame_id_rectified_left_;
+    tag_detection_array.frameId = header.frameId;
+    tag_detection_array.timestamp = header.timestamp;
+    tag_detection_array.success = header.success;
+    tag_detection_array.numDetections = header.numDetections;
+
+    for (auto &d : header.detections)
+    {
+        AprilTagDetection tag_detection;
+
+        tag_detection.family = d.family;
+        tag_detection.id = d.id;
+        tag_detection.hamming = d.hamming;
+        tag_detection.decisionMargin = d.decisionMargin;
+
+        // Send tagToImageHomography array
+        {
+            std_msgs::MultiArrayDimension height;
+            height.label = "height";
+            height.size = 3;
+            height.stride = 9;
+            tag_detection.tagToImageHomography.layout.dim.push_back(height);
+
+            std_msgs::MultiArrayDimension width;
+            width.label = "width";
+            width.size = 3;
+            width.stride = 3;
+            tag_detection.tagToImageHomography.layout.dim.push_back(width);
+
+            tag_detection.tagToImageHomography.layout.data_offset = 0;
+
+            for (unsigned int i = 0; i < 3; i++)
+            {
+                for (unsigned int j = 0; j < 3; j++)
+                {
+                    tag_detection.tagToImageHomography.data.push_back(d.tagToImageHomography[i][j]);
+                }
+            }
+        }
+
+        // Send tag centers array
+        for (unsigned int i = 0; i < 2; i++)
+        {
+            tag_detection.center[i] = d.center[i];
+        }
+
+        // Send detection corners array
+        for (unsigned int i = 0; i < 4; i++)
+        {
+            AprilTagCornerPoint point;
+            point.x = d.corners[i][0];
+            point.y = d.corners[i][1];
+
+            tag_detection.corners[i] = point;
+        }
+
+        tag_detection_array.detections.push_back(tag_detection);
+    }
+
+    apriltag_detection_pub_.publish(tag_detection_array);
 }
 
 void Camera::updateConfig(const image::Config& config)

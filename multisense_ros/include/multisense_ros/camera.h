@@ -77,6 +77,7 @@ public:
     void colorizeCallback(const crl::multisense::image::Header& header);
     void groundSurfaceCallback(const crl::multisense::image::Header& header);
     void groundSurfaceSplineCallback(const crl::multisense::ground_surface::Header& header);
+    void apriltagCallback(const crl::multisense::apriltag::Header& header);
 
     void borderClipChanged(const BorderClip &borderClipType, double borderClipValue);
 
@@ -140,6 +141,7 @@ private:
     static constexpr char GROUND_SURFACE_IMAGE_TOPIC[] = "image";
     static constexpr char GROUND_SURFACE_INFO_TOPIC[] = "camera_info";
     static constexpr char GROUND_SURFACE_POINT_SPLINE_TOPIC[] = "spline";
+    static constexpr char APRILTAG_DETECTION_TOPIC[] = "apriltag_detections";
 
 
     //
@@ -169,6 +171,7 @@ private:
     ros::NodeHandle aux_nh_;
     ros::NodeHandle calibration_nh_;
     ros::NodeHandle ground_surface_nh_;
+    ros::NodeHandle apriltag_nh_;
 
     //
     // Image transports
@@ -222,6 +225,7 @@ private:
     ros::Publisher                   aux_rect_cam_info_pub_;
     ros::Publisher                   aux_rgb_rect_cam_info_pub_;
     ros::Publisher                   ground_surface_info_pub_;
+    ros::Publisher                   apriltag_detection_pub_;
 
     ros::Publisher                   luma_point_cloud_pub_;
     ros::Publisher                   color_point_cloud_pub_;

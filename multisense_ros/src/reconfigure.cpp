@@ -743,6 +743,7 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
     profile |= (dyn.high_contrast_profile ? crl::multisense::High_Contrast : profile);
     profile |= (dyn.show_roi_profile ? crl::multisense::Show_ROIs : profile);
     profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
+    profile |= (dyn.apriltag_profile ? crl::multisense::AprilTag : profile);
 
     cfg.setCameraProfile(profile);
 }
@@ -755,6 +756,7 @@ template<class T> void Reconfigure::configureStereoProfileWithGroundSurface(crl:
     profile |= (dyn.show_roi_profile ? crl::multisense::Show_ROIs : profile);
     profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
     profile |= (dyn.ground_surface_profile ? crl::multisense::Ground_Surface : profile);
+    profile |= (dyn.apriltag_profile ? crl::multisense::AprilTag : profile);
 
     cfg.setCameraProfile(profile);
 }
