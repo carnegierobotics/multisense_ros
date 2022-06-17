@@ -733,12 +733,6 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface_Class_Image, this);
         driver_->addIsolatedCallback(groundSurfaceSplineCB, this);
         driver_->addIsolatedCallback(apriltagCB, this);
-
-        // // TODO(drobinson): Link to reconfigure
-        // Status status = driver_->startStreams(Source_AprilTag_Detections);
-        // if (Status_Ok != status) {
-        //     std::cerr << "Failed to start streams: " << Channel::statusString(status) << std::endl;
-        // }
     }
 
     //
@@ -2102,49 +2096,15 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
 
 void Camera::apriltagCallback(const apriltag::Header& header)
 {
-    (void)header;
-
-    std::cout << "----------------------------" << std::endl;
-    std::cout << "frameId: " << header.frameId << std::endl;
-    std::cout << "timestamp: " << header.timestamp << std::endl;
-    std::cout << "success: " << (header.success ? "true" : "false") << std::endl;
-    std::cout << "numDetections: " << header.numDetections << std::endl;
-
-    for (auto &d : header.detections)
-    {
-        std::cout << "tag ID: " << d.id << ", family ID: " << d.family << std::endl;
-        std::cout << "\thamming: " << (int)d.hamming << std::endl;
-        std::cout << "\tdecisionMargin: " << d.decisionMargin << std::endl;
-
-        std::cout << "\ttagToImageHomography: " << std::endl;
-        for (unsigned int col = 0; col < 3; col++)
-        {
-            std::cout << "\t\t";
-            for (unsigned int row = 0; row < 3; row++)
-            {
-                std::cout << d.tagToImageHomography[row][col] << " ";
-            }
-            std::cout << std::endl;
-        }
-
-        std::cout << "\tcenter: " << std::endl;
-        for (unsigned int i = 0; i < 2; i++)
-            std::cout << "\t\t" << d.center[i] << std::endl;
-
-        std::cout << "\tcorners: " << std::endl;
-        for (unsigned int i = 0; i < 4; i++)
-            std::cout << "\t\t" << d.corners[i][0] << " " << d.corners[i][1] << std::endl;
-    }
-
-    // Publish ROS message
+    // Publish Apriltags as ROS message
     AprilTagDetectionArray tag_detection_array;
 
     // TODO(drobinson): Simplify this conversion
-    const time_t TICKS_PER_US   = 1000ll;
+    const time_t TICKS_PER_US = 1000ll;
     int64_t microseconds = header.timestamp / TICKS_PER_US;
     int64_t seconds = (microseconds / 1000000ll);
     microseconds -= (seconds * 1000000ll);
-    const ros::Time ros_time((uint32_t)seconds, 1000 * (uint32_t)microseconds);
+    const ros::Time ros_time(static_cast<uint32_t>(seconds), 1000 * static_cast<uint32_t>(microseconds));
 
     tag_detection_array.header.seq = static_cast<uint32_t>(header.frameId);
     tag_detection_array.header.stamp = ros_time;
@@ -2163,7 +2123,6 @@ void Camera::apriltagCallback(const apriltag::Header& header)
         tag_detection.hamming = d.hamming;
         tag_detection.decisionMargin = d.decisionMargin;
 
-        // Send tagToImageHomography array
         for (unsigned int col = 0; col < 3; col++)
         {
             for (unsigned int row = 0; row < 3; row++)
@@ -2172,13 +2131,11 @@ void Camera::apriltagCallback(const apriltag::Header& header)
             }
         }
 
-        // Send tag centers array
         for (unsigned int i = 0; i < 2; i++)
         {
             tag_detection.center[i] = d.center[i];
         }
 
-        // Send detection corners array
         for (unsigned int i = 0; i < 4; i++)
         {
             AprilTagCornerPoint point;
