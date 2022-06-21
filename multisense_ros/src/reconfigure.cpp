@@ -87,10 +87,15 @@ Reconfigure::Reconfigure(Channel* driver,
         return;
     }
 
+    // Check which algorithms may be supported
     const bool ground_surface_supported =
         std::any_of(deviceModes.begin(), deviceModes.end(), [](const auto &mode) {
             return (mode.supportedDataSources & Source_Ground_Surface_Spline_Data) &&
                    (mode.supportedDataSources & Source_Ground_Surface_Class_Image); });
+
+    const bool apriltag_supported =
+        std::any_of(deviceModes.begin(), deviceModes.end(), [](const auto &mode) {
+            return mode.supportedDataSources & Source_AprilTag_Detections; });
 
     if (deviceInfo.lightingType != 0 || system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
     {
@@ -169,6 +174,12 @@ Reconfigure::Reconfigure(Channel* driver,
                     new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234_ground_surfaceConfig>(device_nh_));
             server_s27_AR0234_ground_surface_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234_ground_surface, this,
                                             std::placeholders::_1, std::placeholders::_2));
+        } else if (apriltag_supported) {
+            server_s27_AR0234_apriltag_ =
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234_apriltagConfig> > (
+                    new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234_apriltagConfig>(device_nh_));
+            server_s27_AR0234_apriltag_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234_apriltag, this,
+                                            std::placeholders::_1, std::placeholders::_2));
         } else {
             server_s27_AR0234_ =
                 std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
@@ -183,6 +194,12 @@ Reconfigure::Reconfigure(Channel* driver,
                 std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig> > (
                     new dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig>(device_nh_));
             server_ks21_sgm_AR0234_ground_surface_->setCallback(std::bind(&Reconfigure::callback_ks21_AR0234_ground_surface, this,
+                                                std::placeholders::_1, std::placeholders::_2));
+        } else if (apriltag_supported) {
+            server_ks21_sgm_AR0234_apriltag_ =
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234_apriltagConfig> > (
+                    new dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234_apriltagConfig>(device_nh_));
+            server_ks21_sgm_AR0234_apriltag_->setCallback(std::bind(&Reconfigure::callback_ks21_AR0234_apriltag, this,
                                                 std::placeholders::_1, std::placeholders::_2));
         } else {
             server_ks21_sgm_AR0234_ =
@@ -280,6 +297,12 @@ Reconfigure::Reconfigure(Channel* driver,
                         new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234_ground_surfaceConfig>(device_nh_));
                 server_s27_AR0234_ground_surface_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234_ground_surface, this,
                                                 std::placeholders::_1, std::placeholders::_2));
+            } else if (apriltag_supported) {
+            server_s27_AR0234_apriltag_ =
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234_apriltagConfig> > (
+                    new dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234_apriltagConfig>(device_nh_));
+            server_s27_AR0234_apriltag_->setCallback(std::bind(&Reconfigure::callback_s27_AR0234_apriltag, this,
+                                            std::placeholders::_1, std::placeholders::_2));
             } else {
                 server_s27_AR0234_ =
                     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> > (
@@ -743,7 +766,6 @@ template<class T> void Reconfigure::configureStereoProfile(crl::multisense::imag
     profile |= (dyn.high_contrast_profile ? crl::multisense::High_Contrast : profile);
     profile |= (dyn.show_roi_profile ? crl::multisense::Show_ROIs : profile);
     profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
-    profile |= (dyn.apriltag_profile ? crl::multisense::AprilTag : profile);
 
     cfg.setCameraProfile(profile);
 }
@@ -756,6 +778,17 @@ template<class T> void Reconfigure::configureStereoProfileWithGroundSurface(crl:
     profile |= (dyn.show_roi_profile ? crl::multisense::Show_ROIs : profile);
     profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
     profile |= (dyn.ground_surface_profile ? crl::multisense::Ground_Surface : profile);
+
+    cfg.setCameraProfile(profile);
+}
+
+template<class T> void Reconfigure::configureStereoProfileWithApriltag(crl::multisense::image::Config &cfg, const T& dyn)
+{
+    crl::multisense::CameraProfile profile = crl::multisense::User_Control;
+    profile |= (dyn.detail_disparity_profile ? crl::multisense::Detail_Disparity : profile);
+    profile |= (dyn.high_contrast_profile ? crl::multisense::High_Contrast : profile);
+    profile |= (dyn.show_roi_profile ? crl::multisense::Show_ROIs : profile);
+    profile |= (dyn.full_res_aux_profile ? crl::multisense::Full_Res_Aux_Cam : profile);
     profile |= (dyn.apriltag_profile ? crl::multisense::AprilTag : profile);
 
     cfg.setCameraProfile(profile);
@@ -791,7 +824,7 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
 {
     //
-    // Update calibration on camera via libmultisense
+    // Update ground surface params on camera via libmultisense
     crl::multisense::system::GroundSurfaceParams params;
 
     params.ground_surface_number_of_levels_x = dyn.ground_surface_spline_resolution_x;
@@ -836,6 +869,28 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         dyn.ground_surface_pointcloud_global_min_x_m,
         dyn.ground_surface_spline_draw_resolution}
     );
+}
+
+template<class T> void Reconfigure::configureApriltagParams(const T& dyn)
+{
+    //
+    // Update apriltag params on camera via libmultisense
+    crl::multisense::system::ApriltagParams params;
+
+    params.family = dyn.apriltag_family;
+    params.quad_detection_blur_sigma = dyn.apriltag_quad_detection_blur_sigma;
+    params.quad_detection_decimate = dyn.apriltag_quad_detection_decimate;
+    params.min_border_width = dyn.apriltag_min_border_width;
+    params.refine_quad_edges = dyn.apriltag_refine_quad_edges;
+    params.decode_sharpening = dyn.apriltag_decode_sharpening;
+
+    // Update ground surface params on camera
+    Status status = driver_->setApriltagParams(params);
+    if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to set apriltag params: %s",
+                        Channel::statusString(status));
+        return;
+    }
 }
 
 #define GET_CONFIG()                                                    \
@@ -971,7 +1026,32 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureGroundSurfaceParams(dyn);                      \
     } while(0)
 
+#define S27_SGM_APRILTAG()  do {                                \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        configureStereoProfileWithApriltag(cfg, dyn);           \
+        configureAutoWhiteBalance(cfg, dyn);                    \
+        configureAuxCamera(cfg, dyn);                           \
+        configureCamera(cfg, dyn);                              \
+        configureBorderClip(dyn);                               \
+        configurePtp(dyn);                                      \
+        configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
+        configureApriltagParams(dyn);                           \
+    } while(0)
 
+#define KS21_SGM_APRILTAG()  do {                               \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        configureStereoProfileWithApriltag(cfg, dyn);           \
+        configureCamera(cfg, dyn);                              \
+        configureBorderClip(dyn);                               \
+        configureLeds(dyn);                                     \
+        configurePtp(dyn);                                      \
+        configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
+        configureApriltagParams(dyn);                           \
+    } while(0)
 //
 // The dynamic reconfigure callbacks (MultiSense S* & feature variations)
 
@@ -985,9 +1065,10 @@ void Reconfigure::callback_mono_cmv2000      (multisense_ros::mono_cmv2000Config
 void Reconfigure::callback_mono_cmv4000      (multisense_ros::mono_cmv4000Config&       dyn, uint32_t level) { (void) level; MONO_BM_IMU();        }
 void Reconfigure::callback_s27_AR0234        (multisense_ros::s27_sgm_AR0234Config&     dyn, uint32_t level) { (void) level; S27_SGM();            }
 void Reconfigure::callback_ks21_AR0234       (multisense_ros::ks21_sgm_AR0234Config&    dyn, uint32_t level) { (void) level; KS21_SGM();           }
-
 void Reconfigure::callback_s27_AR0234_ground_surface        (multisense_ros::s27_sgm_AR0234_ground_surfaceConfig&     dyn, uint32_t level) { (void) level; S27_SGM_GROUND_SURFACE();  }
 void Reconfigure::callback_ks21_AR0234_ground_surface       (multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig&    dyn, uint32_t level) { (void) level; KS21_SGM_GROUND_SURFACE(); }
+void Reconfigure::callback_s27_AR0234_apriltag              (multisense_ros::s27_sgm_AR0234_apriltagConfig&           dyn, uint32_t level) { (void) level; S27_SGM_APRILTAG();  }
+void Reconfigure::callback_ks21_AR0234_apriltag             (multisense_ros::ks21_sgm_AR0234_apriltagConfig&          dyn, uint32_t level) { (void) level; KS21_SGM_APRILTAG(); }
 
 //
 // BCAM (Sony IMX104)

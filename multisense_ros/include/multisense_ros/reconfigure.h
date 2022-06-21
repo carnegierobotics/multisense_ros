@@ -53,8 +53,11 @@
 #include <multisense_ros/mono_cmv4000Config.h>
 #include <multisense_ros/s27_sgm_AR0234Config.h>
 #include <multisense_ros/s27_sgm_AR0234_ground_surfaceConfig.h>
+#include <multisense_ros/s27_sgm_AR0234_apriltagConfig.h>
 #include <multisense_ros/ks21_sgm_AR0234Config.h>
 #include <multisense_ros/ks21_sgm_AR0234_ground_surfaceConfig.h>
+#include <multisense_ros/ks21_sgm_AR0234_apriltagConfig.h>
+
 #include <multisense_ros/camera_utilities.h>
 #include <multisense_ros/ground_surface_utilities.h>
 
@@ -94,6 +97,8 @@ private:
 
     void callback_s27_AR0234_ground_surface        (multisense_ros::s27_sgm_AR0234_ground_surfaceConfig&     dyn, uint32_t level);
     void callback_ks21_AR0234_ground_surface       (multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig&    dyn, uint32_t level);
+    void callback_s27_AR0234_apriltag              (multisense_ros::s27_sgm_AR0234_apriltagConfig&           dyn, uint32_t level);
+    void callback_ks21_AR0234_apriltag             (multisense_ros::ks21_sgm_AR0234_apriltagConfig&          dyn, uint32_t level);
 
     //
     // Internal helper functions
@@ -114,8 +119,10 @@ private:
     template<class T> void configurePtp(const T& dyn);
     template<class T> void configureStereoProfile(crl::multisense::image::Config &cfg, const T& dyn);
     template<class T> void configureStereoProfileWithGroundSurface(crl::multisense::image::Config &cfg, const T& dyn);
+    template<class T> void configureStereoProfileWithApriltag(crl::multisense::image::Config &cfg, const T& dyn);
     template<class T> void configureExtrinsics(const T& dyn);
     template<class T> void configureGroundSurfaceParams(const T& dyn);
+    template<class T> void configureApriltagParams(const T& dyn);
 
     //
     // CRL sensor API
@@ -156,6 +163,8 @@ private:
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234Config> >    server_ks21_sgm_AR0234_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234_ground_surfaceConfig> >     server_s27_AR0234_ground_surface_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig> >    server_ks21_sgm_AR0234_ground_surface_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234_apriltagConfig> >           server_s27_AR0234_apriltag_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234_apriltagConfig> >          server_ks21_sgm_AR0234_apriltag_;
 
     //
     // Cached values for supported sub-systems (these may be unavailable on
@@ -192,7 +201,7 @@ private:
     std::function<void (crl::multisense::system::ExternalCalibration)> extrinsics_callback_;
 
     //
-    // Extrinsics callback to modify pointcloud
+    // Callback to modify spline drawing parameters
 
     std::function<void (ground_surface_utilities::SplineDrawParameters)> spline_draw_parameters_callback_;
 };
