@@ -1,5 +1,5 @@
 # The family of the tag
-uint64 family
+string family
 
 # The ID of the tag
 uint32 id

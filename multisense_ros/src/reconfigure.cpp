@@ -878,6 +878,7 @@ template<class T> void Reconfigure::configureApriltagParams(const T& dyn)
     crl::multisense::system::ApriltagParams params;
 
     params.family = dyn.apriltag_family;
+    params.max_hamming = dyn.apriltag_max_hamming;
     params.quad_detection_blur_sigma = dyn.apriltag_quad_detection_blur_sigma;
     params.quad_detection_decimate = dyn.apriltag_quad_detection_decimate;
     params.min_border_width = dyn.apriltag_min_border_width;
