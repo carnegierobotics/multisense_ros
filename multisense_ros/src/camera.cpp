@@ -352,25 +352,39 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     histogram_pub_      = device_nh_.advertise<multisense_ros::Histogram>(HISTOGRAM_TOPIC, 5);
 
     //
-    // Create spline-based ground surface publishers for S27/S30 cameras
+    // Create publishers for algorithms which are available
 
-    const bool can_support_on_board_algorithms =
-        system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
-        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision;
+    std::vector<system::DeviceMode> device_modes;
+    status = driver_->getDeviceModes(device_modes);
+    if (Status_Ok != status) {
+        ROS_ERROR("Reconfigure: failed to query device modes: %s", Channel::statusString(status));
+        return;
+    }
 
-    if (can_support_on_board_algorithms) {
+    const bool ground_surface_supported =
+        std::any_of(device_modes.begin(), device_modes.end(), [](const auto &mode) {
+            return (mode.supportedDataSources & Source_Ground_Surface_Spline_Data) &&
+                   (mode.supportedDataSources & Source_Ground_Surface_Class_Image); });
+
+    if (ground_surface_supported) {
         ground_surface_cam_pub_ = ground_surface_transport_.advertise(GROUND_SURFACE_IMAGE_TOPIC, 5,
                                 std::bind(&Camera::connectStream, this, Source_Ground_Surface_Class_Image),
                                 std::bind(&Camera::disconnectStream, this, Source_Ground_Surface_Class_Image));
 
+        ground_surface_info_pub_ = ground_surface_nh_.advertise<sensor_msgs::CameraInfo>(GROUND_SURFACE_INFO_TOPIC, 1, true);
+
+        ground_surface_spline_pub_ = ground_surface_nh_.advertise<sensor_msgs::PointCloud2>(GROUND_SURFACE_POINT_SPLINE_TOPIC, 5, true);
+    }
+
+    const bool apriltag_supported =
+    std::any_of(device_modes.begin(), device_modes.end(), [](const auto &mode) {
+        return mode.supportedDataSources & Source_AprilTag_Detections; });
+
+    if (apriltag_supported) {
         apriltag_detection_pub_ = apriltag_nh_.advertise<AprilTagDetectionArray>(APRILTAG_DETECTION_TOPIC, 5,
                                   std::bind(&Camera::connectStream, this, Source_AprilTag_Detections),
                                   std::bind(&Camera::disconnectStream, this, Source_AprilTag_Detections));
     }
-
-    ground_surface_info_pub_ = ground_surface_nh_.advertise<sensor_msgs::CameraInfo>(GROUND_SURFACE_INFO_TOPIC, 1, true);
-
-    ground_surface_spline_pub_ = ground_surface_nh_.advertise<sensor_msgs::PointCloud2>(GROUND_SURFACE_POINT_SPLINE_TOPIC, 5, true);
 
     //
     // Create topic publishers (TODO: color topics should not be advertised if the device can't support it)
@@ -727,11 +741,14 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     driver_->addIsolatedCallback(histCB, allImageSources, this);
 
     //
-    // Add ground surface callbacks for S27/S30 cameras
+    // Add algorithm callbacks
 
-    if (can_support_on_board_algorithms) {
+    if (ground_surface_supported) {
         driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface_Class_Image, this);
         driver_->addIsolatedCallback(groundSurfaceSplineCB, this);
+    }
+
+    if (apriltag_supported) {
         driver_->addIsolatedCallback(apriltagCB, this);
     }
 
