@@ -2124,7 +2124,7 @@ void Camera::apriltagCallback(const apriltag::Header& header)
     tag_detection_array.header.seq = static_cast<uint32_t>(header.frameId);
     tag_detection_array.header.stamp = ros_time;
     tag_detection_array.header.frame_id = frame_id_rectified_left_;
-    tag_detection_array.frameId = header.frameId;
+    tag_detection_array.imageSource = header.imageSource;
     tag_detection_array.timestamp = header.timestamp;
     tag_detection_array.success = header.success;
     tag_detection_array.numDetections = header.numDetections;
