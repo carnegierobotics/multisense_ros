@@ -7,7 +7,7 @@
   <arg name="namespace"  default="multisense" />
   <arg name="mtu"        default="7200" />
   <arg name="sensor"     default="S21" />
-  <arg name="head_id"    default="0" />
+  <arg name="head_id"    default="-1" />
   <arg name="launch_robot_state_publisher" default="true" />
   <arg name="launch_color_laser_publisher" default="false" />
   <arg name="nodes_prefix" default="$(arg namespace)" />

@@ -67,10 +67,29 @@ int main(int argc, char** argvPP)
 
     try {
 
-        d = Channel::Create(sensor_ip, head_id);
+        RemoteHeadChannel rh_channel = 0;
+        switch(head_id) {
+            case 0:
+                rh_channel = Remote_Head_0;
+                break;
+            case 1:
+                rh_channel = Remote_Head_1;
+                break;
+            case 2:
+                rh_channel = Remote_Head_2;
+                break;
+            case 3:
+                rh_channel = Remote_Head_3;
+                break;
+            default:
+                rh_channel = Remote_Head_VPB;
+                break;
+        }
+
+        d = Channel::Create(sensor_ip, rh_channel);
         if (NULL == d) {
             ROS_ERROR("multisense_ros: failed to create communication channel to sensor @ \"%s\" with head ID %d",
-                      sensor_ip.c_str(), head_id);
+                      sensor_ip.c_str(), rh_channel);
             return -2;
         }
 

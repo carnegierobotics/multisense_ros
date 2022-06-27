@@ -4,35 +4,35 @@
   <arg name="mtu"        default="7200" />
 
   <arg name="launch_vpb" default="true" />
+  <arg name="launch_head0" default="true" />
   <arg name="launch_head1" default="true" />
   <arg name="launch_head2" default="true" />
   <arg name="launch_head3" default="true" />
-  <arg name="launch_head4" default="true" />
 
   <arg name="vpb_namespace"    default="multisense_vpb" />
+  <arg name="head0_namespace"  default="remote_head_0" />
   <arg name="head1_namespace"  default="remote_head_1" />
   <arg name="head2_namespace"  default="remote_head_2" />
   <arg name="head3_namespace"  default="remote_head_3" />
-  <arg name="head4_namespace"  default="remote_head_4" />
 
   <!-- Valid Sensor types for remote heads are remote_head_vpb, remote_head_stereo, remote_head_monocam -->
   <arg name="vpb_sensor"       default="remote_head_vpb" />
+  <arg name="head0_sensor"     default="remote_head_stereo" />
   <arg name="head1_sensor"     default="remote_head_stereo" />
   <arg name="head2_sensor"     default="remote_head_stereo" />
   <arg name="head3_sensor"     default="remote_head_stereo" />
-  <arg name="head4_sensor"     default="remote_head_stereo" />
 
   <arg name="vpb_nodes_prefix"   default="$(arg vpb_namespace)" />
+  <arg name="head0_nodes_prefix" default="$(arg head0_namespace)" />
   <arg name="head1_nodes_prefix" default="$(arg head1_namespace)" />
   <arg name="head2_nodes_prefix" default="$(arg head2_namespace)" />
   <arg name="head3_nodes_prefix" default="$(arg head3_namespace)" />
-  <arg name="head4_nodes_prefix" default="$(arg head4_namespace)" />
 
   <arg name="vpb_tf_prefix"   default="$(arg vpb_namespace)" />
+  <arg name="head0_tf_prefix" default="$(arg head0_namespace)" />
   <arg name="head1_tf_prefix" default="$(arg head1_namespace)" />
   <arg name="head2_tf_prefix" default="$(arg head2_namespace)" />
   <arg name="head3_tf_prefix" default="$(arg head3_namespace)" />
-  <arg name="head4_tf_prefix" default="$(arg head4_namespace)" />
 
   <arg name="launch_robot_state_publisher" default="true" />
 
@@ -44,7 +44,7 @@
       <param name="sensor_ip" value="$(arg ip_address)" />
       <param name="sensor_mtu" value="$(arg mtu)" />
       <param name="tf_prefix"  value="$(arg vpb_tf_prefix)" />
-      <param name="head_id"  value="0" />
+      <param name="head_id"  value="-1" />
     </node>
 
     <!-- Robot state publisher -->
@@ -54,6 +54,30 @@
       <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg vpb_nodes_prefix)_state_publisher">
         <param name="publish_frequency" type="double" value="50.0" />
         <remap from="joint_states" to="/$(arg vpb_namespace)/joint_states" />
+      </node>
+    </group>
+
+  </group>
+
+
+  <!-- Remote Head 0 Launch -->
+  <group if = "$(arg launch_head0)">
+
+    <!-- ROS Driver -->
+    <node pkg="multisense_ros" ns="$(arg head0_namespace)" type="ros_driver" name="$(arg head0_nodes_prefix)_driver" output="screen">
+      <param name="sensor_ip" value="$(arg ip_address)" />
+      <param name="sensor_mtu" value="$(arg mtu)" />
+      <param name="tf_prefix"  value="$(arg head0_tf_prefix)" />
+      <param name="head_id"  value="0" />
+    </node>
+
+    <!-- Robot state publisher -->
+    <group if = "$(arg launch_robot_state_publisher)">
+      <param name="robot_description"
+            command="$(find xacro)/xacro '$(find multisense_description)/urdf/multisense$(arg head0_sensor)/standalone.urdf.xacro' name:=$(arg head0_namespace)"/>
+      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head0_nodes_prefix)_state_publisher">
+        <param name="publish_frequency" type="double" value="50.0" />
+        <remap from="joint_states" to="/$(arg head0_namespace)/joint_states" />
       </node>
     </group>
 
@@ -126,30 +150,6 @@
       <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head3_nodes_prefix)_state_publisher">
         <param name="publish_frequency" type="double" value="50.0" />
         <remap from="joint_states" to="/$(arg head3_namespace)/joint_states" />
-      </node>
-    </group>
-
-  </group>
-
-
-  <!-- Remote Head 4 Launch -->
-  <group if = "$(arg launch_head4)">
-
-    <!-- ROS Driver -->
-    <node pkg="multisense_ros" ns="$(arg head4_namespace)" type="ros_driver" name="$(arg head4_nodes_prefix)_driver" output="screen">
-      <param name="sensor_ip" value="$(arg ip_address)" />
-      <param name="sensor_mtu" value="$(arg mtu)" />
-      <param name="tf_prefix"  value="$(arg head4_tf_prefix)" />
-      <param name="head_id"  value="4" />
-    </node>
-
-    <!-- Robot state publisher -->
-    <group if = "$(arg launch_robot_state_publisher)">
-      <param name="robot_description"
-            command="$(find xacro)/xacro '$(find multisense_description)/urdf/multisense$(arg head4_sensor)/standalone.urdf.xacro' name:=$(arg head4_namespace)"/>
-      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head4_nodes_prefix)_state_publisher">
-        <param name="publish_frequency" type="double" value="50.0" />
-        <remap from="joint_states" to="/$(arg head4_namespace)/joint_states" />
       </node>
     </group>
 
