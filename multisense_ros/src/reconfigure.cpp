@@ -885,7 +885,6 @@ template<class T> void Reconfigure::configureApriltagParams(const T& dyn)
     params.refine_quad_edges = dyn.apriltag_refine_quad_edges;
     params.decode_sharpening = dyn.apriltag_decode_sharpening;
 
-    // Update ground surface params on camera
     Status status = driver_->setApriltagParams(params);
     if (Status_Ok != status) {
             ROS_ERROR("Reconfigure: failed to set apriltag params: %s",
