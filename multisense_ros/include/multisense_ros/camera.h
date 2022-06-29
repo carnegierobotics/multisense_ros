@@ -345,9 +345,34 @@ private:
     std::unordered_map<crl::multisense::DataSource, std::shared_ptr<BufferWrapper<crl::multisense::image::Header>>> image_buffers_;
 
     //
+    // Has a left camera
+
+    bool has_right_camera_ = false;
+
+    //
+    // Has a left camera
+
+    bool has_left_camera_ = false;
+
+    //
     // Has a 3rd aux color camera
 
     bool has_aux_camera_ = false;
+
+    //
+    // Has color camera streams, either color sensors or a color aux
+
+    bool has_color_ = false;
+
+    //
+    // Can support the ground surface detector
+
+    bool can_support_ground_surface_ = false;
+
+    //
+    // Can support the apriltag detector
+
+    bool can_support_apriltag_ = false;
 
     //
     // Diagnostics

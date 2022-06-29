@@ -18,6 +18,7 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 install(FILES
   rviz_config.rviz
   multisense.launch
+  remote_head.launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
