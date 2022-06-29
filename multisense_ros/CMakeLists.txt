@@ -50,7 +50,10 @@ add_message_files(DIRECTORY msg
                   RawLidarCal.msg
                   Histogram.msg
                   DeviceStatus.msg
-                  StampedPps.msg)
+                  StampedPps.msg
+                  AprilTagCornerPoint.msg
+                  AprilTagDetection.msg
+                  AprilTagDetectionArray.msg)
 
 generate_messages(DEPENDENCIES sensor_msgs)
 
