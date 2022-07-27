@@ -218,7 +218,7 @@ cv::Vec3b interpolate_color(const Eigen::Vector2f &pixel, const cv::Mat &image)
     const cv::Vec3d element11 = image.at<cv::Vec3b>(width * max_v + max_u);
 
     const size_t delta_u = max_u - min_u;
-    const size_t delta_v = max_u - min_u;
+    const size_t delta_v = max_v - min_v;
 
     const double u_ratio = delta_u == 0 ? 1. : (static_cast<double>(max_u) - u) / static_cast<double>(delta_u);
     const double v_ratio = delta_v == 0 ? 1. : (static_cast<double>(max_v) - v) / static_cast<double>(delta_v);
