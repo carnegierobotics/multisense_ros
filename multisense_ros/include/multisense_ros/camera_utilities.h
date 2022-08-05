@@ -166,14 +166,43 @@ public:
     Eigen::Matrix4d Q() const;
 
     ///
-    /// @brief Translation which transforms points from the right camera frame into the left camera frame
+    /// @brief Translation which transforms points from the rectified left camera frame into the recified right camera
+    /// frame
     ///
     double T() const;
 
     ///
-    /// @brief Translation which transforms points from the aux camera frame into the left camera frame
+    /// @brief Translation which transforms points from the rectified left camera frame into the rectified aux
+    /// camera frame
     ///
-    double aux_T() const;
+    Eigen::Vector3d aux_T() const;
+
+    ///
+    /// @brief Reproject disparity values into 3D
+    ///
+    Eigen::Vector3f reproject(size_t u, size_t v, double d) const;
+
+    ///
+    /// @brief Reproject disparity values into 3D
+    ///
+    Eigen::Vector3f reproject(size_t u,
+                              size_t v,
+                              double d,
+                              const sensor_msgs::CameraInfo &left_camera_info,
+                              const sensor_msgs::CameraInfo &right_camera_info) const;
+
+    ///
+    /// @brief Project points corresponding to disparity measurements in the left rectified image frame into the
+    ///        aux rectified image plane
+    ///
+    Eigen::Vector2f rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point) const;
+
+    ///
+    /// @brief Project points corresponding to disparity measurements in the left rectified image frame into the
+    ///        aux rectified image plane
+    ///
+    Eigen::Vector2f rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point,
+                                        const sensor_msgs::CameraInfo &aux_camera_info) const;
 
     ///
     /// @brief Get the current main stereo pair operating resolution. This resolution applies for both the mono

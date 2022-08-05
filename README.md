@@ -1,9 +1,19 @@
 # multisense_ros
 
-Wrappers, drivers, tools and additional API's for using MultiSense SL, S7, S7S, S21, M, ST21, and BCAM  with ROS.
+Wrappers, drivers, tools and additional API's for using MultiSense S27, S30, KS21, SL, S7, S7S, S21, M, ST21, BCAM  with ROS.
 
 ### Installation, Documentation and Tutorials
-[Installing multisense_ros](http://docs.carnegierobotics.com/SL/install.html#install)
+
+See the following for documentation on on installing and using multisense_ros for specific camera types.
+
+- [S27](https://docs.carnegierobotics.com/S27/index.html)
+- [S30](https://docs.carnegierobotics.com/S30/index.html)
+- [KS21](https://docs.carnegierobotics.com/KS21/index.html)
+- [S21](https://docs.carnegierobotics.com/S21/index.html)
+- [S7/S7S](https://docs.carnegierobotics.com/S7/index.html)
+- [SL](https://docs.carnegierobotics.com/SL/index.html)
+
+Please see the following link for detailed documentation on the [LibMultiSense API](https://docs.carnegierobotics.com/libmultisense/index.html) wrapped by the ROS driver.
 
 ### Develop and Contribute
 
