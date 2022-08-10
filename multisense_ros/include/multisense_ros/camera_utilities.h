@@ -217,6 +217,11 @@ public:
     OperatingResolutionT operatingAuxResolution() const;
 
     ///
+    /// @brief Determine if the Right calibration is valid
+    ///
+    bool validRight() const;
+
+    ///
     /// @brief Determine if the Aux calibration is valid
     ///
     bool validAux() const;

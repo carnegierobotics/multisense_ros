@@ -438,6 +438,11 @@ OperatingResolutionT StereoCalibrationManager::operatingAuxResolution() const
 
 }
 
+bool StereoCalibrationManager::validRight() const
+{
+    return std::isfinite(T());
+}
+
 bool StereoCalibrationManager::validAux() const
 {
     const Eigen::Vector3d auxT = aux_T();

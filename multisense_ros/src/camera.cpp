@@ -702,45 +702,54 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         // Publish the static transforms for our camera extrinsics for the left/right/aux frames. We will
         // use the left camera frame as the reference coordinate frame
 
+        const bool has_right_extrinsics = has_right_camera_ && stereo_calibration_manager_->validRight();
         const bool has_aux_extrinsics = has_aux_camera_ && stereo_calibration_manager_->validAux();
 
-        std::vector<geometry_msgs::TransformStamped> stamped_transforms(3 + (has_aux_extrinsics ? 2 : 0));
+        std::vector<geometry_msgs::TransformStamped> stamped_transforms{};
 
+        stamped_transforms.emplace_back();
         tf2::Transform rectified_left_T_left{toRotation(image_calibration.left.R), tf2::Vector3{0., 0., 0.}};
-        stamped_transforms[0].header.stamp = ros::Time::now();
-        stamped_transforms[0].header.frame_id = frame_id_rectified_left_;
-        stamped_transforms[0].child_frame_id = frame_id_left_;
-        stamped_transforms[0].transform = tf2::toMsg(rectified_left_T_left);
+        stamped_transforms.back().header.stamp = ros::Time::now();
+        stamped_transforms.back().header.frame_id = frame_id_rectified_left_;
+        stamped_transforms.back().child_frame_id = frame_id_left_;
+        stamped_transforms.back().transform = tf2::toMsg(rectified_left_T_left);
 
-        tf2::Transform rectified_right_T_rectified_left{tf2::Matrix3x3::getIdentity(),
-            tf2::Vector3{stereo_calibration_manager_->T(), 0., 0.}};
-        stamped_transforms[1].header.stamp = ros::Time::now();
-        stamped_transforms[1].header.frame_id = frame_id_rectified_left_;
-        stamped_transforms[1].child_frame_id = frame_id_rectified_right_;
-        stamped_transforms[1].transform = tf2::toMsg(rectified_right_T_rectified_left.inverse());
+        if (has_right_extrinsics)
+        {
+            stamped_transforms.emplace_back();
+            tf2::Transform rectified_right_T_rectified_left{tf2::Matrix3x3::getIdentity(),
+                tf2::Vector3{stereo_calibration_manager_->T(), 0., 0.}};
+            stamped_transforms.back().header.stamp = ros::Time::now();
+            stamped_transforms.back().header.frame_id = frame_id_rectified_left_;
+            stamped_transforms.back().child_frame_id = frame_id_rectified_right_;
+            stamped_transforms.back().transform = tf2::toMsg(rectified_right_T_rectified_left.inverse());
 
-        tf2::Transform rectified_right_T_right{toRotation(image_calibration.right.R), tf2::Vector3{0., 0., 0.}};
-        stamped_transforms[2].header.stamp = ros::Time::now();
-        stamped_transforms[2].header.frame_id = frame_id_rectified_right_;
-        stamped_transforms[2].child_frame_id = frame_id_right_;
-        stamped_transforms[2].transform = tf2::toMsg(rectified_right_T_right);
+            stamped_transforms.emplace_back();
+            tf2::Transform rectified_right_T_right{toRotation(image_calibration.right.R), tf2::Vector3{0., 0., 0.}};
+            stamped_transforms.back().header.stamp = ros::Time::now();
+            stamped_transforms.back().header.frame_id = frame_id_rectified_right_;
+            stamped_transforms.back().child_frame_id = frame_id_right_;
+            stamped_transforms.back().transform = tf2::toMsg(rectified_right_T_right);
+        }
 
         if (has_aux_extrinsics)
         {
             const Eigen::Vector3d aux_T = stereo_calibration_manager_->aux_T();
 
+            stamped_transforms.emplace_back();
             tf2::Transform rectified_aux_T_rectified_left{tf2::Matrix3x3::getIdentity(),
                 tf2::Vector3{aux_T(0), aux_T(1), aux_T(2)}};
-            stamped_transforms[3].header.stamp = ros::Time::now();
-            stamped_transforms[3].header.frame_id = frame_id_rectified_left_;
-            stamped_transforms[3].child_frame_id = frame_id_rectified_aux_;
-            stamped_transforms[3].transform = tf2::toMsg(rectified_aux_T_rectified_left.inverse());
+            stamped_transforms.back().header.stamp = ros::Time::now();
+            stamped_transforms.back().header.frame_id = frame_id_rectified_left_;
+            stamped_transforms.back().child_frame_id = frame_id_rectified_aux_;
+            stamped_transforms.back().transform = tf2::toMsg(rectified_aux_T_rectified_left.inverse());
 
+            stamped_transforms.emplace_back();
             tf2::Transform rectified_aux_T_aux{toRotation(image_calibration.aux.R), tf2::Vector3{0., 0., 0.}};
-            stamped_transforms[4].header.stamp = ros::Time::now();
-            stamped_transforms[4].header.frame_id = frame_id_rectified_aux_;
-            stamped_transforms[4].child_frame_id = frame_id_aux_;
-            stamped_transforms[4].transform = tf2::toMsg(rectified_aux_T_aux);
+            stamped_transforms.back().header.stamp = ros::Time::now();
+            stamped_transforms.back().header.frame_id = frame_id_rectified_aux_;
+            stamped_transforms.back().child_frame_id = frame_id_aux_;
+            stamped_transforms.back().transform = tf2::toMsg(rectified_aux_T_aux);
         }
 
         static_tf_broadcaster_.sendTransform(stamped_transforms);
@@ -1099,6 +1108,11 @@ void Camera::disparityImageCallback(const image::Header& header)
 
         if (stereoDisparityPubP->getNumSubscribers() > 0)
         {
+            if (!stereo_calibration_manager_->validRight())
+            {
+                throw std::runtime_error("Stereo calibration manager missing right calibration");
+            }
+
             //
             // If our current image resolution is using non-square pixels, i.e.
             // fx != fy then warn the user. This support is lacking in
@@ -1306,7 +1320,6 @@ void Camera::monoCallback(const image::Header& header)
         // Publish a specific camera info message for the aux mono image
         aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t, header.width, header.height));
         break;
-
     }
     }
 }
@@ -1492,6 +1505,12 @@ void Camera::depthCallback(const image::Header& header)
 
     const uint16_t min_ni_depth = std::numeric_limits<uint16_t>::lowest();
     const uint16_t max_ni_depth = std::numeric_limits<uint16_t>::max();
+
+    // disparity conversion requires valid right image
+    if (!stereo_calibration_manager_->validRight())
+    {
+        throw std::runtime_error("Stereo calibration manager missing right calibration");
+    }
 
     //
     // Disparity is in 32-bit floating point
@@ -1728,6 +1747,12 @@ void Camera::pointCloudCallback(const image::Header& header)
         }
 
         rectified_color = std::move(rect_rgb_image);
+    }
+
+    // disparity conversion requires valid right image
+    if (!stereo_calibration_manager_->validRight())
+    {
+        throw std::runtime_error("Stereo calibration manager missing right calibration");
     }
 
     const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
