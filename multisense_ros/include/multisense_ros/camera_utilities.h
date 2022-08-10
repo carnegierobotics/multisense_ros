@@ -146,14 +146,14 @@ sensor_msgs::CameraInfo makeCameraInfo(const crl::multisense::image::Config& con
 RectificationRemapT makeRectificationRemap(const crl::multisense::image::Config& config,
                                            const crl::multisense::image::Calibration::Data& calibration,
                                            const crl::multisense::system::DeviceInfo& device_info);
-class StereoCalibrationManger
+class StereoCalibrationManager
 {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    StereoCalibrationManger(const crl::multisense::image::Config& config,
-                            const crl::multisense::image::Calibration& calibration,
-                            const crl::multisense::system::DeviceInfo& device_info);
+    StereoCalibrationManager(const crl::multisense::image::Config& config,
+                             const crl::multisense::image::Calibration& calibration,
+                             const crl::multisense::system::DeviceInfo& device_info);
 
     void updateConfig(const crl::multisense::image::Config& config);
 

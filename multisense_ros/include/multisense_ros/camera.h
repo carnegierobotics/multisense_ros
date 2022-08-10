@@ -291,7 +291,7 @@ private:
     //
     // Calibration manager
 
-    std::shared_ptr<StereoCalibrationManger> stereo_calibration_manager_;
+    std::shared_ptr<StereoCalibrationManager> stereo_calibration_manager_;
 
     //
     // The frame IDs
