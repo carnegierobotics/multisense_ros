@@ -785,15 +785,13 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
             driver_->addIsolatedCallback(rectCB,  Source_Luma_Rectified_Left | Source_Luma_Rectified_Right | Source_Luma_Rectified_Aux, this);
         }
 
-        if (has_color_) {
-            if (has_aux_camera_) {
-                driver_->addIsolatedCallback(colorizeCB, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux | Source_Luma_Aux |
-                                                         Source_Luma_Left | Source_Luma_Rectified_Left, this);
-                driver_->addIsolatedCallback(colorCB, Source_Chroma_Rectified_Aux | Source_Chroma_Aux, this);
-            } else {
+        if (has_color_ && has_aux_camera_) {
+            driver_->addIsolatedCallback(colorizeCB, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux | Source_Luma_Aux |
+                                                     Source_Luma_Left | Source_Luma_Rectified_Left, this);
+            driver_->addIsolatedCallback(colorCB, Source_Chroma_Rectified_Aux | Source_Chroma_Aux, this);
+        } else {
                 driver_->addIsolatedCallback(colorizeCB, Source_Luma_Left | Source_Chroma_Left | Source_Luma_Rectified_Left, this);
                 driver_->addIsolatedCallback(colorCB, Source_Chroma_Left, this);
-            }
         }
 
         if (has_left_camera_ && has_right_camera_) {
