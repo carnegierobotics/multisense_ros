@@ -117,6 +117,7 @@ private:
     template<class T> void configureCropMode(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureMotor(const T& dyn);
     template<class T> void configureLeds(const T& dyn);
+    template<class T> void configureS19Leds(const T& dyn);
     template<class T> void configureImu(const T& dyn);
     template<class T> void configureBorderClip(const T& dyn);
     template<class T> void configurePointCloudRange(const T& dyn);

@@ -619,7 +619,6 @@ template<class T> void Reconfigure::configureMotor(const T& dyn)
                           Channel::statusString(status));
         }
     }
-
 }
 
 template<class T> void Reconfigure::configureLeds(const T& dyn)
@@ -648,7 +647,37 @@ template<class T> void Reconfigure::configureLeds(const T& dyn)
                           Channel::statusString(status));
         }
     }
+}
 
+template<class T> void Reconfigure::configureS19Leds(const T& dyn)
+{
+    //
+    // Send the desired lighting configuration
+
+    if (lighting_supported_) {
+
+        lighting::Config leds;
+
+        if (false == dyn.lighting) {
+            leds.setFlash(false);
+            leds.setDutyCycle(0.0);
+        } else {
+            leds.setFlash(dyn.flash);
+            leds.setDutyCycle(dyn.led_duty_cycle * 100.0);
+            leds.setNumberOfPulses(dyn.led_number_of_pulses);
+            leds.setStartupTime(dyn.led_startup_time_us);
+            leds.setInvertPulse(dyn.led_invert_pulse);
+        }
+
+        Status status = driver_->setLightingConfig(leds);
+        if (Status_Ok != status) {
+            if (Status_Unsupported == status)
+                lighting_supported_ = false;
+            else
+                ROS_ERROR("Reconfigure: failed to set lighting config: %s",
+                          Channel::statusString(status));
+        }
+    }
 }
 
 template<class T> void Reconfigure::configureImu(const T& dyn)
@@ -970,7 +999,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         cfg.setCameraProfile(profile);                          \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
-        configureLeds(dyn);                                     \
+        configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
@@ -1005,7 +1034,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         cfg.setCameraProfile(profile);                          \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
-        configureLeds(dyn);                                     \
+        configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
@@ -1027,7 +1056,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         cfg.setCameraProfile(profile);                          \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
-        configureLeds(dyn);                                     \
+        configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
@@ -1043,7 +1072,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         cfg.setCameraProfile(profile);                          \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
-        configureLeds(dyn);                                     \
+        configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
@@ -1056,7 +1085,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureStereoProfile(profile, dyn);                   \
         cfg.setCameraProfile(profile);                          \
         configureCamera(cfg, dyn);                              \
-        configureLeds(dyn);                                     \
+        configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \
         configureExtrinsics(dyn);                               \
     } while(0)
