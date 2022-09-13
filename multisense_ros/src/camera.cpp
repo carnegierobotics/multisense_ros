@@ -970,7 +970,7 @@ void Camera::jpegImageCallback(const image::Header& header)
 
     const ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
@@ -1045,7 +1045,7 @@ void Camera::disparityImageCallback(const image::Header& header)
 
     const ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
@@ -1224,7 +1224,7 @@ void Camera::monoCallback(const image::Header& header)
 
     ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
@@ -1336,7 +1336,7 @@ void Camera::rectCallback(const image::Header& header)
 
     ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
@@ -1473,7 +1473,7 @@ void Camera::depthCallback(const image::Header& header)
 
     const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
@@ -1608,7 +1608,7 @@ void Camera::pointCloudCallback(const image::Header& header)
         return;
     }
 
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
@@ -1948,7 +1948,7 @@ void Camera::colorImageCallback(const image::Header& header)
 
     const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
@@ -2147,7 +2147,7 @@ void Camera::groundSurfaceCallback(const image::Header& header)
 
     const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
@@ -2220,7 +2220,7 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
         return;
     }
 
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
@@ -2254,7 +2254,7 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
 
 void Camera::updateConfig(const image::Config& config)
 {
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
@@ -2295,7 +2295,7 @@ void Camera::publishAllCameraInfo()
 {
     const auto stamp = ros::Time::now();
 
-    if (stereo_calibration_manager_)
+    if (!stereo_calibration_manager_)
     {
         throw std::runtime_error("Uninitialized stereo calibration manager");
     }
