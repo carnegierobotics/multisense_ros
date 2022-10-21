@@ -782,6 +782,13 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
     calibration_.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
     calibration_.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
 
+    Status status = driver_->setExternalCalibration(calibration_);
+    if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to set external calibration: %s",
+                        Channel::statusString(status));
+        return;
+    }
+
     // Update camera class locally to modify pointcloud transform in rviz
     extrinsics_callback_(calibration_);
 }
