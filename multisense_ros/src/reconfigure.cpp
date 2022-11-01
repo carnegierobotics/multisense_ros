@@ -53,6 +53,7 @@ Reconfigure::Reconfigure(Channel* driver,
     ptp_supported_(false),
     roi_supported_(false),
     aux_supported_(false),
+    reconfigure_external_calibration_supported_(false),
     border_clip_type_(BorderClip::NONE),
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
@@ -73,6 +74,7 @@ Reconfigure::Reconfigure(Channel* driver,
                   Channel::statusString(status));
         return;
     }
+
     status = driver_->getDeviceInfo(deviceInfo);
     if (Status_Ok != status) {
         ROS_ERROR("Reconfigure: failed to query device info: %s",
@@ -115,6 +117,10 @@ Reconfigure::Reconfigure(Channel* driver,
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision)
     {
         aux_supported_ = true;
+    }
+
+    if (versionInfo.sensorFirmwareVersion >= 0x0513) {
+        reconfigure_external_calibration_supported_ = true;
     }
 
     //
@@ -781,6 +787,15 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
     calibration_.roll = dyn.origin_from_camera_rotation_x_deg * deg_to_rad;
     calibration_.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
     calibration_.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
+
+    if (reconfigure_external_calibration_supported_) {
+        Status status = driver_->setExternalCalibration(calibration_);
+        if (Status_Ok != status) {
+                ROS_ERROR("Reconfigure: failed to set external calibration: %s",
+                            Channel::statusString(status));
+            return;
+        }
+    }
 
     // Update camera class locally to modify pointcloud transform in rviz
     extrinsics_callback_(calibration_);
