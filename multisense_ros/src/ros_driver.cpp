@@ -32,6 +32,8 @@
  **/
 
 #include <functional>
+#include <thread>
+#include <chrono>
 
 #include <multisense_ros/laser.h>
 #include <multisense_ros/camera.h>
@@ -55,33 +57,49 @@ int main(int argc, char** argvPP)
     std::string sensor_ip;
     std::string tf_prefix;
     int         sensor_mtu;
+    bool        restart;
 
 
     nh_private_.param<std::string>("sensor_ip", sensor_ip, "10.66.171.21");
     nh_private_.param<std::string>("tf_prefix", tf_prefix, "multisense");
     nh_private_.param<int>("sensor_mtu", sensor_mtu, 7200);
+    nh_private_.param<bool>("restart", restart, false);
 
     Channel *d = NULL;
 
-    try {
+    do
+    {
+        while (ros::ok())
+        {
+            d = Channel::Create(sensor_ip);
 
-        d = Channel::Create(sensor_ip);
-	if (NULL == d) {
+            if (NULL != d) {
+                ROS_INFO("multisense_ros: established connection");
+                break;
+            }
             ROS_ERROR("multisense_ros: failed to create communication channel to sensor @ \"%s\"",
                       sensor_ip.c_str());
-            return -2;
+
+            if (restart) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+            }
+            else
+            {
+                return 1;
+            }
         }
 
         Status status = d->setMtu(sensor_mtu);
         if (Status_Ok != status) {
-            ROS_ERROR("multisense_ros: failed to set sensor MTU to %d: %s",
+            ROS_WARN("multisense_ros: failed to set sensor MTU to %d: %s",
                       sensor_mtu, Channel::statusString(status));
             Channel::Destroy(d);
-            return -3;
+            break;
         }
 
         //
         // Anonymous namespace so objects can deconstruct before channel is destroyed
+        ros::Rate rate(50);
         {
             multisense_ros::Laser        laser(d, tf_prefix);
             multisense_ros::Camera       camera(d, tf_prefix);
@@ -93,20 +111,30 @@ int main(int argc, char** argvPP)
                                              std::bind(&multisense_ros::Camera::borderClipChanged, &camera,
                                                        std::placeholders::_1, std::placeholders::_2),
                                              std::bind(&multisense_ros::Camera::maxPointCloudRangeChanged, &camera,
-                                                       std::placeholders::_1),
-                                             std::bind(&multisense_ros::Camera::extrinsicsChanged, &camera,
-                                                       std::placeholders::_1),
-                                             std::bind(&multisense_ros::Camera::groundSurfaceSplineDrawParametersChanged, &camera,
-                                                       std::placeholders::_1));
-            ros::spin();
+                                                           std::placeholders::_1),
+                                                 std::bind(&multisense_ros::Camera::extrinsicsChanged, &camera,
+                                                           std::placeholders::_1),
+                                                 std::bind(&multisense_ros::Camera::groundSurfaceSplineDrawParametersChanged, &camera,
+                                                           std::placeholders::_1));
+
+            while (ros::ok())
+            {
+                ros::spinOnce();
+                rate.sleep();
+
+                system::StatusMessage statusMessage;
+                auto status_result = d->getDeviceStatus(statusMessage);
+                if (Status_Ok != status_result)
+                {
+                    ROS_WARN("multisense_ros: lost connection");
+                    break;
+                }
+            }
         }
 
         Channel::Destroy(d);
-        return 0;
+    } while (ros::ok() && restart);
 
-    } catch (const std::exception& e) {
-        ROS_ERROR("multisense_ros: caught exception: %s", e.what());
-        Channel::Destroy(d);
-        return -4;
-    }
+    return 0;
+
 }

@@ -6,6 +6,7 @@
   <arg name="namespace"  default="multisense" />
   <arg name="mtu"        default="7200" />
   <arg name="sensor"     default="S21" />
+  <arg name="restart"    default="false" />
   <arg name="launch_robot_state_publisher" default="true" />
   <arg name="launch_color_laser_publisher" default="false" />
   <arg name="nodes_prefix" default="$(arg namespace)" />
@@ -26,6 +27,7 @@
      <param name="sensor_ip"   value="$(arg ip_address)" />
      <param name="sensor_mtu"  value="$(arg mtu)" />
      <param name="tf_prefix"  value="$(arg tf_prefix)" />
+     <param name="restart"  value="$(arg restart)" />
   </node>
 
   <!-- Color Laser PointCloud Publisher -->
