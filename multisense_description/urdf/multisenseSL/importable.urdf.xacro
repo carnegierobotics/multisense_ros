@@ -1,9 +1,0 @@
-<?xml version="1.0" ?>
-<robot xmlns:xacro="http://ros.org/wiki/xacro">
-  <xacro:include filename="$(find multisense_description)/urdf/multisenseSL/multisenseSL.urdf.xacro"/>
-
-  <xacro:macro name="importable_multisenseSL">
-      <xacro:multisenseSL name="${name}" />
-  </xacro:macro>
-</robot>
-
