@@ -8,5 +8,6 @@ set (files
   multisense_s27.STL
   multisense_s7.STL
   multisense_s7s.STL
+  multisense_s30.STL
 )
-install(FILES ${files} DESTINATION ${ROS_PKG_INSTALL_PATH}/gazebo/multisense_sl/meshes/)
+install(FILES ${files} DESTINATION ${ROS_PKG_INSTALL_PATH}/meshes)
