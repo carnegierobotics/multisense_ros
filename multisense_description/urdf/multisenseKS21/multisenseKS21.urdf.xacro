@@ -1,0 +1,37 @@
+<?xml version="1.0" ?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+    <xacro:macro name="multisenseKS21" params="name">
+
+        <link name="${name}/head">
+            <visual>
+                <origin xyz="-0.1 -0.25 -0.0235" rpy="1.57079632679 0.0 1.57079632679" />
+                <geometry>
+                    <mesh filename="package://multisense_description/meshes/multisense_ks21.STL" scale="0.001 0.001 0.001"/>
+                </geometry>
+                <material name="">
+                    <color rgba="0.9098 0.44314 0.031373 1" />
+                </material>
+            </visual>
+        </link>
+
+        <!-- Left camera optical frame is treated as the camera origin -->
+        <joint name="${name}/head_joint" type="fixed">
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 -1.57079632679 1.57079632679"/>
+            <parent link="${name}/left_camera_optical_frame"/>
+            <child link="${name}/head"/>
+        </joint>
+
+        <link name="${name}/imu"/>
+
+        <joint name="${name}/imu_joint" type="fixed">
+            <origin xyz="0.16775 -0.00473 -0.03634" rpy="-1.57079632679 3.1415926 0.0"/>
+            <parent link="${name}/left_camera_optical_frame"/>
+            <child link="${name}/imu"/>
+        </joint>
+
+        <link name="${name}/left_camera_optical_frame"/>
+
+    </xacro:macro>
+
+</robot>
+

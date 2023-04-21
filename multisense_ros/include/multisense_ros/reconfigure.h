@@ -183,6 +183,7 @@ private:
     bool ptp_supported_ = false;
     bool roi_supported_ = false;
     bool aux_supported_ = false;
+    bool reconfigure_external_calibration_supported_ = false;
 
     //
     // Cached value for the boarder clip. These are used to determine if we
