@@ -40,7 +40,7 @@
   <group if = "$(arg launch_vpb)">
 
     <!-- ROS Driver -->
-    <node pkg="multisense_ros" ns="$(arg vpb_namespace)" type="ros_driver" name="$(arg vpb_nodes_prefix)_driver" output="screen">
+    <node pkg="multisense_ros" ns="$(arg vpb_namespace)" type="ros_driver" name="$(arg vpb_nodes_prefix)_driver" output="screen" required="true">
       <param name="sensor_ip" value="$(arg ip_address)" />
       <param name="sensor_mtu" value="$(arg mtu)" />
       <param name="tf_prefix"  value="$(arg vpb_tf_prefix)" />
@@ -51,7 +51,7 @@
     <group if = "$(arg launch_robot_state_publisher)">
       <param name="robot_description"
             command="$(find xacro)/xacro '$(find multisense_description)/urdf/multisense$(arg vpb_sensor)/standalone.urdf.xacro' name:=$(arg vpb_namespace)"/>
-      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg vpb_nodes_prefix)_state_publisher">
+      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg vpb_nodes_prefix)_state_publisher" required="true">
         <param name="publish_frequency" type="double" value="50.0" />
         <remap from="joint_states" to="/$(arg vpb_namespace)/joint_states" />
       </node>
@@ -64,7 +64,7 @@
   <group if = "$(arg launch_head0)">
 
     <!-- ROS Driver -->
-    <node pkg="multisense_ros" ns="$(arg head0_namespace)" type="ros_driver" name="$(arg head0_nodes_prefix)_driver" output="screen">
+    <node pkg="multisense_ros" ns="$(arg head0_namespace)" type="ros_driver" name="$(arg head0_nodes_prefix)_driver" output="screen" required="true">
       <param name="sensor_ip" value="$(arg ip_address)" />
       <param name="sensor_mtu" value="$(arg mtu)" />
       <param name="tf_prefix"  value="$(arg head0_tf_prefix)" />
@@ -75,7 +75,7 @@
     <group if = "$(arg launch_robot_state_publisher)">
       <param name="robot_description"
             command="$(find xacro)/xacro '$(find multisense_description)/urdf/multisense$(arg head0_sensor)/standalone.urdf.xacro' name:=$(arg head0_namespace)"/>
-      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head0_nodes_prefix)_state_publisher">
+      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head0_nodes_prefix)_state_publisher" required="true">
         <param name="publish_frequency" type="double" value="50.0" />
         <remap from="joint_states" to="/$(arg head0_namespace)/joint_states" />
       </node>
@@ -88,7 +88,7 @@
   <group if = "$(arg launch_head1)">
 
     <!-- ROS Driver -->
-    <node pkg="multisense_ros" ns="$(arg head1_namespace)" type="ros_driver" name="$(arg head1_nodes_prefix)_driver" output="screen">
+    <node pkg="multisense_ros" ns="$(arg head1_namespace)" type="ros_driver" name="$(arg head1_nodes_prefix)_driver" output="screen" required="true">
       <param name="sensor_ip" value="$(arg ip_address)" />
       <param name="sensor_mtu" value="$(arg mtu)" />
       <param name="tf_prefix"  value="$(arg head1_tf_prefix)" />
@@ -99,7 +99,7 @@
     <group if = "$(arg launch_robot_state_publisher)">
       <param name="robot_description"
             command="$(find xacro)/xacro '$(find multisense_description)/urdf/multisense$(arg head1_sensor)/standalone.urdf.xacro' name:=$(arg head1_namespace)"/>
-      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head1_nodes_prefix)_state_publisher">
+      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head1_nodes_prefix)_state_publisher" required="true">
         <param name="publish_frequency" type="double" value="50.0" />
         <remap from="joint_states" to="/$(arg head1_namespace)/joint_states" />
       </node>
@@ -112,7 +112,7 @@
   <group if = "$(arg launch_head2)">
 
     <!-- ROS Driver -->
-    <node pkg="multisense_ros" ns="$(arg head2_namespace)" type="ros_driver" name="$(arg head2_nodes_prefix)_driver" output="screen">
+    <node pkg="multisense_ros" ns="$(arg head2_namespace)" type="ros_driver" name="$(arg head2_nodes_prefix)_driver" output="screen" required="true">
       <param name="sensor_ip" value="$(arg ip_address)" />
       <param name="sensor_mtu" value="$(arg mtu)" />
       <param name="tf_prefix"  value="$(arg head2_tf_prefix)" />
@@ -123,7 +123,7 @@
     <group if = "$(arg launch_robot_state_publisher)">
       <param name="robot_description"
             command="$(find xacro)/xacro '$(find multisense_description)/urdf/multisense$(arg head2_sensor)/standalone.urdf.xacro' name:=$(arg head2_namespace)"/>
-      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head2_nodes_prefix)_state_publisher">
+      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head2_nodes_prefix)_state_publisher" required="true">
         <param name="publish_frequency" type="double" value="50.0" />
         <remap from="joint_states" to="/$(arg head2_namespace)/joint_states" />
       </node>
@@ -136,7 +136,7 @@
   <group if = "$(arg launch_head3)">
 
     <!-- ROS Driver -->
-    <node pkg="multisense_ros" ns="$(arg head3_namespace)" type="ros_driver" name="$(arg head3_nodes_prefix)_driver" output="screen">
+    <node pkg="multisense_ros" ns="$(arg head3_namespace)" type="ros_driver" name="$(arg head3_nodes_prefix)_driver" output="screen" required="true">
       <param name="sensor_ip" value="$(arg ip_address)" />
       <param name="sensor_mtu" value="$(arg mtu)" />
       <param name="tf_prefix"  value="$(arg head3_tf_prefix)" />
@@ -147,7 +147,7 @@
     <group if = "$(arg launch_robot_state_publisher)">
       <param name="robot_description"
             command="$(find xacro)/xacro '$(find multisense_description)/urdf/multisense$(arg head3_sensor)/standalone.urdf.xacro' name:=$(arg head3_namespace)"/>
-      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head3_nodes_prefix)_state_publisher">
+      <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg head3_nodes_prefix)_state_publisher" required="true">
         <param name="publish_frequency" type="double" value="50.0" />
         <remap from="joint_states" to="/$(arg head3_namespace)/joint_states" />
       </node>
