@@ -45,19 +45,12 @@ struct ScaleT
 {
     double x_scale = 1.0;
     double y_scale = 1.0;
-    double cx_offset = 0.0;
-    double cy_offset = 0.0;
 };
 
 ScaleT compute_scale(const crl::multisense::image::Config &config,
                      const crl::multisense::system::DeviceInfo& device_info)
 {
-    const auto crop = config.camMode() == 2000 &&
-                      (device_info.imagerType == crl::multisense::system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY ||
-                      device_info.imagerType == crl::multisense::system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR);
-
-    // crop mode causes the imager to behave completely like a CMV2000, but the device info imager height does not get modified
-    const auto imagerHeight = crop ? 1088 : device_info.imagerHeight;
+    const auto imagerHeight = device_info.imagerHeight;
 
     const double x_scale = 1.0 / ((static_cast<double>(device_info.imagerWidth) /
                                    static_cast<double>(config.width())));
@@ -65,15 +58,8 @@ ScaleT compute_scale(const crl::multisense::image::Config &config,
     const double y_scale = 1.0 / ((static_cast<double>(imagerHeight) /
                                    static_cast<double>(config.height())));
 
-    //
-    // In crop mode we want to offset our cx/cy values
-    // by the current crop offset. This is because the pixel size does not change in crop mode, and instead a cropped
-    // region of the original image is returned
-
     return ScaleT{x_scale,
-                  y_scale,
-                  0.0,
-                  crop ? -config.offset()*y_scale : 0.0};
+                  y_scale};
 }
 
 }// namespace
@@ -113,11 +99,11 @@ Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
     //   0      0    -Fy    Fy(Cx - Cx')
     //
     const auto fx = calibration.left.P[0][0] * scale.x_scale;
-    const auto cx = calibration.left.P[0][2] * scale.x_scale + scale.cx_offset;
+    const auto cx = calibration.left.P[0][2] * scale.x_scale;
     const auto fy = calibration.left.P[1][1] * scale.y_scale;
-    const auto cy = calibration.left.P[1][2] * scale.y_scale + scale.cy_offset;
+    const auto cy = calibration.left.P[1][2] * scale.y_scale;
     const auto tx = calibration.right.P[0][3] / calibration.right.P[0][0];
-    const auto cx_prime = calibration.left.P[0][2] * scale.x_scale + scale.cx_offset;
+    const auto cx_prime = calibration.left.P[0][2] * scale.x_scale;
 
     q_matrix(0,0) =  fy * tx;
     q_matrix(1,1) =  fx * tx;
@@ -141,11 +127,11 @@ sensor_msgs::CameraInfo makeCameraInfo(const crl::multisense::image::Config& con
 
     camera_info.P[0] = calibration.P[0][0] * scale.x_scale;
     camera_info.P[1] = calibration.P[0][1];
-    camera_info.P[2] = calibration.P[0][2] * scale.x_scale + scale.cx_offset;
+    camera_info.P[2] = calibration.P[0][2] * scale.x_scale;
     camera_info.P[3] = calibration.P[0][3] * scale.x_scale;
     camera_info.P[4] = calibration.P[1][0];
     camera_info.P[5] = calibration.P[1][1] * scale.y_scale;
-    camera_info.P[6] = calibration.P[1][2] * scale.y_scale + scale.cy_offset;
+    camera_info.P[6] = calibration.P[1][2] * scale.y_scale;
     camera_info.P[7] = calibration.P[1][3];
     camera_info.P[8] = calibration.P[2][0];
     camera_info.P[9] = calibration.P[2][1];
@@ -154,10 +140,10 @@ sensor_msgs::CameraInfo makeCameraInfo(const crl::multisense::image::Config& con
 
     camera_info.K[0] = calibration.M[0][0] * scale.x_scale;
     camera_info.K[1] = calibration.M[0][1];
-    camera_info.K[2] = calibration.M[0][2] * scale.x_scale + scale.cx_offset;
+    camera_info.K[2] = calibration.M[0][2] * scale.x_scale;
     camera_info.K[3] = calibration.M[1][0];
     camera_info.K[4] = calibration.M[1][1] * scale.y_scale;
-    camera_info.K[5] = calibration.M[1][2] * scale.y_scale + scale.cy_offset;
+    camera_info.K[5] = calibration.M[1][2] * scale.y_scale;
     camera_info.K[6] = calibration.M[2][0];
     camera_info.K[7] = calibration.M[2][1];
     camera_info.K[8] = calibration.M[2][2];
@@ -210,10 +196,10 @@ RectificationRemapT makeRectificationRemap(const crl::multisense::image::Config&
 
     const cv::Matx33d K(calibration.M[0][0] * scale.x_scale,
                         calibration.M[0][1],
-                        calibration.M[0][2] * scale.x_scale + scale.cx_offset,
+                        calibration.M[0][2] * scale.x_scale,
                         calibration.M[1][0],
                         calibration.M[1][1] * scale.y_scale,
-                        calibration.M[1][2] * scale.y_scale + scale.cy_offset,
+                        calibration.M[1][2] * scale.y_scale,
                         calibration.M[2][0],
                         calibration.M[2][1],
                         calibration.M[2][2]);
@@ -230,11 +216,11 @@ RectificationRemapT makeRectificationRemap(const crl::multisense::image::Config&
 
     const cv::Matx34d P(calibration.P[0][0] * scale.x_scale,
                         calibration.P[0][1],
-                        calibration.P[0][2] * scale.x_scale + scale.cx_offset,
+                        calibration.P[0][2] * scale.x_scale,
                         calibration.P[0][3] * scale.x_scale,
                         calibration.P[1][0],
                         calibration.P[1][1] * scale.y_scale,
-                        calibration.P[1][2] * scale.y_scale + scale.cy_offset,
+                        calibration.P[1][2] * scale.y_scale,
                         calibration.P[1][3],
                         calibration.P[2][0],
                         calibration.P[2][1],
@@ -264,7 +250,7 @@ StereoCalibrationManger::StereoCalibrationManger(const crl::multisense::image::C
     left_camera_info_(makeCameraInfo(config_, calibration_.left, compute_scale(config_, device_info_))),
     right_camera_info_(makeCameraInfo(config_, calibration_.right, compute_scale(config_, device_info_))),
     aux_camera_info_(makeCameraInfo(config_, calibration_.aux, config_.cameraProfile() == crl::multisense::Full_Res_Aux_Cam ?
-                                                               ScaleT{1., 1., 0., 0.} : compute_scale(config_, device_info_))),
+                                                               ScaleT{1., 1.} : compute_scale(config_, device_info_))),
     left_remap_(std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.left, device_info_))),
     right_remap_(std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.right, device_info_)))
 {
@@ -287,7 +273,7 @@ void StereoCalibrationManger::updateConfig(const crl::multisense::image::Config&
     auto right_camera_info = makeCameraInfo(config, calibration_.right, compute_scale(config, device_info_));
 
     const ScaleT aux_scale = config.cameraProfile() == crl::multisense::Full_Res_Aux_Cam ?
-                             ScaleT{1., 1., 0., 0.} : compute_scale(config, device_info_);
+                             ScaleT{1., 1.} : compute_scale(config, device_info_);
 
     auto aux_camera_info = makeCameraInfo(config, calibration_.aux, aux_scale);
     auto left_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config, calibration_.left, device_info_));
