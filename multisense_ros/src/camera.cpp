@@ -302,6 +302,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     aux_rect_transport_(aux_nh_),
     aux_rgb_rect_transport_(aux_nh_),
     ground_surface_transport_(ground_surface_nh_),
+    stereo_calibration_manager_(nullptr),
     frame_id_origin_(tf_prefix + ORIGIN_FRAME),
     frame_id_head_(tf_prefix + HEAD_FRAME),
     frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
@@ -344,8 +345,41 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     //
     // S27/S30 cameras have a 3rd aux color camera and no left color camera
 
+    has_left_camera_ = system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7S == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7AR == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_MONOCAM == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MONO == device_info_.hardwareRevision;
+
+    has_right_camera_ = system::DeviceInfo::HARDWARE_REV_MULTISENSE_SL == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7S == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7AR == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == device_info_.hardwareRevision;
+
     has_aux_camera_ = system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision;
+
+    has_color_ = has_aux_camera_ ||
+                 system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == device_info_.hardwareRevision ||
+                 system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR == device_info_.imagerType ||
+                 system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR == device_info_.imagerType ||
+                 system::DeviceInfo::IMAGER_TYPE_AR0239_COLOR == device_info_.imagerType;
+
 
     //
     // Topics published for all device types
@@ -358,24 +392,26 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     //
     // Create spline-based ground surface publishers for S27/S30 cameras
 
-    const bool can_support_ground_surface =
+    const bool can_support_ground_surface_ =
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
-        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision;
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == device_info_.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == device_info_.hardwareRevision;
 
-    if (can_support_ground_surface) {
+    if (can_support_ground_surface_) {
         ground_surface_cam_pub_ = ground_surface_transport_.advertise(GROUND_SURFACE_IMAGE_TOPIC, 5,
                                 std::bind(&Camera::connectStream, this, Source_Ground_Surface_Class_Image),
                                 std::bind(&Camera::disconnectStream, this, Source_Ground_Surface_Class_Image));
+
+        ground_surface_info_pub_ = ground_surface_nh_.advertise<sensor_msgs::CameraInfo>(GROUND_SURFACE_INFO_TOPIC, 1, true);
+
+        ground_surface_spline_pub_ = ground_surface_nh_.advertise<sensor_msgs::PointCloud2>(GROUND_SURFACE_POINT_SPLINE_TOPIC, 5, true);
     }
 
-    ground_surface_info_pub_ = ground_surface_nh_.advertise<sensor_msgs::CameraInfo>(GROUND_SURFACE_INFO_TOPIC, 1, true);
-
-    ground_surface_spline_pub_ = ground_surface_nh_.advertise<sensor_msgs::PointCloud2>(GROUND_SURFACE_POINT_SPLINE_TOPIC, 5, true);
-
-    //
-    // Create topic publishers (TODO: color topics should not be advertised if the device can't support it)
 
     if (system::DeviceInfo::HARDWARE_REV_BCAM == device_info_.hardwareRevision) {
+
+        // bcam has unique topics compared to all other S* variants
 
         left_mono_cam_pub_  = left_mono_transport_.advertise(MONO_TOPIC, 5,
                               std::bind(&Camera::connectStream, this, Source_Luma_Left),
@@ -393,156 +429,160 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         left_rgb_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
         left_rgb_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
 
+    } else {
 
-    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == device_info_.hardwareRevision) {
+        // all other MultiSense-S* variations
 
-        // monocular variation
+        if (has_left_camera_) {
 
-        left_mono_cam_pub_  = left_mono_transport_.advertise(MONO_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Luma_Left),
-                              std::bind(&Camera::disconnectStream, this, Source_Luma_Left));
-        left_rect_cam_pub_  = left_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
-                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
-        left_rgb_cam_pub_   = left_rgb_transport_.advertise(COLOR_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
-                              std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
-        left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
-                                 std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
-                                 std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+            left_mono_cam_pub_  = left_mono_transport_.advertise(MONO_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Luma_Left),
+                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Left));
 
-        left_mono_cam_info_pub_     = left_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
-        left_rect_cam_info_pub_     = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
-        left_rgb_cam_info_pub_      = left_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
-        left_rgb_rect_cam_info_pub_ = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
+            left_mono_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
 
-    } else {  // all other MultiSense-S* variations
+            left_rect_cam_pub_  = left_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
+                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
 
+            left_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
+        }
 
-        left_mono_cam_pub_  = left_mono_transport_.advertise(MONO_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Luma_Left),
-                              std::bind(&Camera::disconnectStream, this, Source_Luma_Left));
-        right_mono_cam_pub_ = right_mono_transport_.advertise(MONO_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Luma_Right),
-                              std::bind(&Camera::disconnectStream, this, Source_Luma_Right));
-        left_rect_cam_pub_  = left_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left),
-                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left));
-        right_rect_cam_pub_ = right_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Right),
-                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Right));
-        depth_cam_pub_      = depth_transport_.advertise(DEPTH_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Disparity),
-                              std::bind(&Camera::disconnectStream, this, Source_Disparity));
-        ni_depth_cam_pub_   = ni_depth_transport_.advertise(OPENNI_DEPTH_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Disparity),
-                              std::bind(&Camera::disconnectStream, this, Source_Disparity));
+        if (has_right_camera_) {
 
-        if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision) {
+            right_mono_cam_pub_ = right_mono_transport_.advertise(MONO_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Luma_Right),
+                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Right));
 
+            right_mono_cam_info_pub_ = right_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
+
+            right_rect_cam_pub_ = right_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Right),
+                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Right));
+
+            right_rect_cam_info_pub_ = right_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
+        }
+
+        // only publish for stereo cameras
+        if (has_left_camera_ && has_right_camera_) {
+
+            // run the stereo topics if left and right cameras both exist
+
+            depth_cam_pub_      = depth_transport_.advertise(DEPTH_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Disparity),
+                                  std::bind(&Camera::disconnectStream, this, Source_Disparity));
+
+            ni_depth_cam_pub_   = ni_depth_transport_.advertise(OPENNI_DEPTH_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Disparity),
+                                  std::bind(&Camera::disconnectStream, this, Source_Disparity));
+
+            depth_cam_info_pub_ = device_nh_.advertise<sensor_msgs::CameraInfo>(DEPTH_CAMERA_INFO_TOPIC, 1, true);
+
+            luma_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(POINTCLOUD_TOPIC, 5,
+                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
+                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
+
+            luma_organized_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(ORGANIZED_POINTCLOUD_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
+                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
+
+            raw_cam_data_pub_   = calibration_nh_.advertise<multisense_ros::RawCamData>(RAW_CAM_DATA_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
+                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
+
+            left_disparity_pub_ = disparity_left_transport_.advertise(DISPARITY_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Disparity),
+                                  std::bind(&Camera::disconnectStream, this, Source_Disparity));
+
+            left_disp_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, 1, true);
+
+            left_stereo_disparity_pub_ = left_nh_.advertise<stereo_msgs::DisparityImage>(DISPARITY_IMAGE_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Disparity),
+                                  std::bind(&Camera::disconnectStream, this, Source_Disparity));
+
+            if (version_info_.sensorFirmwareVersion >= 0x0300) {
+
+                right_disparity_pub_ = disparity_right_transport_.advertise(DISPARITY_TOPIC, 5,
+                                       std::bind(&Camera::connectStream, this, Source_Disparity_Right),
+                                       std::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
+
+                right_disp_cam_info_pub_  = right_nh_.advertise<sensor_msgs::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, 1, true);
+
+                right_stereo_disparity_pub_ = right_nh_.advertise<stereo_msgs::DisparityImage>(DISPARITY_IMAGE_TOPIC, 5,
+                                      std::bind(&Camera::connectStream, this, Source_Disparity_Right),
+                                      std::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
+
+                left_disparity_cost_pub_ = disparity_cost_transport_.advertise(COST_TOPIC, 5,
+                                       std::bind(&Camera::connectStream, this, Source_Disparity_Cost),
+                                       std::bind(&Camera::disconnectStream, this, Source_Disparity_Cost));
+
+                left_cost_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COST_CAMERA_INFO_TOPIC, 1, true);
+            }
+
+            // publish colorized stereo topics
             if (has_aux_camera_) {
 
-                aux_mono_cam_pub_  = aux_mono_transport_.advertise(MONO_TOPIC, 5,
-                                      std::bind(&Camera::connectStream, this, Source_Luma_Aux),
-                                      std::bind(&Camera::disconnectStream, this, Source_Luma_Aux));
+                const auto point_cloud_color_topics = has_aux_camera_ ? Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux :
+                                                                        Source_Luma_Left | Source_Chroma_Left;
 
-                aux_mono_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
+                color_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(COLOR_POINTCLOUD_TOPIC, 5,
+                                      std::bind(&Camera::connectStream, this,
+                                      Source_Disparity | point_cloud_color_topics),
+                                      std::bind(&Camera::disconnectStream, this,
+                                      Source_Disparity | point_cloud_color_topics));
 
-                aux_rgb_cam_pub_  = aux_rgb_transport_.advertise(COLOR_TOPIC, 5,
-                                      std::bind(&Camera::connectStream, this, Source_Luma_Aux | Source_Chroma_Aux),
-                                      std::bind(&Camera::disconnectStream, this, Source_Luma_Aux | Source_Chroma_Aux));
-
-                aux_rgb_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
-
-                aux_rect_cam_pub_ = aux_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
-                                          std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Aux),
-                                          std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Aux));
-
-                aux_rect_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
-
-                aux_rgb_rect_cam_pub_ = aux_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
-                                          std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux),
-                                          std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux));
-
-                aux_rgb_rect_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
-            }
-            else {
-
-                left_rgb_cam_pub_   = left_rgb_transport_.advertise(COLOR_TOPIC, 5,
-                                      std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
-                                      std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
-
-                left_rgb_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
-                left_rgb_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
-
-                left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
-                                      std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
-                                      std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+                color_organized_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(COLOR_ORGANIZED_POINTCLOUD_TOPIC, 5,
+                                      std::bind(&Camera::connectStream, this,
+                                      Source_Disparity | point_cloud_color_topics),
+                                      std::bind(&Camera::disconnectStream, this,
+                                      Source_Disparity | point_cloud_color_topics));
 
             }
 
-            const auto point_cloud_color_topics = has_aux_camera_ ? Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux :
-                                                                   Source_Luma_Left | Source_Chroma_Left;
+        }
 
-            color_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(COLOR_POINTCLOUD_TOPIC, 5,
-                                  std::bind(&Camera::connectStream, this,
-                                  Source_Disparity | point_cloud_color_topics),
-                                  std::bind(&Camera::disconnectStream, this,
-                                  Source_Disparity | point_cloud_color_topics));
-            color_organized_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(COLOR_ORGANIZED_POINTCLOUD_TOPIC, 5,
-                                  std::bind(&Camera::connectStream, this,
-                                  Source_Disparity | point_cloud_color_topics),
-                                  std::bind(&Camera::disconnectStream, this,
-                                  Source_Disparity | point_cloud_color_topics));
+        // handle color topic publishing if color data exists
+        if (has_aux_camera_) {
+
+            aux_mono_cam_pub_  = aux_mono_transport_.advertise(MONO_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Luma_Aux),
+                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Aux));
+
+            aux_mono_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
+
+            aux_rgb_cam_pub_  = aux_rgb_transport_.advertise(COLOR_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Luma_Aux | Source_Chroma_Aux),
+                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Aux | Source_Chroma_Aux));
+
+            aux_rgb_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
+
+            aux_rect_cam_pub_ = aux_rect_transport_.advertiseCamera(RECT_TOPIC, 5,
+                                      std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Aux),
+                                      std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Aux));
+
+            aux_rect_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
+
+            aux_rgb_rect_cam_pub_ = aux_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
+                                      std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux),
+                                      std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux));
+
+            aux_rgb_rect_cam_info_pub_  = aux_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
+
+        } else if (has_color_ && !has_aux_camera_) { // !has_aux_camera_ is redundant, but leaving to prevent confusion over edge cases
+
+            left_rgb_cam_pub_   = left_rgb_transport_.advertise(COLOR_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
+                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+
+            left_rgb_rect_cam_pub_ = left_rgb_rect_transport_.advertiseCamera(RECT_COLOR_TOPIC, 5,
+                                  std::bind(&Camera::connectStream, this, Source_Luma_Left | Source_Chroma_Left),
+                                  std::bind(&Camera::disconnectStream, this, Source_Luma_Left | Source_Chroma_Left));
+
+            left_rgb_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, 1, true);
+            left_rgb_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, 1, true);
 
         }
 
-        luma_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(POINTCLOUD_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
-                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
-
-        luma_organized_point_cloud_pub_ = device_nh_.advertise<sensor_msgs::PointCloud2>(ORGANIZED_POINTCLOUD_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
-                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
-
-        raw_cam_data_pub_   = calibration_nh_.advertise<multisense_ros::RawCamData>(RAW_CAM_DATA_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Luma_Rectified_Left | Source_Disparity),
-                              std::bind(&Camera::disconnectStream, this, Source_Luma_Rectified_Left | Source_Disparity));
-
-        left_disparity_pub_ = disparity_left_transport_.advertise(DISPARITY_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Disparity),
-                              std::bind(&Camera::disconnectStream, this, Source_Disparity));
-
-        left_stereo_disparity_pub_ = left_nh_.advertise<stereo_msgs::DisparityImage>(DISPARITY_IMAGE_TOPIC, 5,
-                              std::bind(&Camera::connectStream, this, Source_Disparity),
-                              std::bind(&Camera::disconnectStream, this, Source_Disparity));
-
-        if (version_info_.sensorFirmwareVersion >= 0x0300) {
-
-            right_disparity_pub_ = disparity_right_transport_.advertise(DISPARITY_TOPIC, 5,
-                                   std::bind(&Camera::connectStream, this, Source_Disparity_Right),
-                                   std::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
-
-            right_stereo_disparity_pub_ = right_nh_.advertise<stereo_msgs::DisparityImage>(DISPARITY_IMAGE_TOPIC, 5,
-                                  std::bind(&Camera::connectStream, this, Source_Disparity_Right),
-                                  std::bind(&Camera::disconnectStream, this, Source_Disparity_Right));
-
-            left_disparity_cost_pub_ = disparity_cost_transport_.advertise(COST_TOPIC, 5,
-                                   std::bind(&Camera::connectStream, this, Source_Disparity_Cost),
-                                   std::bind(&Camera::disconnectStream, this, Source_Disparity_Cost));
-
-            right_disp_cam_info_pub_  = right_nh_.advertise<sensor_msgs::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, 1, true);
-            left_cost_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(COST_CAMERA_INFO_TOPIC, 1, true);
-        }
-
-        //
-        // Camera info topic publishers
-        left_mono_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
-        right_mono_cam_info_pub_ = right_nh_.advertise<sensor_msgs::CameraInfo>(MONO_CAMERA_INFO_TOPIC, 1, true);
-        left_rect_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
-        right_rect_cam_info_pub_ = right_nh_.advertise<sensor_msgs::CameraInfo>(RECT_CAMERA_INFO_TOPIC, 1, true);
-        left_disp_cam_info_pub_  = left_nh_.advertise<sensor_msgs::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, 1, true);
-        depth_cam_info_pub_ = device_nh_.advertise<sensor_msgs::CameraInfo>(DEPTH_CAMERA_INFO_TOPIC, 1, true);
     }
 
     //
@@ -600,95 +640,125 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     //
     // Publish image calibration
 
-    image::Calibration image_calibration;
-    status = driver_->getImageCalibration(image_calibration);
-    if (Status_Ok != status) {
-        ROS_ERROR("Camera: failed to query image calibration: %s",
-                  Channel::statusString(status));
-    }
-    else {
-
-        multisense_ros::RawCamCal cal;
-        const float              *cP;
-
-        cP = reinterpret_cast<const float *>(&(image_calibration.left.M[0][0]));
-        for(uint32_t i=0; i<9; i++) cal.left_M[i] = cP[i];
-        cP = reinterpret_cast<const float *>(&(image_calibration.left.D[0]));
-        for(uint32_t i=0; i<8; i++) cal.left_D[i] = cP[i];
-        cP = reinterpret_cast<const float *>(&(image_calibration.left.R[0][0]));
-        for(uint32_t i=0; i<9; i++) cal.left_R[i] = cP[i];
-        cP = reinterpret_cast<const float *>(&(image_calibration.left.P[0][0]));
-        for(uint32_t i=0; i<12; i++) cal.left_P[i] = cP[i];
-
-        cP = reinterpret_cast<const float *>(&(image_calibration.right.M[0][0]));
-        for(uint32_t i=0; i<9; i++) cal.right_M[i] = cP[i];
-        cP = reinterpret_cast<const float *>(&(image_calibration.right.D[0]));
-        for(uint32_t i=0; i<8; i++) cal.right_D[i] = cP[i];
-        cP = reinterpret_cast<const float *>(&(image_calibration.right.R[0][0]));
-        for(uint32_t i=0; i<9; i++) cal.right_R[i] = cP[i];
-        cP = reinterpret_cast<const float *>(&(image_calibration.right.P[0][0]));
-        for(uint32_t i=0; i<12; i++) cal.right_P[i] = cP[i];
-
-        raw_cam_cal_pub_.publish(cal);
-    }
-
-    stereo_calibration_manager_ = std::make_shared<StereoCalibrationManger>(image_config, image_calibration, device_info_);
-
-    if (has_aux_camera_ && !stereo_calibration_manager_->validAux()) {
-        ROS_WARN("Camera: invalid aux camera calibration");
-    }
-
-    //
-    // Publish the static transforms for our camera extrinsics for the left/right/aux frames. We will
-    // use the left camera frame as the reference coordinate frame
-
-    const bool has_aux_extrinsics = has_aux_camera_ && stereo_calibration_manager_->validAux();
-
-    std::vector<geometry_msgs::TransformStamped> stamped_transforms(3 + (has_aux_extrinsics ? 2 : 0));
-
-    tf2::Transform rectified_left_T_left{toRotation(image_calibration.left.R), tf2::Vector3{0., 0., 0.}};
-    stamped_transforms[0].header.stamp = ros::Time::now();
-    stamped_transforms[0].header.frame_id = frame_id_rectified_left_;
-    stamped_transforms[0].child_frame_id = frame_id_left_;
-    stamped_transforms[0].transform = tf2::toMsg(rectified_left_T_left);
-
-    tf2::Transform rectified_right_T_rectified_left{tf2::Matrix3x3::getIdentity(),
-                                                    tf2::Vector3{stereo_calibration_manager_->T(), 0., 0.}};
-    stamped_transforms[1].header.stamp = ros::Time::now();
-    stamped_transforms[1].header.frame_id = frame_id_rectified_left_;
-    stamped_transforms[1].child_frame_id = frame_id_rectified_right_;
-    stamped_transforms[1].transform = tf2::toMsg(rectified_right_T_rectified_left.inverse());
-
-    tf2::Transform rectified_right_T_right{toRotation(image_calibration.right.R), tf2::Vector3{0., 0., 0.}};
-    stamped_transforms[2].header.stamp = ros::Time::now();
-    stamped_transforms[2].header.frame_id = frame_id_rectified_right_;
-    stamped_transforms[2].child_frame_id = frame_id_right_;
-    stamped_transforms[2].transform = tf2::toMsg(rectified_right_T_right);
-
-    if (has_aux_extrinsics)
+    if (has_left_camera_ || has_right_camera_ || has_aux_camera_)
     {
-        const Eigen::Vector3d aux_T = stereo_calibration_manager_->aux_T();
+        image::Calibration image_calibration;
+        status = driver_->getImageCalibration(image_calibration);
+        if (Status_Ok != status) {
+            ROS_ERROR("Camera: failed to query image calibration: %s",
+                      Channel::statusString(status));
+        }
+        else {
+            // currently no ROS cameras have only an aux camera
+            // HARDWARE_REV_MULTISENSE_MONOCAM uses the left cal for its calibration
 
-        tf2::Transform rectified_aux_T_rectified_left{tf2::Matrix3x3::getIdentity(),
-                                                      tf2::Vector3{aux_T(0), aux_T(1), aux_T(2)}};
-        stamped_transforms[3].header.stamp = ros::Time::now();
-        stamped_transforms[3].header.frame_id = frame_id_rectified_left_;
-        stamped_transforms[3].child_frame_id = frame_id_rectified_aux_;
-        stamped_transforms[3].transform = tf2::toMsg(rectified_aux_T_rectified_left.inverse());
+            multisense_ros::RawCamCal cal;
+            const float              *cP;
 
-        tf2::Transform rectified_aux_T_aux{toRotation(image_calibration.aux.R), tf2::Vector3{0., 0., 0.}};
-        stamped_transforms[4].header.stamp = ros::Time::now();
-        stamped_transforms[4].header.frame_id = frame_id_rectified_aux_;
-        stamped_transforms[4].child_frame_id = frame_id_aux_;
-        stamped_transforms[4].transform = tf2::toMsg(rectified_aux_T_aux);
+            cP = reinterpret_cast<const float *>(&(image_calibration.left.M[0][0]));
+            for(uint32_t i=0; i<9; i++) cal.left_M[i] = cP[i];
+            cP = reinterpret_cast<const float *>(&(image_calibration.left.D[0]));
+            for(uint32_t i=0; i<8; i++) cal.left_D[i] = cP[i];
+            cP = reinterpret_cast<const float *>(&(image_calibration.left.R[0][0]));
+            for(uint32_t i=0; i<9; i++) cal.left_R[i] = cP[i];
+            cP = reinterpret_cast<const float *>(&(image_calibration.left.P[0][0]));
+            for(uint32_t i=0; i<12; i++) cal.left_P[i] = cP[i];
+
+            if (not has_right_camera_) {
+
+                // publish the left calibration twice if there is no right camera
+                cP = reinterpret_cast<const float *>(&(image_calibration.left.M[0][0]));
+                for(uint32_t i=0; i<9; i++) cal.right_M[i] = cP[i];
+                cP = reinterpret_cast<const float *>(&(image_calibration.left.D[0]));
+                for(uint32_t i=0; i<8; i++) cal.right_D[i] = cP[i];
+                cP = reinterpret_cast<const float *>(&(image_calibration.left.R[0][0]));
+                for(uint32_t i=0; i<9; i++) cal.right_R[i] = cP[i];
+                cP = reinterpret_cast<const float *>(&(image_calibration.left.P[0][0]));
+                for(uint32_t i=0; i<12; i++) cal.right_P[i] = cP[i];
+
+            } else {
+
+                cP = reinterpret_cast<const float *>(&(image_calibration.right.M[0][0]));
+                for(uint32_t i=0; i<9; i++) cal.right_M[i] = cP[i];
+                cP = reinterpret_cast<const float *>(&(image_calibration.right.D[0]));
+                for(uint32_t i=0; i<8; i++) cal.right_D[i] = cP[i];
+                cP = reinterpret_cast<const float *>(&(image_calibration.right.R[0][0]));
+                for(uint32_t i=0; i<9; i++) cal.right_R[i] = cP[i];
+                cP = reinterpret_cast<const float *>(&(image_calibration.right.P[0][0]));
+                for(uint32_t i=0; i<12; i++) cal.right_P[i] = cP[i];
+
+            }
+
+            raw_cam_cal_pub_.publish(cal);
+        }
+
+        stereo_calibration_manager_ = std::make_shared<StereoCalibrationManager>(image_config, image_calibration, device_info_);
+
+        if (has_aux_camera_ && !stereo_calibration_manager_->validAux()) {
+            ROS_WARN("Camera: invalid aux camera calibration");
+        }
+
+        //
+        // Publish the static transforms for our camera extrinsics for the left/right/aux frames. We will
+        // use the left camera frame as the reference coordinate frame
+
+        const bool has_right_extrinsics = has_right_camera_ && stereo_calibration_manager_->validRight();
+        const bool has_aux_extrinsics = has_aux_camera_ && stereo_calibration_manager_->validAux();
+
+        std::vector<geometry_msgs::TransformStamped> stamped_transforms{};
+
+        stamped_transforms.emplace_back();
+        tf2::Transform rectified_left_T_left{toRotation(image_calibration.left.R), tf2::Vector3{0., 0., 0.}};
+        stamped_transforms.back().header.stamp = ros::Time::now();
+        stamped_transforms.back().header.frame_id = frame_id_rectified_left_;
+        stamped_transforms.back().child_frame_id = frame_id_left_;
+        stamped_transforms.back().transform = tf2::toMsg(rectified_left_T_left);
+
+        if (has_right_extrinsics)
+        {
+            stamped_transforms.emplace_back();
+            tf2::Transform rectified_right_T_rectified_left{tf2::Matrix3x3::getIdentity(),
+                tf2::Vector3{stereo_calibration_manager_->T(), 0., 0.}};
+            stamped_transforms.back().header.stamp = ros::Time::now();
+            stamped_transforms.back().header.frame_id = frame_id_rectified_left_;
+            stamped_transforms.back().child_frame_id = frame_id_rectified_right_;
+            stamped_transforms.back().transform = tf2::toMsg(rectified_right_T_rectified_left.inverse());
+
+            stamped_transforms.emplace_back();
+            tf2::Transform rectified_right_T_right{toRotation(image_calibration.right.R), tf2::Vector3{0., 0., 0.}};
+            stamped_transforms.back().header.stamp = ros::Time::now();
+            stamped_transforms.back().header.frame_id = frame_id_rectified_right_;
+            stamped_transforms.back().child_frame_id = frame_id_right_;
+            stamped_transforms.back().transform = tf2::toMsg(rectified_right_T_right);
+        }
+
+        if (has_aux_extrinsics)
+        {
+            const Eigen::Vector3d aux_T = stereo_calibration_manager_->aux_T();
+
+            stamped_transforms.emplace_back();
+            tf2::Transform rectified_aux_T_rectified_left{tf2::Matrix3x3::getIdentity(),
+                tf2::Vector3{aux_T(0), aux_T(1), aux_T(2)}};
+            stamped_transforms.back().header.stamp = ros::Time::now();
+            stamped_transforms.back().header.frame_id = frame_id_rectified_left_;
+            stamped_transforms.back().child_frame_id = frame_id_rectified_aux_;
+            stamped_transforms.back().transform = tf2::toMsg(rectified_aux_T_rectified_left.inverse());
+
+            stamped_transforms.emplace_back();
+            tf2::Transform rectified_aux_T_aux{toRotation(image_calibration.aux.R), tf2::Vector3{0., 0., 0.}};
+            stamped_transforms.back().header.stamp = ros::Time::now();
+            stamped_transforms.back().header.frame_id = frame_id_rectified_aux_;
+            stamped_transforms.back().child_frame_id = frame_id_aux_;
+            stamped_transforms.back().transform = tf2::toMsg(rectified_aux_T_aux);
+        }
+
+        static_tf_broadcaster_.sendTransform(stamped_transforms);
+
+        //
+        // Update our internal image config and publish intitial camera info
+
+        updateConfig(image_config);
     }
-
-    static_tf_broadcaster_.sendTransform(stamped_transforms);
-
-    //
-    // Update our internal image config and publish intitial camera info
-
-    updateConfig(image_config);
 
     //
     // Initialize point cloud data structures
@@ -710,17 +780,35 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         driver_->addIsolatedCallback(monoCB, Source_Luma_Left, this);
         driver_->addIsolatedCallback(jpegCB, Source_Jpeg_Left, this);
 
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_VPB == device_info_.hardwareRevision) {
+        // no incoming image data from vpb
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM == device_info_.hardwareRevision) {
+
+        driver_->addIsolatedCallback(monoCB,  Source_Luma_Left, this);
+        driver_->addIsolatedCallback(rectCB,  Source_Luma_Rectified_Left, this);
+
     } else {
 
-        driver_->addIsolatedCallback(colorizeCB, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux | Source_Luma_Aux |
-                                                 Source_Luma_Left | Source_Chroma_Left | Source_Luma_Rectified_Left, this);
-        driver_->addIsolatedCallback(monoCB,  Source_Luma_Left | Source_Luma_Right | Source_Luma_Aux, this);
-        driver_->addIsolatedCallback(rectCB,  Source_Luma_Rectified_Left | Source_Luma_Rectified_Right | Source_Luma_Rectified_Aux, this);
-        driver_->addIsolatedCallback(depthCB, Source_Disparity, this);
-        driver_->addIsolatedCallback(pointCB, Source_Disparity, this);
-        driver_->addIsolatedCallback(rawCB,   Source_Disparity | Source_Luma_Rectified_Left, this);
-        driver_->addIsolatedCallback(colorCB, Source_Chroma_Left | Source_Chroma_Rectified_Aux | Source_Chroma_Aux, this);
-        driver_->addIsolatedCallback(dispCB,  Source_Disparity | Source_Disparity_Right | Source_Disparity_Cost, this);
+        if (has_left_camera_ || has_right_camera_ || has_aux_camera_) {
+            driver_->addIsolatedCallback(monoCB,  Source_Luma_Left | Source_Luma_Right | Source_Luma_Aux, this);
+            driver_->addIsolatedCallback(rectCB,  Source_Luma_Rectified_Left | Source_Luma_Rectified_Right | Source_Luma_Rectified_Aux, this);
+        }
+
+        if (has_color_ && has_aux_camera_) {
+            driver_->addIsolatedCallback(colorizeCB, Source_Luma_Rectified_Aux | Source_Chroma_Rectified_Aux | Source_Luma_Aux |
+                                                     Source_Luma_Left | Source_Luma_Rectified_Left, this);
+            driver_->addIsolatedCallback(colorCB, Source_Chroma_Rectified_Aux | Source_Chroma_Aux, this);
+        } else {
+                driver_->addIsolatedCallback(colorizeCB, Source_Luma_Left | Source_Chroma_Left | Source_Luma_Rectified_Left, this);
+                driver_->addIsolatedCallback(colorCB, Source_Chroma_Left, this);
+        }
+
+        if (has_left_camera_ && has_right_camera_) {
+            driver_->addIsolatedCallback(depthCB, Source_Disparity, this);
+            driver_->addIsolatedCallback(pointCB, Source_Disparity, this);
+            driver_->addIsolatedCallback(rawCB,   Source_Disparity | Source_Luma_Rectified_Left, this);
+            driver_->addIsolatedCallback(dispCB,  Source_Disparity | Source_Disparity_Right | Source_Disparity_Cost, this);
+        }
     }
 
     //
@@ -731,7 +819,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     //
     // Add ground surface callbacks for S27/S30 cameras
 
-    if (can_support_ground_surface) {
+    if (can_support_ground_surface_) {
         driver_->addIsolatedCallback(groundSurfaceCB, Source_Ground_Surface_Class_Image, this);
         driver_->addIsolatedCallback(groundSurfaceSplineCB, this);
     }
@@ -763,18 +851,29 @@ Camera::~Camera()
 
     } else {
 
-        driver_->removeIsolatedCallback(colorizeCB);
-        driver_->removeIsolatedCallback(monoCB);
-        driver_->removeIsolatedCallback(rectCB);
-        driver_->removeIsolatedCallback(depthCB);
-        driver_->removeIsolatedCallback(pointCB);
-        driver_->removeIsolatedCallback(rawCB);
-        driver_->removeIsolatedCallback(colorCB);
-        driver_->removeIsolatedCallback(dispCB);
+        if (has_left_camera_ || has_right_camera_ || has_aux_camera_) {
+            driver_->removeIsolatedCallback(monoCB);
+            driver_->removeIsolatedCallback(rectCB);
+        }
+
+        if (has_color_) {
+            driver_->removeIsolatedCallback(colorizeCB);
+            driver_->removeIsolatedCallback(colorCB);
+        }
+
+        if (has_left_camera_ && has_right_camera_) {
+            driver_->removeIsolatedCallback(depthCB);
+            driver_->removeIsolatedCallback(pointCB);
+            driver_->removeIsolatedCallback(rawCB);
+            driver_->removeIsolatedCallback(dispCB);
+        }
     }
 
-    driver_->removeIsolatedCallback(groundSurfaceCB);
-    driver_->removeIsolatedCallback(groundSurfaceSplineCB);
+    if (can_support_ground_surface_)
+    {
+        driver_->removeIsolatedCallback(groundSurfaceCB);
+        driver_->removeIsolatedCallback(groundSurfaceSplineCB);
+    }
 }
 
 void Camera::borderClipChanged(const BorderClip &borderClipType, double borderClipValue)
@@ -871,6 +970,11 @@ void Camera::jpegImageCallback(const image::Header& header)
 
     const ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
+    }
+
     const uint32_t height    = header.height;
     const uint32_t width     = header.width;
     const uint32_t rgbLength = height * width * 3;
@@ -941,6 +1045,11 @@ void Camera::disparityImageCallback(const image::Header& header)
 
     const ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
+    }
+
     switch(header.source) {
     case Source_Disparity:
     case Source_Disparity_Right:
@@ -999,6 +1108,11 @@ void Camera::disparityImageCallback(const image::Header& header)
 
         if (stereoDisparityPubP->getNumSubscribers() > 0)
         {
+            if (!stereo_calibration_manager_->validRight())
+            {
+                throw std::runtime_error("Stereo calibration manager missing right calibration");
+            }
+
             //
             // If our current image resolution is using non-square pixels, i.e.
             // fx != fy then warn the user. This support is lacking in
@@ -1110,6 +1224,11 @@ void Camera::monoCallback(const image::Header& header)
 
     ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
+    }
+
     switch(header.source) {
     case Source_Luma_Left:
     {
@@ -1201,7 +1320,6 @@ void Camera::monoCallback(const image::Header& header)
         // Publish a specific camera info message for the aux mono image
         aux_mono_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t, header.width, header.height));
         break;
-
     }
     }
 }
@@ -1217,6 +1335,11 @@ void Camera::rectCallback(const image::Header& header)
     }
 
     ros::Time t = ros::Time(header.timeSeconds, 1000 * header.timeMicroSeconds);
+
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
+    }
 
     switch(header.source) {
     case Source_Luma_Rectified_Left:
@@ -1350,6 +1473,11 @@ void Camera::depthCallback(const image::Header& header)
 
     const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
+    }
+
     const float    bad_point = std::numeric_limits<float>::quiet_NaN();
     const uint32_t depthSize = header.height * header.width * sizeof(float);
     const uint32_t niDepthSize = header.height * header.width * sizeof(uint16_t);
@@ -1377,6 +1505,12 @@ void Camera::depthCallback(const image::Header& header)
 
     const uint16_t min_ni_depth = std::numeric_limits<uint16_t>::lowest();
     const uint16_t max_ni_depth = std::numeric_limits<uint16_t>::max();
+
+    // disparity conversion requires valid right image
+    if (!stereo_calibration_manager_->validRight())
+    {
+        throw std::runtime_error("Stereo calibration manager missing right calibration");
+    }
 
     //
     // Disparity is in 32-bit floating point
@@ -1472,6 +1606,11 @@ void Camera::pointCloudCallback(const image::Header& header)
 
         ROS_ERROR("Camera: unexpected pointcloud image source: 0x%x", header.source);
         return;
+    }
+
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
     }
 
     //
@@ -1608,6 +1747,12 @@ void Camera::pointCloudCallback(const image::Header& header)
         }
 
         rectified_color = std::move(rect_rgb_image);
+    }
+
+    // disparity conversion requires valid right image
+    if (!stereo_calibration_manager_->validRight())
+    {
+        throw std::runtime_error("Stereo calibration manager missing right calibration");
     }
 
     const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
@@ -1803,6 +1948,11 @@ void Camera::colorImageCallback(const image::Header& header)
 
     const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
+    }
+
     switch (header.source)
     {
     case Source_Chroma_Left:
@@ -1997,6 +2147,11 @@ void Camera::groundSurfaceCallback(const image::Header& header)
 
     const ros::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
+    }
+
     switch (header.source)
     {
     case Source_Ground_Surface_Class_Image:
@@ -2065,6 +2220,11 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
         return;
     }
 
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
+    }
+
     // Convert row spline control point data to eigen matrix
     Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> controlGrid(
         reinterpret_cast<const float*>(header.controlPointsImageDataP), header.controlPointsHeight, header.controlPointsWidth);
@@ -2094,6 +2254,11 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
 
 void Camera::updateConfig(const image::Config& config)
 {
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
+    }
+
     stereo_calibration_manager_->updateConfig(config);
 
     //
@@ -2130,6 +2295,11 @@ void Camera::publishAllCameraInfo()
 {
     const auto stamp = ros::Time::now();
 
+    if (!stereo_calibration_manager_)
+    {
+        throw std::runtime_error("Uninitialized stereo calibration manager");
+    }
+
     const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, stamp);
     const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_right_, stamp);
 
@@ -2158,36 +2328,30 @@ void Camera::publishAllCameraInfo()
 
     } else {  // all other MultiSense-S* variations
 
-        if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision) {
+        if (has_left_camera_) {
+            left_mono_cam_info_pub_.publish(left_camera_info);
+            left_rect_cam_info_pub_.publish(left_rectified_camera_info);
+        }
 
-            if (has_aux_camera_) {
+        if (has_right_camera_) {
+            right_mono_cam_info_pub_.publish(right_camera_info);
+            right_rect_cam_info_pub_.publish(right_rectified_camera_info);
+        }
 
-                aux_mono_cam_info_pub_.publish(left_camera_info);
-                aux_rgb_cam_info_pub_.publish(left_camera_info);
-                aux_rect_cam_info_pub_.publish(left_rectified_camera_info);
-                aux_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
+        // only publish for stereo cameras
+        if (has_left_camera_ && has_right_camera_) {
 
-            } else {
+            left_disp_cam_info_pub_.publish(left_rectified_camera_info);
+            depth_cam_info_pub_.publish(left_rectified_camera_info);
 
-                left_rgb_cam_info_pub_.publish(left_camera_info);
-                left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
+            if (version_info_.sensorFirmwareVersion >= 0x0300) {
 
+                right_disp_cam_info_pub_.publish(right_rectified_camera_info);
+                left_cost_cam_info_pub_.publish(left_rectified_camera_info);
             }
         }
 
-        if (version_info_.sensorFirmwareVersion >= 0x0300) {
-
-            right_disp_cam_info_pub_.publish(right_rectified_camera_info);
-            left_cost_cam_info_pub_.publish(left_rectified_camera_info);
-        }
-
-        left_mono_cam_info_pub_.publish(left_camera_info);
-        left_rect_cam_info_pub_.publish(left_rectified_camera_info);
-        right_mono_cam_info_pub_.publish(right_camera_info);
-        right_rect_cam_info_pub_.publish(right_rectified_camera_info);
-        left_disp_cam_info_pub_.publish(left_rectified_camera_info);
-        depth_cam_info_pub_.publish(left_rectified_camera_info);
-
+        // handle color topic publishing if color data exists
         if (has_aux_camera_) {
 
             //
@@ -2202,6 +2366,12 @@ void Camera::publishAllCameraInfo()
 
             aux_rgb_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, stamp, auxResolution));
             aux_rgb_rect_cam_info_pub_.publish(stereo_calibration_manager_->auxCameraInfo(frame_id_rectified_aux_, stamp, stereoResolution));
+
+        } else if (has_color_ && !has_aux_camera_) { // !has_aux_camera_ is redundant, but leaving to prevent confusion over edge cases
+
+            left_rgb_cam_info_pub_.publish(left_camera_info);
+            left_rgb_rect_cam_info_pub_.publish(left_rectified_camera_info);
+
         }
     }
 }
