@@ -1,11 +1,13 @@
 <launch>
 
-  <!-- Valid Sensor types are SL, S7, S7S, S21, KS21, S27, S30, and BCAM -->
+  <!-- Valid Sensor types are SL, S7, S7S, S21, S27, S30, BCAM,
+                              remote_head_vpb, remote_head_stereo, and remote_head_monocam -->
 
   <arg name="ip_address" default="10.66.171.21" />
   <arg name="namespace"  default="multisense" />
   <arg name="mtu"        default="7200" />
   <arg name="sensor"     default="S21" />
+  <arg name="head_id"    default="-1" />
   <arg name="launch_robot_state_publisher" default="true" />
   <arg name="launch_color_laser_publisher" default="false" />
   <arg name="nodes_prefix" default="$(arg namespace)" />
@@ -26,6 +28,7 @@
      <param name="sensor_ip"   value="$(arg ip_address)" />
      <param name="sensor_mtu"  value="$(arg mtu)" />
      <param name="tf_prefix"  value="$(arg tf_prefix)" />
+     <param name="head_id"  value="$(arg head_id)" />
   </node>
 
   <!-- Color Laser PointCloud Publisher -->

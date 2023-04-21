@@ -55,6 +55,10 @@
 #include <multisense_ros/s27_sgm_AR0234_ground_surfaceConfig.h>
 #include <multisense_ros/ks21_sgm_AR0234Config.h>
 #include <multisense_ros/ks21_sgm_AR0234_ground_surfaceConfig.h>
+#include <multisense_ros/remote_head_vpbConfig.h>
+#include <multisense_ros/remote_head_sgm_AR0234Config.h>
+#include <multisense_ros/remote_head_sgm_AR0234_ground_surfaceConfig.h>
+#include <multisense_ros/remote_head_monocam_AR0234Config.h>
 #include <multisense_ros/camera_utilities.h>
 #include <multisense_ros/ground_surface_utilities.h>
 
@@ -95,6 +99,11 @@ private:
     void callback_s27_AR0234_ground_surface        (multisense_ros::s27_sgm_AR0234_ground_surfaceConfig&     dyn, uint32_t level);
     void callback_ks21_AR0234_ground_surface       (multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig&    dyn, uint32_t level);
 
+    void callback_remote_head_vpb                      (multisense_ros::remote_head_vpbConfig&                       dyn, uint32_t level);
+    void callback_remote_head_sgm_AR0234               (multisense_ros::remote_head_sgm_AR0234Config&                dyn, uint32_t level);
+    void callback_remote_head_sgm_AR0234_ground_surface(multisense_ros::remote_head_sgm_AR0234_ground_surfaceConfig& dyn, uint32_t level);
+    void callback_remote_head_monocam_AR0234           (multisense_ros::remote_head_monocam_AR0234Config&            dyn, uint32_t level);
+
     //
     // Internal helper functions
 
@@ -107,12 +116,15 @@ private:
     template<class T> void configureCamera(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureMotor(const T& dyn);
     template<class T> void configureLeds(const T& dyn);
+    template<class T> void configureS19Leds(const T& dyn);
     template<class T> void configureImu(const T& dyn);
     template<class T> void configureBorderClip(const T& dyn);
     template<class T> void configurePointCloudRange(const T& dyn);
     template<class T> void configurePtp(const T& dyn);
-    template<class T> void configureStereoProfile(crl::multisense::image::Config &cfg, const T& dyn);
-    template<class T> void configureStereoProfileWithGroundSurface(crl::multisense::image::Config &cfg, const T& dyn);
+    template<class T> void configureStereoProfile(crl::multisense::CameraProfile &profile, const T& dyn);
+    template<class T> void configureGroundSurfaceStereoProfile(crl::multisense::CameraProfile &profile, const T& dyn);
+    template<class T> void configureFullResAuxStereoProfile(crl::multisense::CameraProfile &profile, const T& dyn);
+    template<class T> void configureDetailDisparityStereoProfile(crl::multisense::CameraProfile &profile, const T& dyn);
     template<class T> void configureExtrinsics(const T& dyn);
     template<class T> void configureGroundSurfaceParams(const T& dyn);
 
@@ -155,6 +167,11 @@ private:
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234Config> >    server_ks21_sgm_AR0234_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234_ground_surfaceConfig> >     server_s27_AR0234_ground_surface_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig> >    server_ks21_sgm_AR0234_ground_surface_;
+
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_vpbConfig> > server_remote_head_vpb_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_sgm_AR0234Config> > server_remote_head_sgm_AR0234_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_sgm_AR0234_ground_surfaceConfig> > server_remote_head_sgm_AR0234_ground_surface_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_monocam_AR0234Config> > server_remote_head_monocam_AR0234_;
 
     //
     // Cached values for supported sub-systems (these may be unavailable on

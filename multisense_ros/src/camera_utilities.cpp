@@ -240,9 +240,9 @@ RectificationRemapT makeRectificationRemap(const crl::multisense::image::Config&
     return remap;
 }
 
-StereoCalibrationManger::StereoCalibrationManger(const crl::multisense::image::Config& config,
-                                                 const crl::multisense::image::Calibration& calibration,
-                                                 const crl::multisense::system::DeviceInfo& device_info):
+StereoCalibrationManager::StereoCalibrationManager(const crl::multisense::image::Config& config,
+                                                   const crl::multisense::image::Calibration& calibration,
+                                                   const crl::multisense::system::DeviceInfo& device_info):
     config_(config),
     calibration_(calibration),
     device_info_(device_info),
@@ -256,7 +256,7 @@ StereoCalibrationManger::StereoCalibrationManger(const crl::multisense::image::C
 {
 }
 
-void StereoCalibrationManger::updateConfig(const crl::multisense::image::Config& config)
+void StereoCalibrationManager::updateConfig(const crl::multisense::image::Config& config)
 {
     //
     // Only update the calibration if the resolution changed.
@@ -290,21 +290,21 @@ void StereoCalibrationManger::updateConfig(const crl::multisense::image::Config&
     right_remap_ = right_remap;
 }
 
-crl::multisense::image::Config StereoCalibrationManger::config() const
+crl::multisense::image::Config StereoCalibrationManager::config() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
     return config_;
 }
 
-Eigen::Matrix4d StereoCalibrationManger::Q() const
+Eigen::Matrix4d StereoCalibrationManager::Q() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
     return q_matrix_;
 }
 
-double StereoCalibrationManger::T() const
+double StereoCalibrationManager::T() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -320,7 +320,7 @@ double StereoCalibrationManger::T() const
     return right_camera_info_.P[3] / right_camera_info_.P[0];
 }
 
-Eigen::Vector3d StereoCalibrationManger::aux_T() const
+Eigen::Vector3d StereoCalibrationManager::aux_T() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -338,18 +338,18 @@ Eigen::Vector3d StereoCalibrationManger::aux_T() const
                            aux_camera_info_.P[11]};
 }
 
-Eigen::Vector3f StereoCalibrationManger::reproject(size_t u, size_t v, double d) const
+Eigen::Vector3f StereoCalibrationManager::reproject(size_t u, size_t v, double d) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
     return reproject(u, v, d, left_camera_info_, right_camera_info_);
 }
 
-Eigen::Vector3f StereoCalibrationManger::reproject(size_t u,
-                                                   size_t v,
-                                                   double d,
-                                                   const sensor_msgs::CameraInfo &left_camera_info,
-                                                   const sensor_msgs::CameraInfo &right_camera_info) const
+Eigen::Vector3f StereoCalibrationManager::reproject(size_t u,
+                                                    size_t v,
+                                                    double d,
+                                                    const sensor_msgs::CameraInfo &left_camera_info,
+                                                    const sensor_msgs::CameraInfo &right_camera_info) const
 {
     if (d == 0.0)
     {
@@ -374,15 +374,15 @@ Eigen::Vector3f StereoCalibrationManger::reproject(size_t u,
     return Eigen::Vector3f{static_cast<float>(xB * invB), static_cast<float>(yB * invB), static_cast<float>(zB * invB)};
 }
 
-Eigen::Vector2f StereoCalibrationManger::rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point) const
+Eigen::Vector2f StereoCalibrationManager::rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
     return rectifiedAuxProject(left_rectified_point, aux_camera_info_);
 }
 
-Eigen::Vector2f StereoCalibrationManger::rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point,
-                                                             const sensor_msgs::CameraInfo &aux_camera_info) const
+Eigen::Vector2f StereoCalibrationManager::rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point,
+                                                              const sensor_msgs::CameraInfo &aux_camera_info) const
 {
     const double &fx = aux_camera_info.P[0];
     const double &fy = aux_camera_info.P[5];
@@ -402,14 +402,14 @@ Eigen::Vector2f StereoCalibrationManger::rectifiedAuxProject(const Eigen::Vector
     return Eigen::Vector2f{static_cast<float>(uB * invB), static_cast<float>(vB * invB)};
 }
 
-OperatingResolutionT StereoCalibrationManger::operatingStereoResolution() const
+OperatingResolutionT StereoCalibrationManager::operatingStereoResolution() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
     return OperatingResolutionT{config_.width(), config_.height()};
 }
 
-OperatingResolutionT StereoCalibrationManger::operatingAuxResolution() const
+OperatingResolutionT StereoCalibrationManager::operatingAuxResolution() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -424,14 +424,19 @@ OperatingResolutionT StereoCalibrationManger::operatingAuxResolution() const
 
 }
 
-bool StereoCalibrationManger::validAux() const
+bool StereoCalibrationManager::validRight() const
+{
+    return std::isfinite(T());
+}
+
+bool StereoCalibrationManager::validAux() const
 {
     const Eigen::Vector3d auxT = aux_T();
     return std::isfinite(auxT(0)) && std::isfinite(auxT(1)) && std::isfinite(auxT(2)) ;
 }
 
-sensor_msgs::CameraInfo StereoCalibrationManger::leftCameraInfo(const std::string& frame_id,
-                                                                const ros::Time& stamp) const
+sensor_msgs::CameraInfo StereoCalibrationManager::leftCameraInfo(const std::string& frame_id,
+                                                                 const ros::Time& stamp) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -442,8 +447,8 @@ sensor_msgs::CameraInfo StereoCalibrationManger::leftCameraInfo(const std::strin
     return camera_info;
 }
 
-sensor_msgs::CameraInfo StereoCalibrationManger::rightCameraInfo(const std::string& frame_id,
-                                                                 const ros::Time& stamp) const
+sensor_msgs::CameraInfo StereoCalibrationManager::rightCameraInfo(const std::string& frame_id,
+                                                                  const ros::Time& stamp) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -453,17 +458,17 @@ sensor_msgs::CameraInfo StereoCalibrationManger::rightCameraInfo(const std::stri
 
     return camera_info;
 }
-sensor_msgs::CameraInfo StereoCalibrationManger::auxCameraInfo(const std::string& frame_id,
-                                                               const ros::Time& stamp,
-                                                               const OperatingResolutionT &resolution) const
+sensor_msgs::CameraInfo StereoCalibrationManager::auxCameraInfo(const std::string& frame_id,
+                                                                const ros::Time& stamp,
+                                                                const OperatingResolutionT &resolution) const
 {
     return auxCameraInfo(frame_id, stamp, resolution.width, resolution.height);
 }
 
-sensor_msgs::CameraInfo StereoCalibrationManger::auxCameraInfo(const std::string& frame_id,
-                                                               const ros::Time& stamp,
-                                                               size_t width,
-                                                               size_t height) const
+sensor_msgs::CameraInfo StereoCalibrationManager::auxCameraInfo(const std::string& frame_id,
+                                                                const ros::Time& stamp,
+                                                                size_t width,
+                                                                size_t height) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -476,14 +481,14 @@ sensor_msgs::CameraInfo StereoCalibrationManger::auxCameraInfo(const std::string
     return camera_info;
 }
 
-std::shared_ptr<RectificationRemapT> StereoCalibrationManger::leftRemap() const
+std::shared_ptr<RectificationRemapT> StereoCalibrationManager::leftRemap() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
     return left_remap_;
 }
 
-std::shared_ptr<RectificationRemapT> StereoCalibrationManger::rightRemap() const
+std::shared_ptr<RectificationRemapT> StereoCalibrationManager::rightRemap() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
