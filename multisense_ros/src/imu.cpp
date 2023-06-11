@@ -201,6 +201,18 @@ void Imu::imuCallback(const imu::Header& header)
         vector_msg.vector.y = s.y;
         vector_msg.vector.z = s.z;
 
+        //
+        // There are cases where the accel and gyro data are published with the same timestamps. Instead of
+        // publishing two IMU messages for each, publish a new IMU message once we know for sure we have all the
+        // samples from the same timestamp
+
+        const bool publish_previous_imu_message = (s.type == imu::Sample::Type_Accelerometer ||
+                                                   s.type == imu::Sample::Type_Gyroscope) &&
+                                                  imu_message_.header.stamp != msg.time_stamp;
+
+        if (publish_previous_imu_message && imu_subscribers > 0)
+            imu_pub_.publish(imu_message_);
+
         imu_message_.header.stamp = msg.time_stamp;
 
         switch(s.type) {
@@ -212,12 +224,8 @@ void Imu::imuCallback(const imu::Header& header)
             imu_message_.linear_acceleration.y = s.y * 9.80665;
             imu_message_.linear_acceleration.z = s.z * 9.80665;
 
-
             if (accel_subscribers > 0)
                 accelerometer_pub_.publish(msg);
-
-            if (imu_subscribers > 0)
-                imu_pub_.publish(imu_message_);
 
             if (accel_vector_subscribers > 0) {
                 vector_msg.header.frame_id = accel_frameId_;
@@ -229,10 +237,6 @@ void Imu::imuCallback(const imu::Header& header)
 
             //
             // Convert from deg/sec to rad/sec and apply the nominal
-            // calibration from the gyro to the accelerometer. Since all points
-            // on a rigid body have the same angular velocity only the rotation
-            // about the z axis of 90 degrees needs to be applied. (i.e.
-            // new_x = orig_y ; new_y = -orig_x)
 
             imu_message_.angular_velocity.x = s.y * M_PI/180.;
             imu_message_.angular_velocity.y = -s.x * M_PI/180.;
@@ -241,9 +245,6 @@ void Imu::imuCallback(const imu::Header& header)
 
             if (gyro_subscribers > 0)
                 gyroscope_pub_.publish(msg);
-
-            if (imu_subscribers > 0)
-                imu_pub_.publish(imu_message_);
 
             if (gyro_vector_subscribers > 0) {
                 vector_msg.header.frame_id = gyro_frameId_;
