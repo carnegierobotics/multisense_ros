@@ -102,6 +102,8 @@ private:
     const std::string gyro_frameId_;
     const std::string mag_frameId_;
 
+    bool next_gen_camera_;
+
 };
 
 }
