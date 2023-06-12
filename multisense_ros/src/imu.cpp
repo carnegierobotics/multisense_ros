@@ -282,8 +282,7 @@ void Imu::imuCallback(const imu::Header& header)
             break;
         case imu::Sample::Type_Magnetometer:
 
-            if (!next_gen_camera_)
-            {
+            if (!next_gen_camera_) {
                 if (mag_subscribers > 0)
                     magnetometer_pub_.publish(msg);
 
