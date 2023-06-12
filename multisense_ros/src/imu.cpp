@@ -193,13 +193,13 @@ void Imu::imuCallback(const imu::Header& header)
 {
     std::vector<imu::Sample>::const_iterator it = header.samples.begin();
 
-    uint32_t accel_subscribers = accelerometer_pub_.getNumSubscribers();
-    uint32_t gyro_subscribers = gyroscope_pub_.getNumSubscribers();
-    uint32_t mag_subscribers = magnetometer_pub_.getNumSubscribers();
-    uint32_t imu_subscribers = imu_pub_.getNumSubscribers();
-    uint32_t accel_vector_subscribers = accelerometer_vector_pub_.getNumSubscribers();
-    uint32_t gyro_vector_subscribers = gyroscope_vector_pub_.getNumSubscribers();
-    uint32_t mag_vector_subscribers = magnetometer_vector_pub_.getNumSubscribers();
+    const uint32_t accel_subscribers = accelerometer_pub_.getNumSubscribers();
+    const uint32_t gyro_subscribers = gyroscope_pub_.getNumSubscribers();
+    const uint32_t mag_subscribers = next_gen_camera_ ? 0 : magnetometer_pub_.getNumSubscribers();
+    const uint32_t imu_subscribers = imu_pub_.getNumSubscribers();
+    const uint32_t accel_vector_subscribers = accelerometer_vector_pub_.getNumSubscribers();
+    const uint32_t gyro_vector_subscribers = gyroscope_vector_pub_.getNumSubscribers();
+    const uint32_t mag_vector_subscribers = next_gen_camera_ ? 0 : magnetometer_vector_pub_.getNumSubscribers();
 
     for(; it != header.samples.end(); ++it) {
 
@@ -282,13 +282,15 @@ void Imu::imuCallback(const imu::Header& header)
             break;
         case imu::Sample::Type_Magnetometer:
 
+            if (!next_gen_camera_)
+            {
+                if (mag_subscribers > 0)
+                    magnetometer_pub_.publish(msg);
 
-            if (mag_subscribers > 0)
-                magnetometer_pub_.publish(msg);
-
-            if (mag_vector_subscribers > 0) {
-                vector_msg.header.frame_id = mag_frameId_;
-                magnetometer_vector_pub_.publish(vector_msg);
+                if (mag_vector_subscribers > 0) {
+                    vector_msg.header.frame_id = mag_frameId_;
+                    magnetometer_vector_pub_.publish(vector_msg);
+                }
             }
 
             break;
