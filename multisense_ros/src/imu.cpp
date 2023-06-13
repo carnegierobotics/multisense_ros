@@ -72,13 +72,6 @@ Imu::Imu(Channel* driver, std::string tf_prefix) :
 {
 
     //
-    // Initialize the sensor_msgs::Imu topic
-    // We will publish the data in the accelerometer frame applying the
-    // transform from the /gyro to the /accel frame to the gyroscope data
-
-    imu_message_.header.frame_id = accel_frameId_;
-
-    //
     // Covariance matrix for linear acceleration and angular velocity were
     // generated using 2 minutes of logged data with the default imu
     // settings. Note the angular velocity covariance has the nominal gyro
@@ -180,6 +173,19 @@ Imu::Imu(Channel* driver, std::string tf_prefix) :
                                                       std::bind(&Imu::stopStreams, this));
         driver_->addIsolatedCallback(imuCB, this);
     }
+
+    if (next_gen_camera_)
+    {
+        accel_frameId_ = tf_prefix_ + "/imu";
+        gyro_frameId_ = tf_prefix + "/imu";
+    }
+
+    //
+    // Initialize the sensor_msgs::Imu topic
+    // We will publish the data in the accelerometer frame applying the
+    // transform from the /gyro to the /accel frame to the gyroscope data
+
+    imu_message_.header.frame_id = accel_frameId_;
 
 }
 
