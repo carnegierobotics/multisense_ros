@@ -431,6 +431,11 @@ template<class T> void Reconfigure::configureAutoWhiteBalance(image::Config& cfg
     cfg.setAutoWhiteBalanceThresh(dyn.auto_white_balance_thresh);
 }
 
+template<class T> void Reconfigure::configureGamma(image::Config& cfg, const T& dyn)
+{
+    cfg.setGamma(dyn.gamma);
+}
+
 template<class T> void Reconfigure::configureAuxCamera(const T& dyn)
 {
     if (aux_supported_) {
@@ -447,12 +452,16 @@ template<class T> void Reconfigure::configureAuxCamera(const T& dyn)
         // See if we already have a secondary exposure we want to modify. If not create one for the aux camera
 
         auxConfig.setGain(dyn.aux_gain);
+        auxConfig.setGamma(dyn.aux_gamma);
         auxConfig.setExposure(dyn.aux_exposure_time * 1e6);
         auxConfig.setAutoExposure(dyn.aux_auto_exposure);
         auxConfig.setAutoExposureMax(dyn.aux_auto_exposure_max_time * 1e6);
         auxConfig.setAutoExposureDecay(dyn.aux_auto_exposure_decay);
         auxConfig.setAutoExposureThresh(dyn.aux_auto_exposure_thresh);
         auxConfig.setAutoExposureTargetIntensity(dyn.aux_auto_exposure_target_intensity);
+        auxConfig.enableSharpening(dyn.aux_enable_sharpening);
+        auxConfig.setSharpeningPercentage(dyn.aux_sharpening_percentage);
+        auxConfig.setSharpeningLimit(dyn.aux_sharpening_limit);
 
         if (dyn.aux_roi_auto_exposure) {
             if (roi_supported_) {
@@ -1000,6 +1009,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureGamma(cfg, dyn);                               \
     } while(0)
 
 #define KS21_SGM()  do {                                        \
@@ -1015,6 +1025,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureGamma(cfg, dyn);                               \
     } while(0)
 
 #define S27_SGM_GROUND_SURFACE()  do {                          \
@@ -1034,6 +1045,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
         configureGroundSurfaceParams(dyn);                      \
+        configureGamma(cfg, dyn);                               \
     } while(0)
 
 #define KS21_SGM_GROUND_SURFACE()  do {                         \
@@ -1051,6 +1063,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
         configureGroundSurfaceParams(dyn);                      \
+        configureGamma(cfg, dyn);                               \
     } while(0)
 
 #define REMOTE_HEAD_VPB()  do {                                 \
@@ -1072,6 +1085,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureGamma(cfg, dyn);                               \
     } while(0)
 
 #define REMOTE_HEAD_SGM_AR0234_GROUND_SURFACE()  do {           \
@@ -1089,6 +1103,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
         configureGroundSurfaceParams(dyn);                      \
+        configureGamma(cfg, dyn);                               \
     } while(0)
 
 #define REMOTE_HEAD_MONOCAM_AR0234()  do {                      \
@@ -1100,6 +1115,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \
         configureExtrinsics(dyn);                               \
+        configureGamma(cfg, dyn);                               \
     } while(0)
 
 //

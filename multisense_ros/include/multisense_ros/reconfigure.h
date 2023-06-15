@@ -112,6 +112,7 @@ private:
     template<class T> void configureSgm(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureHdr(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureAutoWhiteBalance(crl::multisense::image::Config& cfg, const T& dyn);
+    template<class T> void configureGamma(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureAuxCamera(const T& dyn);
     template<class T> void configureCamera(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureMotor(const T& dyn);
