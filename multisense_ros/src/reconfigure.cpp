@@ -463,6 +463,7 @@ template<class T> void Reconfigure::configureAuxCamera(const T& dyn)
         auxConfig.setSharpeningPercentage(dyn.aux_sharpening_percentage);
         auxConfig.setSharpeningLimit(dyn.aux_sharpening_limit);
 
+
         if (dyn.aux_roi_auto_exposure) {
             if (roi_supported_) {
                 //
@@ -1003,13 +1004,13 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureFullResAuxStereoProfile(profile, dyn);         \
         cfg.setCameraProfile(profile);                          \
         configureAutoWhiteBalance(cfg, dyn);                    \
-        configureAuxCamera(dyn);                                \
+        configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
-        configureGamma(cfg, dyn);                               \
+        configureAuxCamera(dyn);                                \
     } while(0)
 
 #define KS21_SGM()  do {                                        \
@@ -1019,13 +1020,13 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureStereoProfile(profile, dyn);                   \
         configureDetailDisparityStereoProfile(profile, dyn);    \
         cfg.setCameraProfile(profile);                          \
+        configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
-        configureGamma(cfg, dyn);                               \
     } while(0)
 
 #define S27_SGM_GROUND_SURFACE()  do {                          \
@@ -1038,14 +1039,14 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureFullResAuxStereoProfile(profile, dyn);         \
         cfg.setCameraProfile(profile);                          \
         configureAutoWhiteBalance(cfg, dyn);                    \
-        configureAuxCamera(dyn);                                \
+        configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
         configureGroundSurfaceParams(dyn);                      \
-        configureGamma(cfg, dyn);                               \
+        configureAuxCamera(dyn);                                \
     } while(0)
 
 #define KS21_SGM_GROUND_SURFACE()  do {                         \
@@ -1056,6 +1057,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureDetailDisparityStereoProfile(profile, dyn);    \
         configureGroundSurfaceStereoProfile(profile, dyn);      \
         cfg.setCameraProfile(profile);                          \
+        configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configureS19Leds(dyn);                                  \
@@ -1063,7 +1065,6 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
         configureGroundSurfaceParams(dyn);                      \
-        configureGamma(cfg, dyn);                               \
     } while(0)
 
 #define REMOTE_HEAD_VPB()  do {                                 \
@@ -1079,13 +1080,13 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureStereoProfile(profile, dyn);                   \
         configureDetailDisparityStereoProfile(profile, dyn);    \
         cfg.setCameraProfile(profile);                          \
+        configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
-        configureGamma(cfg, dyn);                               \
     } while(0)
 
 #define REMOTE_HEAD_SGM_AR0234_GROUND_SURFACE()  do {           \
@@ -1096,6 +1097,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configureDetailDisparityStereoProfile(profile, dyn);    \
         configureGroundSurfaceStereoProfile(profile, dyn);      \
         cfg.setCameraProfile(profile);                          \
+        configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configureS19Leds(dyn);                                  \
@@ -1103,7 +1105,6 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
         configureGroundSurfaceParams(dyn);                      \
-        configureGamma(cfg, dyn);                               \
     } while(0)
 
 #define REMOTE_HEAD_MONOCAM_AR0234()  do {                      \
@@ -1111,11 +1112,11 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         crl::multisense::CameraProfile profile = crl::multisense::User_Control; \
         configureStereoProfile(profile, dyn);                   \
         cfg.setCameraProfile(profile);                          \
+        configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \
         configureExtrinsics(dyn);                               \
-        configureGamma(cfg, dyn);                               \
     } while(0)
 
 //
