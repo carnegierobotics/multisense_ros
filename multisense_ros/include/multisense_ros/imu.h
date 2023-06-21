@@ -98,9 +98,11 @@ private:
     //
     // TF prefix and frame ID's
     const std::string tf_prefix_;
-    const std::string accel_frameId_;
-    const std::string gyro_frameId_;
-    const std::string mag_frameId_;
+    std::string accel_frameId_;
+    std::string gyro_frameId_;
+    std::string mag_frameId_;
+
+    bool next_gen_camera_;
 
 };
 
