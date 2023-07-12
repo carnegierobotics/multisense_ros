@@ -127,6 +127,7 @@ private:
     template<class T> void configureDetailDisparityStereoProfile(crl::multisense::CameraProfile &profile, const T& dyn);
     template<class T> void configureExtrinsics(const T& dyn);
     template<class T> void configureGroundSurfaceParams(const T& dyn);
+    template<class T> void configureRemoteHeadSyncGroups(const T& dyn);
 
     //
     // CRL sensor API
