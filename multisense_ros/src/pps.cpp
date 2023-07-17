@@ -124,12 +124,32 @@ void Pps::ppsCallback(const pps::Header& header)
 
 void Pps::connect()
 {
-    __sync_fetch_and_add(&subscribers_, 1);
+    const int32_t old_sub_count = __sync_fetch_and_add(&subscribers_, 1);
+
+    // If we had 0 subscribers before we added 1 (only 1 new subscriber)
+    if (old_sub_count == 0)
+    {
+        Status status = driver_->startStreams(Source_Pps);
+        if (Status_Ok != status)
+        {
+            ROS_ERROR("Pps: failed to start stream: %s", Channel::statusString(status));
+        }
+    }
 }
 
 void Pps::disconnect()
 {
-    __sync_fetch_and_sub(&subscribers_, 1);
+    const int32_t old_sub_count = __sync_fetch_and_sub(&subscribers_, 1);
+
+    // If we only had 1 subscriber before we subtracted 1 (0 subscribers remaining)
+    if (old_sub_count == 1)
+    {
+        Status status = driver_->stopStreams(Source_Pps);
+        if (Status_Ok != status)
+        {
+            ROS_ERROR("Pps: failed to stop stream: %s", Channel::statusString(status));
+        }
+    }
 }
 
 } // namespace
