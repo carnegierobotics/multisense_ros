@@ -195,6 +195,7 @@ private:
     bool roi_supported_ = false;
     bool aux_supported_ = false;
     bool reconfigure_external_calibration_supported_ = false;
+    bool origin_from_camera_calibration_initialized_ = false;
 
     //
     // Cached value for the boarder clip. These are used to determine if we

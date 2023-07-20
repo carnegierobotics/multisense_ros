@@ -54,6 +54,7 @@ Reconfigure::Reconfigure(Channel* driver,
     roi_supported_(false),
     aux_supported_(false),
     reconfigure_external_calibration_supported_(false),
+    origin_from_camera_calibration_initialized_(false),
     border_clip_type_(BorderClip::NONE),
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
@@ -370,7 +371,6 @@ Reconfigure::Reconfigure(Channel* driver,
     }
 
     calibration_ = crl::multisense::system::ExternalCalibration{};
-    extrinsics_callback_(calibration_);
 }
 
 Reconfigure::~Reconfigure()
@@ -863,6 +863,25 @@ template<class T> void Reconfigure::configureDetailDisparityStereoProfile(crl::m
 
 template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 {
+    if (!dyn.enable_origin_from_camera_configuration)
+        return;
+
+    //
+    // Setup extrinsics transform tree
+    if (!origin_from_camera_calibration_initialized_)
+    {
+        extrinsics_callback_(calibration_);
+
+        origin_from_camera_calibration_initialized_ = true;
+
+        return;
+    }
+
+    //
+    // If supported, reconfigure with new dynamic configuration values
+    if (!reconfigure_external_calibration_supported_)
+        return;
+
     constexpr float deg_to_rad = M_PI / 180.0f;
     if (std::abs(dyn.origin_from_camera_position_x_m - calibration_.x) < 1e-3 &&
         std::abs(dyn.origin_from_camera_position_y_m - calibration_.y) < 1e-3 &&
@@ -884,13 +903,11 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
     calibration_.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
     calibration_.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
 
-    if (reconfigure_external_calibration_supported_) {
-        Status status = driver_->setExternalCalibration(calibration_);
-        if (Status_Ok != status) {
-                ROS_ERROR("Reconfigure: failed to set external calibration: %s",
-                            Channel::statusString(status));
-            return;
-        }
+    Status status = driver_->setExternalCalibration(calibration_);
+    if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to set external calibration: %s",
+                        Channel::statusString(status));
+        return;
     }
 
     // Update camera class locally to modify pointcloud transform in rviz
