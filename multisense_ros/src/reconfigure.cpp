@@ -888,8 +888,8 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
     // Update ground surface params on camera
     Status status = driver_->setGroundSurfaceParams(params);
     if (Status_Ok != status) {
-            ROS_ERROR("Reconfigure: failed to set ground surface params: %s",
-                        Channel::statusString(status));
+        ROS_ERROR("Reconfigure: failed to set ground surface params: %s",
+                  Channel::statusString(status));
         return;
     }
 
@@ -903,6 +903,32 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         dyn.ground_surface_pointcloud_global_min_x_m,
         dyn.ground_surface_spline_draw_resolution}
     );
+}
+
+template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
+{
+    // convert the dyn integer into a remote head channel enum
+    RemoteHeadChannel c1 = dyn.sync_group_1_controller != -1
+        ?  static_cast<RemoteHeadChannel>(dyn.sync_group_1_controller) : Remote_Head_Invalid;
+    RemoteHeadChannel r1 = dyn.sync_group_1_responder != -1
+        ?  static_cast<RemoteHeadChannel>(dyn.sync_group_1_responder) : Remote_Head_Invalid;
+
+    RemoteHeadChannel c2 = dyn.sync_group_2_controller != -1
+        ?  static_cast<RemoteHeadChannel>(dyn.sync_group_2_controller) : Remote_Head_Invalid;
+    RemoteHeadChannel r2 = dyn.sync_group_2_responder != -1
+        ?  static_cast<RemoteHeadChannel>(dyn.sync_group_2_responder) : Remote_Head_Invalid;
+
+    const std::vector<RemoteHeadSyncGroup> sync_groups{{c1, {r1}}, {c2, {r2}}};
+
+    const image::RemoteHeadConfig rh_config{sync_groups};
+
+    // Update ground surface params on camera
+    Status status = driver_->setRemoteHeadConfig(rh_config);
+    if (Status_Ok != status) {
+        ROS_ERROR("Reconfigure: failed to set remote head config: %s",
+                  Channel::statusString(status));
+        return;
+    }
 }
 
 #define GET_CONFIG()                                                    \
@@ -1057,6 +1083,7 @@ template<class T> void Reconfigure::configureGroundSurfaceParams(const T& dyn)
         GET_CONFIG();                                           \
         configurePtp(dyn);                                      \
         configureExtrinsics(dyn);                               \
+        configureRemoteHeadSyncGroups(dyn);                     \
     } while(0)
 
 #define REMOTE_HEAD_SGM_AR0234()  do {                          \
