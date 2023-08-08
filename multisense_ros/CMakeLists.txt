@@ -46,6 +46,7 @@ generate_dynamic_reconfigure_options(cfg/multisense.cfg)
 
 add_message_files(DIRECTORY msg
                   FILES
+                  ChannelStatistics.msg
                   DeviceInfo.msg
                   RawCamConfig.msg
                   RawImuData.msg
@@ -94,6 +95,7 @@ add_library(${PROJECT_NAME} src/camera.cpp
                             src/pps.cpp
                             src/point_cloud_utilities.cpp
                             src/status.cpp
+                            src/statistics.cpp
                             src/reconfigure.cpp
                             src/ground_surface_utilities.cpp)
 
