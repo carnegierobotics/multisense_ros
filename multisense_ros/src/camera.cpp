@@ -114,6 +114,8 @@ void groundSurfaceCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->groundSurfaceCallback(header); }
 void groundSurfaceSplineCB(const ground_surface::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->groundSurfaceSplineCallback(header); }
+void dpuResultCB(const dpu_result::Header& header, void* userDataP)
+{ reinterpret_cast<Camera*>(userDataP)->dpuResultCallback(header); }
 
 
 bool isValidReprojectedPoint(const Eigen::Vector3f& pt, float squared_max_range)
@@ -239,6 +241,7 @@ constexpr char Camera::RIGHT[];
 constexpr char Camera::AUX[];
 constexpr char Camera::CALIBRATION[];
 constexpr char Camera::GROUND_SURFACE[];
+constexpr char Camera::DPU_RESULT[];
 
 constexpr char Camera::ORIGIN_FRAME[];
 constexpr char Camera::HEAD_FRAME[];
@@ -277,6 +280,7 @@ constexpr char Camera::COST_CAMERA_INFO_TOPIC[];
 constexpr char Camera::GROUND_SURFACE_IMAGE_TOPIC[];
 constexpr char Camera::GROUND_SURFACE_INFO_TOPIC[];
 constexpr char Camera::GROUND_SURFACE_POINT_SPLINE_TOPIC[];
+constexpr char Camera::DPU_RESULT_TOPIC[];
 
 Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     driver_(driver),
@@ -286,6 +290,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     aux_nh_(device_nh_, AUX),
     calibration_nh_(device_nh_, CALIBRATION),
     ground_surface_nh_(device_nh_, GROUND_SURFACE),
+    dpu_result_nh_(device_nh_, DPU_RESULT),
     left_mono_transport_(left_nh_),
     right_mono_transport_(right_nh_),
     left_rect_transport_(left_nh_),
@@ -302,6 +307,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     aux_rect_transport_(aux_nh_),
     aux_rgb_rect_transport_(aux_nh_),
     ground_surface_transport_(ground_surface_nh_),
+    dpu_result_transport_(dpu_result_nh_),
     stereo_calibration_manager_(nullptr),
     frame_id_origin_(tf_prefix + ORIGIN_FRAME),
     frame_id_head_(tf_prefix + HEAD_FRAME),
@@ -406,6 +412,23 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         ground_surface_info_pub_ = ground_surface_nh_.advertise<sensor_msgs::CameraInfo>(GROUND_SURFACE_INFO_TOPIC, 1, true);
 
         ground_surface_spline_pub_ = ground_surface_nh_.advertise<sensor_msgs::PointCloud2>(GROUND_SURFACE_POINT_SPLINE_TOPIC, 5, true);
+    }
+
+    //
+    // Create DPU publisher if supported
+
+    std::vector<system::DeviceMode> deviceModes;
+    status = driver_->getDeviceModes(deviceModes);
+    if (Status_Ok != status) {
+        std::cerr << "Failed to get device modes: " << Channel::statusString(status) << std::endl;
+    }
+    can_support_dpu_ = std::any_of(deviceModes.begin(), deviceModes.end(), [](const auto &mode) {
+        return mode.supportedDataSources & Source_DPU_Result;});
+
+    if (can_support_dpu_) {
+        dpu_result_pub_ = dpu_result_transport_.advertise(DPU_RESULT_TOPIC, 5,
+                                std::bind(&Camera::connectStream, this, Source_DPU_Result),
+                                std::bind(&Camera::disconnectStream, this, Source_DPU_Result));
     }
 
 
@@ -825,6 +848,13 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     }
 
     //
+    // Add DPU result callbacks for supported cameras
+
+    if (can_support_dpu_) {
+        driver_->addIsolatedCallback(dpuResultCB, this);
+    }
+
+    //
     // Disable color point cloud strict frame syncing, if desired
 
     const char *pcColorFrameSyncEnvStringP = getenv("MULTISENSE_ROS_PC_COLOR_FRAME_SYNC_OFF");
@@ -873,6 +903,11 @@ Camera::~Camera()
     {
         driver_->removeIsolatedCallback(groundSurfaceCB);
         driver_->removeIsolatedCallback(groundSurfaceSplineCB);
+    }
+
+    if (can_support_dpu_)
+    {
+        driver_->removeIsolatedCallback(dpuResultCB);
     }
 }
 
@@ -2250,6 +2285,47 @@ void Camera::groundSurfaceSplineCallback(const ground_surface::Header& header)
 
     // Send pointcloud message
     ground_surface_spline_pub_.publish(ground_surface_utilities::eigenToPointcloud(eigen_pcl, frame_id_origin_));
+}
+
+void Camera::dpuResultCallback(const dpu_result::Header& header)
+{
+    ros::Time t = ros::Time::now();
+
+    int height = 160;
+    int width = 256;
+    int image_length = height * width;
+
+    dpu_result_image_.data.resize(image_length);
+    memcpy(&dpu_result_image_.data[0], header.maskArray, image_length);
+
+    // Multiply mask values by 100 so that the three classes are visually distinguishable
+    for (int i = 0; i < image_length ; i++) {
+        dpu_result_image_.data[i] *= 100;
+    }
+
+    // Vertical flip the mask to match the images coming off of the camera
+    uint8_t orig_result_mask[image_length];
+    memcpy(orig_result_mask, &dpu_result_image_.data[0], image_length);
+    for (int row = 0; row < height; ++row)
+    {
+        for (int col = 0; col < width; ++col)
+        {
+            dpu_result_image_.data[(height - row - 1) * width + col] = orig_result_mask[row * width + col];
+        }
+    }
+
+    dpu_result_image_.header.frame_id = LEFT_RECTIFIED_FRAME;
+    dpu_result_image_.header.seq      = header.frameId;
+    dpu_result_image_.header.stamp    = t;
+    dpu_result_image_.height          = height;
+    dpu_result_image_.width           = width;
+
+    dpu_result_image_.encoding = sensor_msgs::image_encodings::MONO8;
+    dpu_result_image_.step     = width;
+
+    dpu_result_image_.is_bigendian    = (htonl(1) == 1);
+
+    dpu_result_pub_.publish(dpu_result_image_);
 }
 
 void Camera::updateConfig(const image::Config& config)

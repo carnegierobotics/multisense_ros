@@ -77,6 +77,7 @@ public:
     void colorizeCallback(const crl::multisense::image::Header& header);
     void groundSurfaceCallback(const crl::multisense::image::Header& header);
     void groundSurfaceSplineCallback(const crl::multisense::ground_surface::Header& header);
+    void dpuResultCallback(const crl::multisense::dpu_result::Header& header);
 
     void borderClipChanged(const BorderClip &borderClipType, double borderClipValue);
 
@@ -96,6 +97,7 @@ private:
     static constexpr char AUX[] = "aux";
     static constexpr char CALIBRATION[] = "calibration";
     static constexpr char GROUND_SURFACE[] = "ground_surface";
+    static constexpr char DPU_RESULT[] = "dpu_result";
 
     //
     // Frames
@@ -140,6 +142,7 @@ private:
     static constexpr char GROUND_SURFACE_IMAGE_TOPIC[] = "image";
     static constexpr char GROUND_SURFACE_INFO_TOPIC[] = "camera_info";
     static constexpr char GROUND_SURFACE_POINT_SPLINE_TOPIC[] = "spline";
+    static constexpr char DPU_RESULT_TOPIC[] = "class_map";
 
 
     //
@@ -169,6 +172,7 @@ private:
     ros::NodeHandle aux_nh_;
     ros::NodeHandle calibration_nh_;
     ros::NodeHandle ground_surface_nh_;
+    ros::NodeHandle dpu_result_nh_;
 
     //
     // Image transports
@@ -189,6 +193,7 @@ private:
     image_transport::ImageTransport  aux_rect_transport_;
     image_transport::ImageTransport  aux_rgb_rect_transport_;
     image_transport::ImageTransport  ground_surface_transport_;
+    image_transport::ImageTransport  dpu_result_transport_;
 
     //
     // Data publishers
@@ -206,6 +211,7 @@ private:
     image_transport::CameraPublisher aux_rect_cam_pub_;
     image_transport::CameraPublisher aux_rgb_rect_cam_pub_;
     image_transport::Publisher       ground_surface_cam_pub_;
+    image_transport::Publisher       dpu_result_pub_;
 
     ros::Publisher                   left_mono_cam_info_pub_;
     ros::Publisher                   right_mono_cam_info_pub_;
@@ -275,6 +281,8 @@ private:
     stereo_msgs::DisparityImage right_stereo_disparity_;
 
     sensor_msgs::Image         ground_surface_image_;
+
+    sensor_msgs::Image         dpu_result_image_;
 
     multisense_ros::RawCamData raw_cam_data_;
 
@@ -364,6 +372,11 @@ private:
     // Can support the ground surface detector
 
     bool can_support_ground_surface_ = false;
+
+    //
+    // Can support the deeplearning processing unit (DPU)
+
+    bool can_support_dpu_ = false;
 
     //
     // Diagnostics
