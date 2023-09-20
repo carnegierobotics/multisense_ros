@@ -38,6 +38,7 @@
 #include <multisense_ros/pps.h>
 #include <multisense_ros/imu.h>
 #include <multisense_ros/status.h>
+#include <multisense_ros/statistics.h>
 #include <multisense_ros/reconfigure.h>
 #include <ros/ros.h>
 
@@ -109,6 +110,7 @@ int main(int argc, char** argvPP)
             multisense_ros::Pps          pps(d);
             multisense_ros::Imu          imu(d, tf_prefix);
             multisense_ros::Status       status(d);
+            multisense_ros::Statistics   statistics(d);
             multisense_ros::Reconfigure  rec(d,
                                              std::bind(&multisense_ros::Camera::updateConfig, &camera, std::placeholders::_1),
                                              std::bind(&multisense_ros::Camera::borderClipChanged, &camera,
