@@ -155,6 +155,14 @@ Reconfigure::Reconfigure(Channel* driver,
         server_st21_vga_->setCallback(std::bind(&Reconfigure::callback_st21_vga, this,
                                                 std::placeholders::_1, std::placeholders::_2));
 
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST25 == deviceInfo.hardwareRevision) {
+
+        server_st25_sgm_ =
+            std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::st25_sgm_imuConfig> > (
+                new dynamic_reconfigure::Server<multisense_ros::st25_sgm_imuConfig>(device_nh_));
+        server_st25_sgm_->setCallback(std::bind(&Reconfigure::callback_st25_sgm, this,
+                                                std::placeholders::_1, std::placeholders::_2));
+
     } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == deviceInfo.hardwareRevision) {
 
         switch(deviceInfo.imagerType) {
@@ -1260,6 +1268,86 @@ void Reconfigure::callback_bcam_imx104(multisense_ros::bcam_imx104Config& dyn,
 
 void Reconfigure::callback_st21_vga(multisense_ros::st21_sgm_vga_imuConfig& dyn,
                                        uint32_t                           level)
+{
+    (void) level;
+    DataSource    streamsEnabled = 0;
+    int32_t       width, height, disparities;
+    bool          resolutionChange=false;
+
+    GET_CONFIG();
+
+    //
+    // Decode the resolution string
+
+    if (3 != sscanf(dyn.resolution.c_str(), "%dx%dx%d", &width, &height, &disparities)) {
+        ROS_ERROR("Reconfigure: malformed resolution string: \"%s\"", dyn.resolution.c_str());
+        return;
+    }
+
+    //
+    // If a resolution change is desired
+
+    if ((resolutionChange = changeResolution(cfg, width, height, disparities))) {
+
+        //
+        // Halt streams during the resolution change
+
+        status = driver_->getEnabledStreams(streamsEnabled);
+        if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to get enabled streams: %s",
+                      Channel::statusString(status));
+            return;
+        }
+        status = driver_->stopStreams(streamsEnabled);
+        if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to stop streams for a resolution change: %s",
+                      Channel::statusString(status));
+            return;
+        }
+    }
+
+    cfg.setFps(dyn.fps);
+
+    configureSgm(cfg, dyn);
+    configureImu(dyn);
+
+    //
+    // Apply, sensor enforces limits per setting.
+
+    status = driver_->setImageConfig(cfg);
+    if (Status_Ok != status)
+        ROS_ERROR("Reconfigure: failed to set image config: %s",
+                  Channel::statusString(status));
+
+    status = driver_->getImageConfig(cfg);
+    if (Status_Ok != status)
+        ROS_ERROR("Reconfigure: failed to query image config: %s",
+                  Channel::statusString(status));
+
+    resolution_change_callback_(cfg);
+
+    //
+    // If we are changing the resolution, let others know about it
+
+    if (resolutionChange) {
+
+        status = driver_->startStreams(streamsEnabled);
+        if (Status_Ok != status)
+            ROS_ERROR("Reconfigure: failed to restart streams after a resolution change: %s",
+                      Channel::statusString(status));
+    }
+
+    configureBorderClip(dyn);
+    configurePointCloudRange(dyn);
+}
+
+//
+// ST25 Thermal Imagers
+// Seperate callback required due to limited subset of dyn parameters
+// in st25_sgm_imuConfig. configureCamera results in SFINAE errors
+
+void Reconfigure::callback_st25_sgm(multisense_ros::st25_sgm_imuConfig& dyn,
+                                    uint32_t                            level)
 {
     (void) level;
     DataSource    streamsEnabled = 0;

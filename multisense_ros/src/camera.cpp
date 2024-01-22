@@ -351,6 +351,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7S == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S21 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST25 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7AR == device_info_.hardwareRevision ||
@@ -365,6 +366,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7S == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S21 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST25 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7AR == device_info_.hardwareRevision ||
