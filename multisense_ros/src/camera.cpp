@@ -115,120 +115,6 @@ void groundSurfaceCB(const image::Header& header, void* userDataP)
 void groundSurfaceSplineCB(const ground_surface::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->groundSurfaceSplineCallback(header); }
 
-
-bool isValidReprojectedPoint(const Eigen::Vector3f& pt, float squared_max_range)
-{
-    return pt[2] > 0.0f && std::isfinite(pt[2]) && pt.squaredNorm() < squared_max_range;
-}
-
-void writePoint(sensor_msgs::PointCloud2 &pointcloud, size_t index, const Eigen::Vector3f &point, uint32_t color)
-{
-    float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
-    cloudP[0] = point[0];
-    cloudP[1] = point[1];
-    cloudP[2] = point[2];
-
-    uint32_t* colorP = reinterpret_cast<uint32_t*>(&(cloudP[3]));
-    colorP[0] = color;
-}
-
-void writePoint(sensor_msgs::PointCloud2 &pointcloud,
-                size_t pointcloud_index,
-                const Eigen::Vector3f &point,
-                size_t image_index,
-                const image::Header &image)
-{
-    switch (image.bitsPerPixel)
-    {
-        case 8:
-        {
-            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(image.imageDataP)[image_index]);
-            return writePoint(pointcloud, pointcloud_index, point, luma);
-        }
-        case 16:
-        {
-            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint16_t*>(image.imageDataP)[image_index]);
-            return writePoint(pointcloud, pointcloud_index, point, luma);
-        }
-        case 32:
-        {
-            const uint32_t luma = reinterpret_cast<const uint32_t*>(image.imageDataP)[image_index];
-            return writePoint(pointcloud, pointcloud_index, point, luma);
-        }
-    }
-}
-
-bool clipPoint(const BorderClip& borderClipType,
-               double borderClipValue,
-               size_t height,
-               size_t width,
-               size_t u,
-               size_t v)
-{
-    switch (borderClipType)
-    {
-        case BorderClip::NONE:
-        {
-            return false;
-        }
-        case BorderClip::RECTANGULAR:
-        {
-            return !( u >= borderClipValue && u <= width - borderClipValue &&
-                      v >= borderClipValue && v <= height - borderClipValue);
-        }
-        case BorderClip::CIRCULAR:
-        {
-            const double halfWidth = static_cast<double>(width)/2.0;
-            const double halfHeight = static_cast<double>(height)/2.0;
-
-            const double radius = sqrt( halfWidth * halfWidth + halfHeight * halfHeight ) - borderClipValue;
-
-            return !(Eigen::Vector2d{halfWidth - u, halfHeight - v}.norm() < radius);
-        }
-        default:
-        {
-            ROS_WARN("Camera: Unknown border clip type.");
-            break;
-        }
-    }
-
-    return true;
-}
-
-cv::Vec3b interpolate_color(const Eigen::Vector2f &pixel, const cv::Mat &image)
-{
-    const float width = image.cols;
-    const float height = image.rows;
-
-    const float &u = pixel(0);
-    const float &v = pixel(1);
-
-    //
-    // Implement a basic bileinar interpolation scheme
-    // https://en.wikipedia.org/wiki/Bilinear_interpolation
-    //
-    const size_t min_u = static_cast<size_t>(std::min(std::max(std::floor(u), 0.f), width - 1.f));
-    const size_t max_u = static_cast<size_t>(std::min(std::max(std::floor(u) + 1, 0.f), width - 1.f));
-    const size_t min_v = static_cast<size_t>(std::min(std::max(std::floor(v), 0.f), height - 1.f));
-    const size_t max_v = static_cast<size_t>(std::min(std::max(std::floor(v) + 1, 0.f), height - 1.f));
-
-    const cv::Vec3d element00 = image.at<cv::Vec3b>(width * min_v + min_u);
-    const cv::Vec3d element01 = image.at<cv::Vec3b>(width * min_v + max_u);
-    const cv::Vec3d element10 = image.at<cv::Vec3b>(width * max_v + min_u);
-    const cv::Vec3d element11 = image.at<cv::Vec3b>(width * max_v + max_u);
-
-    const size_t delta_u = max_u - min_u;
-    const size_t delta_v = max_v - min_v;
-
-    const double u_ratio = delta_u == 0 ? 1. : (static_cast<double>(max_u) - u) / static_cast<double>(delta_u);
-    const double v_ratio = delta_v == 0 ? 1. : (static_cast<double>(max_v) - v) / static_cast<double>(delta_v);
-
-    const cv::Vec3b f_xy0 = element00 * u_ratio + element01 * (1. - u_ratio);
-    const cv::Vec3b f_xy1 = element10 * u_ratio + element11 * (1. - u_ratio);
-
-    return (f_xy0 * v_ratio + f_xy1 * (1. - v_ratio));
-}
-
 } // anonymous
 
 //
@@ -765,10 +651,10 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     //
     // Initialize point cloud data structures
 
-    luma_point_cloud_ = initialize_pointcloud<float>(true, frame_id_rectified_left_, "intensity");
-    color_point_cloud_ = initialize_pointcloud<float>(true, frame_id_rectified_left_, "rgb");
-    luma_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "intensity");
-    color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "rgb");
+    luma_point_cloud_ = initializePointcloud<float>(true, frame_id_rectified_left_, "intensity");
+    color_point_cloud_ = initializePointcloud<float>(true, frame_id_rectified_left_, "rgb");
+    luma_organized_point_cloud_ = initializePointcloud<float>(false, frame_id_rectified_left_, "intensity");
+    color_organized_point_cloud_ = initializePointcloud<float>(false, frame_id_rectified_left_, "rgb");
 
     //
     // Add driver-level callbacks.
@@ -1751,7 +1637,7 @@ void Camera::pointCloudCallback(const image::Header& header)
         rectified_color = std::move(rect_rgb_image);
     }
 
-    // disparity conversion requires valid right image
+    // disparity conversion requires valid right calibration
     if (!stereo_calibration_manager_->validRight())
     {
         throw std::runtime_error("Stereo calibration manager missing right calibration");
@@ -1808,7 +1694,7 @@ void Camera::pointCloudCallback(const image::Header& header)
                 packed_color = 0;
 
                 const auto color_pixel = (has_aux_camera_ && disparity != 0.0) ?
-                    interpolate_color(stereo_calibration_manager_->rectifiedAuxProject(point, aux_camera_info),
+                    interpolateColor(stereo_calibration_manager_->rectifiedAuxProject(point, aux_camera_info),
                                       rectified_color) :
                     rectified_color.at<cv::Vec3b>(y, x);
 
@@ -1824,7 +1710,7 @@ void Camera::pointCloudCallback(const image::Header& header)
             {
                 if (pub_organized_pointcloud)
                 {
-                    writePoint(luma_organized_point_cloud_, index, invalid_point, index, left_luma_rect->data());
+                    writePoint(luma_organized_point_cloud_, index, invalid_point, index, left_luma_rect->data().bitsPerPixel, left_luma_rect->data().imageDataP);
                 }
 
                 if (pub_color_organized_pointcloud)
@@ -1835,11 +1721,11 @@ void Camera::pointCloudCallback(const image::Header& header)
                 continue;
             }
 
-            const bool valid = isValidReprojectedPoint(point, squared_max_range);
+            const bool valid = stereo_calibration_manager_->isValidReprojectedPoint(point, squared_max_range);
 
             if (pub_pointcloud && valid)
             {
-                writePoint(luma_point_cloud_, valid_points, point, index, left_luma_rect->data());
+                writePoint(luma_point_cloud_, valid_points, point, index, left_luma_rect->data().bitsPerPixel, left_luma_rect->data().imageDataP);
             }
 
             if(pub_color_pointcloud && valid)
@@ -1849,7 +1735,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 
             if (pub_organized_pointcloud)
             {
-                writePoint(luma_organized_point_cloud_, index, valid ? point : invalid_point, index, left_luma_rect->data());
+                writePoint(luma_organized_point_cloud_, index, valid ? point : invalid_point, index, left_luma_rect->data().bitsPerPixel, left_luma_rect->data().imageDataP);
             }
 
             if (pub_color_organized_pointcloud)

@@ -1,5 +1,5 @@
 /**
- * @file point_cloud_utilities.h
+ * @file point_cloud_utilities.cpp
  *
  * Copyright 2020
  * Carnegie Robotics, LLC
@@ -82,5 +82,45 @@ uint8_t message_format<double>()
 {
     return sensor_msgs::PointField::FLOAT64;
 }
+
+
+void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point, const uint32_t color)
+{
+    float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
+    cloudP[0] = point[0];
+    cloudP[1] = point[1];
+    cloudP[2] = point[2];
+
+    uint32_t* colorP = reinterpret_cast<uint32_t*>(&(cloudP[3]));
+    colorP[0] = color;
+}
+
+void writePoint(sensor_msgs::PointCloud2 &pointcloud,
+                size_t pointcloud_index,
+                const Eigen::Vector3f &point,
+                size_t image_index,
+                const uint32_t bitsPerPixel,
+                const void* imageDataP)
+{
+    switch (bitsPerPixel)
+    {
+        case 8:
+        {
+            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(imageDataP)[image_index]);
+            return writePoint(pointcloud, pointcloud_index, point, luma);
+        }
+        case 16:
+        {
+            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint16_t*>(imageDataP)[image_index]);
+            return writePoint(pointcloud, pointcloud_index, point, luma);
+        }
+        case 32:
+        {
+            const uint32_t luma = reinterpret_cast<const uint32_t*>(imageDataP)[image_index];
+            return writePoint(pointcloud, pointcloud_index, point, luma);
+        }
+    }
+}
+
 
 }// namespace

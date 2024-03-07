@@ -35,6 +35,7 @@
 #define MULTISENSE_ROS_POINT_CLOUD_UTILITY_H
 
 #include <arpa/inet.h>
+#include <Eigen/Geometry>
 
 #include <sensor_msgs/PointCloud2.h>
 
@@ -44,7 +45,7 @@ template <typename T>
 uint8_t message_format();
 
 template <typename T>
-sensor_msgs::PointCloud2 initialize_pointcloud(bool dense,
+sensor_msgs::PointCloud2 initializePointcloud(bool dense,
                                                const std::string& frame_id,
                                                const std::string &color_channel)
 {
@@ -76,6 +77,14 @@ sensor_msgs::PointCloud2 initialize_pointcloud(bool dense,
     return point_cloud;
 }
 
+void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point, const uint32_t color);
+
+void writePoint(sensor_msgs::PointCloud2 &pointcloud,
+                size_t pointcloud_index,
+                const Eigen::Vector3f &point,
+                size_t image_index,
+                const uint32_t bitsPerPixel,
+                const void* imageDataP);
 
 }// namespace
 

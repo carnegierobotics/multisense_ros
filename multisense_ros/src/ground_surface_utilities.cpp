@@ -182,7 +182,7 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
     const std::string &frame_id)
 {
     sensor_msgs::PointCloud2 ret =
-        multisense_ros::initialize_pointcloud<float>(true, frame_id, "intensity");
+        multisense_ros::initializePointcloud<float>(true, frame_id, "intensity");
 
     const double num_points = input.size();
     ret.data.resize(num_points * ret.point_step);
