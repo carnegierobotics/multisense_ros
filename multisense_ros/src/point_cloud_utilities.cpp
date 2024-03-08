@@ -36,63 +36,51 @@
 namespace multisense_ros {
 
 template <>
-uint8_t message_format<int8_t>()
+uint8_t messageFormat<int8_t>()
 {
     return sensor_msgs::PointField::INT8;
 }
 
 template <>
-uint8_t message_format<uint8_t>()
+uint8_t messageFormat<uint8_t>()
 {
     return sensor_msgs::PointField::UINT8;
 }
 
 template <>
-uint8_t message_format<int16_t>()
+uint8_t messageFormat<int16_t>()
 {
     return sensor_msgs::PointField::INT16;
 }
 
 template <>
-uint8_t message_format<uint16_t>()
+uint8_t messageFormat<uint16_t>()
 {
     return sensor_msgs::PointField::UINT16;
 }
 
 template <>
-uint8_t message_format<int32_t>()
+uint8_t messageFormat<int32_t>()
 {
     return sensor_msgs::PointField::INT32;
 }
 
 template <>
-uint8_t message_format<uint32_t>()
+uint8_t messageFormat<uint32_t>()
 {
     return sensor_msgs::PointField::UINT32;
 }
 
 template <>
-uint8_t message_format<float>()
+uint8_t messageFormat<float>()
 {
     return sensor_msgs::PointField::FLOAT32;
 }
 
 template <>
-uint8_t message_format<double>()
+uint8_t messageFormat<double>()
 {
     return sensor_msgs::PointField::FLOAT64;
-}
-
-
-void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point, const uint32_t color)
-{
-    float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
-    cloudP[0] = point[0];
-    cloudP[1] = point[1];
-    cloudP[2] = point[2];
-
-    uint32_t* colorP = reinterpret_cast<uint32_t*>(&(cloudP[3]));
-    colorP[0] = color;
 }
 
 void writePoint(sensor_msgs::PointCloud2 &pointcloud,
@@ -106,12 +94,12 @@ void writePoint(sensor_msgs::PointCloud2 &pointcloud,
     {
         case 8:
         {
-            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(imageDataP)[image_index]);
+            const uint8_t luma = reinterpret_cast<const uint8_t*>(imageDataP)[image_index];
             return writePoint(pointcloud, pointcloud_index, point, luma);
         }
         case 16:
         {
-            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint16_t*>(imageDataP)[image_index]);
+            const uint16_t luma = reinterpret_cast<const uint16_t*>(imageDataP)[image_index];
             return writePoint(pointcloud, pointcloud_index, point, luma);
         }
         case 32:
@@ -119,8 +107,11 @@ void writePoint(sensor_msgs::PointCloud2 &pointcloud,
             const uint32_t luma = reinterpret_cast<const uint32_t*>(imageDataP)[image_index];
             return writePoint(pointcloud, pointcloud_index, point, luma);
         }
+        default:
+        {
+            throw std::runtime_error("Invalid bits per pixel value");
+        }
     }
 }
-
 
 }// namespace

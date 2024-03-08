@@ -182,7 +182,7 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
     const std::string &frame_id)
 {
     sensor_msgs::PointCloud2 ret =
-        multisense_ros::initializePointcloud<float>(true, frame_id, "intensity");
+        multisense_ros::initializePointcloud<float, uint8_t>(true, frame_id, "intensity");
 
     const double num_points = input.size();
     ret.data.resize(num_points * ret.point_step);
@@ -193,6 +193,9 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
         cloudP[0] = input[i][0];
         cloudP[1] = input[i][1];
         cloudP[2] = input[i][2];
+
+        uint8_t* colorP = reinterpret_cast<uint8_t*>(&(cloudP[3]));
+        colorP[0] = 0;
     }
 
     ret.height = 1;

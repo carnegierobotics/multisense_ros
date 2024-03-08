@@ -651,10 +651,10 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     //
     // Initialize point cloud data structures
 
-    luma_point_cloud_ = initializePointcloud<float>(true, frame_id_rectified_left_, "intensity");
-    color_point_cloud_ = initializePointcloud<float>(true, frame_id_rectified_left_, "rgb");
-    luma_organized_point_cloud_ = initializePointcloud<float>(false, frame_id_rectified_left_, "intensity");
-    color_organized_point_cloud_ = initializePointcloud<float>(false, frame_id_rectified_left_, "rgb");
+    luma_point_cloud_ = initializePointcloud<float, uint8_t>(true, frame_id_rectified_left_, "intensity");
+    color_point_cloud_ = initializePointcloud<float, uint32_t>(true, frame_id_rectified_left_, "rgb");
+    luma_organized_point_cloud_ = initializePointcloud<float, uint8_t>(false, frame_id_rectified_left_, "intensity");
+    color_organized_point_cloud_ = initializePointcloud<float, uint32_t>(false, frame_id_rectified_left_, "rgb");
 
     //
     // Add driver-level callbacks.
