@@ -41,37 +41,38 @@
 namespace multisense_ros {
 
 template <typename T>
-uint8_t message_format();
+uint8_t messageFormat();
 
-template <typename T>
-sensor_msgs::PointCloud2 initialize_pointcloud(bool dense,
+template <typename PointT, typename ColorT>
+sensor_msgs::PointCloud2 initializePointcloud(bool dense,
                                                const std::string& frame_id,
                                                const std::string &color_channel)
 {
-    const auto datatype = message_format<T>();
+    const auto pointDatatype = messageFormat<PointT>();
+    const auto colorDatatype = messageFormat<ColorT>();
 
     sensor_msgs::PointCloud2 point_cloud;
     point_cloud.is_bigendian    = (htonl(1) == 1);
     point_cloud.is_dense        = dense;
-    point_cloud.point_step      = 4 * sizeof(T);
+    point_cloud.point_step      = 3 * sizeof(PointT) + sizeof(ColorT);
     point_cloud.header.frame_id = frame_id;
     point_cloud.fields.resize(4);
     point_cloud.fields[0].name     = "x";
     point_cloud.fields[0].offset   = 0;
     point_cloud.fields[0].count    = 1;
-    point_cloud.fields[0].datatype = datatype;
+    point_cloud.fields[0].datatype = pointDatatype;
     point_cloud.fields[1].name     = "y";
-    point_cloud.fields[1].offset   = sizeof(T);
+    point_cloud.fields[1].offset   = sizeof(PointT);
     point_cloud.fields[1].count    = 1;
-    point_cloud.fields[1].datatype = datatype;
+    point_cloud.fields[1].datatype = pointDatatype;
     point_cloud.fields[2].name     = "z";
-    point_cloud.fields[2].offset   = 2 * sizeof(T);
+    point_cloud.fields[2].offset   = 2 * sizeof(PointT);
     point_cloud.fields[2].count    = 1;
-    point_cloud.fields[2].datatype = datatype;
+    point_cloud.fields[2].datatype = pointDatatype;
     point_cloud.fields[3].name     = color_channel;
-    point_cloud.fields[3].offset   = 3 * sizeof(T);
+    point_cloud.fields[3].offset   = 3 * sizeof(PointT);
     point_cloud.fields[3].count    = 1;
-    point_cloud.fields[3].datatype = datatype;
+    point_cloud.fields[3].datatype = colorDatatype;
 
     return point_cloud;
 }

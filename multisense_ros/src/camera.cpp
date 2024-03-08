@@ -121,14 +121,17 @@ bool isValidReprojectedPoint(const Eigen::Vector3f& pt, float squared_max_range)
     return pt[2] > 0.0f && std::isfinite(pt[2]) && pt.squaredNorm() < squared_max_range;
 }
 
-void writePoint(sensor_msgs::PointCloud2 &pointcloud, size_t index, const Eigen::Vector3f &point, uint32_t color)
+template <typename ColorT>
+void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point, const ColorT color)
 {
     float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
     cloudP[0] = point[0];
     cloudP[1] = point[1];
     cloudP[2] = point[2];
 
-    uint32_t* colorP = reinterpret_cast<uint32_t*>(&(cloudP[3]));
+    assert(pointcloud.fields[3].datatype == messageFormat<ColorT>());
+
+    ColorT* colorP = reinterpret_cast<ColorT*>(&(cloudP[3]));
     colorP[0] = color;
 }
 
@@ -142,12 +145,12 @@ void writePoint(sensor_msgs::PointCloud2 &pointcloud,
     {
         case 8:
         {
-            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(image.imageDataP)[image_index]);
+            const uint8_t luma = reinterpret_cast<const uint8_t*>(image.imageDataP)[image_index];
             return writePoint(pointcloud, pointcloud_index, point, luma);
         }
         case 16:
         {
-            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint16_t*>(image.imageDataP)[image_index]);
+            const uint16_t luma = reinterpret_cast<const uint16_t*>(image.imageDataP)[image_index];
             return writePoint(pointcloud, pointcloud_index, point, luma);
         }
         case 32:
@@ -765,10 +768,10 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     //
     // Initialize point cloud data structures
 
-    luma_point_cloud_ = initialize_pointcloud<float>(true, frame_id_rectified_left_, "intensity");
-    color_point_cloud_ = initialize_pointcloud<float>(true, frame_id_rectified_left_, "rgb");
-    luma_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "intensity");
-    color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "rgb");
+    luma_point_cloud_ = initializePointcloud<float, uint8_t>(true, frame_id_rectified_left_, "intensity");
+    color_point_cloud_ = initializePointcloud<float, uint32_t>(true, frame_id_rectified_left_, "rgb");
+    luma_organized_point_cloud_ = initializePointcloud<float, uint8_t>(false, frame_id_rectified_left_, "intensity");
+    color_organized_point_cloud_ = initializePointcloud<float, uint32_t>(false, frame_id_rectified_left_, "rgb");
 
     //
     // Add driver-level callbacks.

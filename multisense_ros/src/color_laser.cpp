@@ -54,7 +54,7 @@ ColorLaser::ColorLaser(ros::NodeHandle& nh, const std::string &tf_prefix):
     //
     // Initialize point cloud structure
 
-    color_laser_pointcloud_ = initialize_pointcloud<float>(true, "/left_camera_optical_frame", "rgb");
+    color_laser_pointcloud_ = initializePointcloud<float, uint32_t>(true, "/left_camera_optical_frame", "rgb");
 
     color_laser_publisher_ = nh.advertise<sensor_msgs::PointCloud2>("lidar_points2_color",
                                                                    10,
