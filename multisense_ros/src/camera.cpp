@@ -124,7 +124,13 @@ bool isValidReprojectedPoint(const Eigen::Vector3f& pt, float squared_max_range)
 template <typename ColorT>
 void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point, const ColorT color)
 {
+    assert(index < pointcloud.data.size());
+
     float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
+
+    assert(pointcloud.fields[0].datatype == messageFormat<float>());
+    assert(pointcloud.fields[1].datatype == messageFormat<float>());
+    assert(pointcloud.fields[2].datatype == messageFormat<float>());
     cloudP[0] = point[0];
     cloudP[1] = point[1];
     cloudP[2] = point[2];
@@ -157,6 +163,10 @@ void writePoint(sensor_msgs::PointCloud2 &pointcloud,
         {
             const uint32_t luma = reinterpret_cast<const uint32_t*>(image.imageDataP)[image_index];
             return writePoint(pointcloud, pointcloud_index, point, luma);
+        }
+        default:
+        {
+            throw std::runtime_error("Invalid bits per pixel value");
         }
     }
 }
