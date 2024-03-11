@@ -122,29 +122,40 @@ bool isValidReprojectedPoint(const Eigen::Vector3f& pt, float squared_max_range)
 }
 
 template <typename ColorT>
-void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point, const ColorT color)
+void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point, const ColorT& color)
 {
     assert(index < pointcloud.data.size());
 
     float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
 
+    assert(pointcloud.fields.size() >= 3);
+
     assert(pointcloud.fields[0].datatype == messageFormat<float>());
     assert(pointcloud.fields[1].datatype == messageFormat<float>());
     assert(pointcloud.fields[2].datatype == messageFormat<float>());
+
     cloudP[0] = point[0];
     cloudP[1] = point[1];
     cloudP[2] = point[2];
 
-    assert(pointcloud.fields[3].datatype == messageFormat<ColorT>());
+    if (not std::is_same<ColorT, void>::value)
+    {
+        assert(pointcloud.fields.size() == 4);
+        assert(pointcloud.fields[3].datatype == messageFormat<ColorT>());
 
-    ColorT* colorP = reinterpret_cast<ColorT*>(&(cloudP[3]));
-    colorP[0] = color;
+        ColorT* colorP = reinterpret_cast<ColorT*>(&(cloudP[3]));
+        colorP[0] = color;
+    }
+    else
+    {
+        assert(pointcloud.fields.size() == 3);
+    }
 }
 
 void writePoint(sensor_msgs::PointCloud2 &pointcloud,
-                size_t pointcloud_index,
+                const size_t pointcloud_index,
                 const Eigen::Vector3f &point,
-                size_t image_index,
+                const size_t image_index,
                 const image::Header &image)
 {
     switch (image.bitsPerPixel)
@@ -157,11 +168,6 @@ void writePoint(sensor_msgs::PointCloud2 &pointcloud,
         case 16:
         {
             const uint16_t luma = reinterpret_cast<const uint16_t*>(image.imageDataP)[image_index];
-            return writePoint(pointcloud, pointcloud_index, point, luma);
-        }
-        case 32:
-        {
-            const uint32_t luma = reinterpret_cast<const uint32_t*>(image.imageDataP)[image_index];
             return writePoint(pointcloud, pointcloud_index, point, luma);
         }
         default:
@@ -774,14 +780,6 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
 
         updateConfig(image_config);
     }
-
-    //
-    // Initialize point cloud data structures
-
-    luma_point_cloud_ = initializePointcloud<float, uint8_t>(true, frame_id_rectified_left_, "intensity");
-    color_point_cloud_ = initializePointcloud<float, uint32_t>(true, frame_id_rectified_left_, "rgb");
-    luma_organized_point_cloud_ = initializePointcloud<float, uint8_t>(false, frame_id_rectified_left_, "intensity");
-    color_organized_point_cloud_ = initializePointcloud<float, uint32_t>(false, frame_id_rectified_left_, "rgb");
 
     //
     // Add driver-level callbacks.
@@ -1682,32 +1680,78 @@ void Camera::pointCloudCallback(const image::Header& header)
 
     if (pub_pointcloud)
     {
-        luma_point_cloud_.header.stamp = t;
-        luma_point_cloud_.data.resize(header.width * header.height * luma_point_cloud_.point_step);
+        switch(left_luma_rect->data().bitsPerPixel)
+        {
+            case 8:
+                initializePointcloud<float, uint8_t>(luma_point_cloud_,
+                                                     t,
+                                                     header.width * header.height,
+                                                     1,
+                                                     true,
+                                                     frame_id_rectified_left_,
+                                                     "intensity");
+                break;
+            case 16:
+                initializePointcloud<float, uint16_t>(luma_point_cloud_,
+                                                     t,
+                                                     header.width * header.height,
+                                                     1,
+                                                     true,
+                                                     frame_id_rectified_left_,
+                                                     "intensity");
+                break;
+            default:
+                ROS_ERROR("Camera: unsupported luma rectified depth for pontcloud conversion: %d", left_luma_rect->data().bitsPerPixel);
+        }
     }
 
     if (pub_color_pointcloud)
     {
-        color_point_cloud_.header.stamp = t;
-        color_point_cloud_.data.resize(header.width * header.height * color_point_cloud_.point_step);
+        initializePointcloud<float, uint32_t>(color_point_cloud_,
+                                              t,
+                                              header.width * header.height,
+                                              1,
+                                              true,
+                                              frame_id_rectified_left_,
+                                              "rgb");
     }
 
     if (pub_organized_pointcloud)
     {
-        luma_organized_point_cloud_.header.stamp = t;
-        luma_organized_point_cloud_.data.resize(header.width * header.height * luma_organized_point_cloud_.point_step);
-        luma_organized_point_cloud_.width = header.width;
-        luma_organized_point_cloud_.height = header.height;
-        luma_organized_point_cloud_.row_step = header.width * luma_organized_point_cloud_.point_step;
+        switch(left_luma_rect->data().bitsPerPixel)
+        {
+            case 8:
+                initializePointcloud<float, uint8_t>(luma_organized_point_cloud_,
+                                                     t,
+                                                     header.width,
+                                                     header.height,
+                                                     false,
+                                                     frame_id_rectified_left_,
+                                                     "intensity");
+                break;
+            case 16:
+                initializePointcloud<float, uint16_t>(luma_organized_point_cloud_,
+                                                     t,
+                                                     header.width,
+                                                     header.height,
+                                                     false,
+                                                     frame_id_rectified_left_,
+                                                     "intensity");
+                break;
+            default:
+                ROS_ERROR("Camera: unsupported luma rectified depth for pontcloud conversion: %d", left_luma_rect->data().bitsPerPixel);
+        }
     }
 
     if (pub_color_organized_pointcloud)
     {
-        color_organized_point_cloud_.header.stamp = t;
-        color_organized_point_cloud_.data.resize(header.width * header.height * color_organized_point_cloud_.point_step);
-        color_organized_point_cloud_.width = header.width;
-        color_organized_point_cloud_.height = header.height;
-        color_organized_point_cloud_.row_step = header.width * color_organized_point_cloud_.point_step;
+        initializePointcloud<float, uint32_t>(color_organized_point_cloud_,
+                                             t,
+                                             header.width,
+                                             header.height,
+                                             false,
+                                             frame_id_rectified_left_,
+                                             "rgb");
     }
 
     const Eigen::Vector3f invalid_point(std::numeric_limits<float>::quiet_NaN(),
@@ -1879,19 +1923,19 @@ void Camera::pointCloudCallback(const image::Header& header)
 
     if (pub_pointcloud)
     {
-        luma_point_cloud_.height = 1;
         luma_point_cloud_.row_step = valid_points * luma_point_cloud_.point_step;
         luma_point_cloud_.width = valid_points;
         luma_point_cloud_.data.resize(valid_points * luma_point_cloud_.point_step);
+
         luma_point_cloud_pub_.publish(luma_point_cloud_);
     }
 
-    if(pub_color_pointcloud)
+    if (pub_color_pointcloud)
     {
-        color_point_cloud_.height = 1;
         color_point_cloud_.row_step = valid_points * color_point_cloud_.point_step;
         color_point_cloud_.width = valid_points;
         color_point_cloud_.data.resize(valid_points * color_point_cloud_.point_step);
+
         color_point_cloud_pub_.publish(color_point_cloud_);
     }
 

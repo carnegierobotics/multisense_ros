@@ -36,6 +36,12 @@
 namespace multisense_ros {
 
 template <>
+uint8_t messageFormat<void>()
+{
+    return 0;
+}
+
+template <>
 uint8_t messageFormat<int8_t>()
 {
     return sensor_msgs::PointField::INT8;
