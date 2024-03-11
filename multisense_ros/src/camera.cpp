@@ -121,35 +121,31 @@ bool isValidReprojectedPoint(const Eigen::Vector3f& pt, float squared_max_range)
     return pt[2] > 0.0f && std::isfinite(pt[2]) && pt.squaredNorm() < squared_max_range;
 }
 
-template <typename ColorT>
-void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point, const ColorT& color)
+void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point)
 {
-    assert(index < pointcloud.data.size());
-
-    float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
+    assert(index * pointcloud.point_step < pointcloud.data.size());
 
     assert(pointcloud.fields.size() >= 3);
-
     assert(pointcloud.fields[0].datatype == messageFormat<float>());
     assert(pointcloud.fields[1].datatype == messageFormat<float>());
     assert(pointcloud.fields[2].datatype == messageFormat<float>());
 
+    float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
     cloudP[0] = point[0];
     cloudP[1] = point[1];
     cloudP[2] = point[2];
+}
 
-    if (not std::is_same<ColorT, void>::value)
-    {
-        assert(pointcloud.fields.size() == 4);
-        assert(pointcloud.fields[3].datatype == messageFormat<ColorT>());
+template <typename ColorT>
+void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point, const ColorT &color)
+{
+    writePoint(pointcloud, index, point);
 
-        ColorT* colorP = reinterpret_cast<ColorT*>(&(cloudP[3]));
-        colorP[0] = color;
-    }
-    else
-    {
-        assert(pointcloud.fields.size() == 3);
-    }
+    assert(pointcloud.fields.size() == 4);
+    assert(pointcloud.fields[3].datatype == messageFormat<ColorT>());
+
+    ColorT* colorP = reinterpret_cast<ColorT*>(&(pointcloud.data[index * pointcloud.point_step + pointcloud.fields[3].offset]));
+    colorP[0] = color;
 }
 
 void writePoint(sensor_msgs::PointCloud2 &pointcloud,
