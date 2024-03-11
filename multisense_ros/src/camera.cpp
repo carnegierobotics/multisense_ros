@@ -649,14 +649,6 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     }
 
     //
-    // Initialize point cloud data structures
-
-    luma_point_cloud_ = initializePointcloud<float, uint8_t>(true, frame_id_rectified_left_, "intensity");
-    color_point_cloud_ = initializePointcloud<float, uint32_t>(true, frame_id_rectified_left_, "rgb");
-    luma_organized_point_cloud_ = initializePointcloud<float, uint8_t>(false, frame_id_rectified_left_, "intensity");
-    color_organized_point_cloud_ = initializePointcloud<float, uint32_t>(false, frame_id_rectified_left_, "rgb");
-
-    //
     // Add driver-level callbacks.
     //
     //    -Driver creates individual background thread for each callback.
@@ -1555,32 +1547,78 @@ void Camera::pointCloudCallback(const image::Header& header)
 
     if (pub_pointcloud)
     {
-        luma_point_cloud_.header.stamp = t;
-        luma_point_cloud_.data.resize(header.width * header.height * luma_point_cloud_.point_step);
+        switch(left_luma_rect->data().bitsPerPixel)
+        {
+            case 8:
+                initializePointcloud<float, uint8_t>(luma_point_cloud_,
+                                                     t,
+                                                     header.width * header.height,
+                                                     1,
+                                                     true,
+                                                     frame_id_rectified_left_,
+                                                     "intensity");
+                break;
+            case 16:
+                initializePointcloud<float, uint16_t>(luma_point_cloud_,
+                                                     t,
+                                                     header.width * header.height,
+                                                     1,
+                                                     true,
+                                                     frame_id_rectified_left_,
+                                                     "intensity");
+                break;
+            default:
+                ROS_ERROR("Camera: unsupported luma rectified depth for pontcloud conversion: %d", left_luma_rect->data().bitsPerPixel);
+        }
     }
 
     if (pub_color_pointcloud)
     {
-        color_point_cloud_.header.stamp = t;
-        color_point_cloud_.data.resize(header.width * header.height * color_point_cloud_.point_step);
+        initializePointcloud<float, uint32_t>(color_point_cloud_,
+                                              t,
+                                              header.width * header.height,
+                                              1,
+                                              true,
+                                              frame_id_rectified_left_,
+                                              "rgb");
     }
 
     if (pub_organized_pointcloud)
     {
-        luma_organized_point_cloud_.header.stamp = t;
-        luma_organized_point_cloud_.data.resize(header.width * header.height * luma_organized_point_cloud_.point_step);
-        luma_organized_point_cloud_.width = header.width;
-        luma_organized_point_cloud_.height = header.height;
-        luma_organized_point_cloud_.row_step = header.width * luma_organized_point_cloud_.point_step;
+        switch(left_luma_rect->data().bitsPerPixel)
+        {
+            case 8:
+                initializePointcloud<float, uint8_t>(luma_organized_point_cloud_,
+                                                     t,
+                                                     header.width,
+                                                     header.height,
+                                                     false,
+                                                     frame_id_rectified_left_,
+                                                     "intensity");
+                break;
+            case 16:
+                initializePointcloud<float, uint16_t>(luma_organized_point_cloud_,
+                                                     t,
+                                                     header.width,
+                                                     header.height,
+                                                     false,
+                                                     frame_id_rectified_left_,
+                                                     "intensity");
+                break;
+            default:
+                ROS_ERROR("Camera: unsupported luma rectified depth for pontcloud conversion: %d", left_luma_rect->data().bitsPerPixel);
+        }
     }
 
     if (pub_color_organized_pointcloud)
     {
-        color_organized_point_cloud_.header.stamp = t;
-        color_organized_point_cloud_.data.resize(header.width * header.height * color_organized_point_cloud_.point_step);
-        color_organized_point_cloud_.width = header.width;
-        color_organized_point_cloud_.height = header.height;
-        color_organized_point_cloud_.row_step = header.width * color_organized_point_cloud_.point_step;
+        initializePointcloud<float, uint32_t>(color_organized_point_cloud_,
+                                             t,
+                                             header.width,
+                                             header.height,
+                                             false,
+                                             frame_id_rectified_left_,
+                                             "rgb");
     }
 
     const Eigen::Vector3f invalid_point(std::numeric_limits<float>::quiet_NaN(),
@@ -1752,19 +1790,19 @@ void Camera::pointCloudCallback(const image::Header& header)
 
     if (pub_pointcloud)
     {
-        luma_point_cloud_.height = 1;
         luma_point_cloud_.row_step = valid_points * luma_point_cloud_.point_step;
         luma_point_cloud_.width = valid_points;
         luma_point_cloud_.data.resize(valid_points * luma_point_cloud_.point_step);
+
         luma_point_cloud_pub_.publish(luma_point_cloud_);
     }
 
-    if(pub_color_pointcloud)
+    if (pub_color_pointcloud)
     {
-        color_point_cloud_.height = 1;
         color_point_cloud_.row_step = valid_points * color_point_cloud_.point_step;
         color_point_cloud_.width = valid_points;
         color_point_cloud_.data.resize(valid_points * color_point_cloud_.point_step);
+
         color_point_cloud_pub_.publish(color_point_cloud_);
     }
 

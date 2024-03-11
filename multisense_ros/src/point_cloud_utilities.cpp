@@ -36,6 +36,12 @@
 namespace multisense_ros {
 
 template <>
+uint8_t messageFormat<void>()
+{
+    return 0;
+}
+
+template <>
 uint8_t messageFormat<int8_t>()
 {
     return sensor_msgs::PointField::INT8;
@@ -83,10 +89,25 @@ uint8_t messageFormat<double>()
     return sensor_msgs::PointField::FLOAT64;
 }
 
+void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point)
+{
+    assert(index * pointcloud.point_step < pointcloud.data.size());
+
+    assert(pointcloud.fields.size() >= 3);
+    assert(pointcloud.fields[0].datatype == messageFormat<float>());
+    assert(pointcloud.fields[1].datatype == messageFormat<float>());
+    assert(pointcloud.fields[2].datatype == messageFormat<float>());
+
+    float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
+    cloudP[0] = point[0];
+    cloudP[1] = point[1];
+    cloudP[2] = point[2];
+}
+
 void writePoint(sensor_msgs::PointCloud2 &pointcloud,
-                size_t pointcloud_index,
+                const size_t pointcloud_index,
                 const Eigen::Vector3f &point,
-                size_t image_index,
+                const size_t image_index,
                 const uint32_t bitsPerPixel,
                 const void* imageDataP)
 {

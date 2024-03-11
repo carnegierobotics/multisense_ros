@@ -54,8 +54,6 @@ ColorLaser::ColorLaser(ros::NodeHandle& nh, const std::string &tf_prefix):
     //
     // Initialize point cloud structure
 
-    color_laser_pointcloud_ = initializePointcloud<float, uint32_t>(true, "/left_camera_optical_frame", "rgb");
-
     color_laser_publisher_ = nh.advertise<sensor_msgs::PointCloud2>("lidar_points2_color",
                                                                    10,
                                                                    std::bind(&ColorLaser::startStreaming, this),
@@ -107,13 +105,18 @@ void ColorLaser::laserPointCloudCallback(
         return;
     }
 
-    color_laser_pointcloud_.header = message->header;
+    initializePointcloud<float, uint32_t>(color_laser_pointcloud_,
+                                          message->header.stamp,
+                                          message->width,
+                                          message->height,
+                                          true,
+                                          message->header.frame_id,
+                                          "rgb");
 
     //
     // Here we assume that our the sizeof our intensity field is the same as
     // the sizeof our new rgb color field.
 
-    color_laser_pointcloud_.data.resize(message->data.size());
     float* colorPointCloudDataP = reinterpret_cast<float*>(&(color_laser_pointcloud_.data[0]));
 
     //
