@@ -189,9 +189,14 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
                                                                frame_id,
                                                                {});
 
-    for (size_t i = 0; i < input.size(); ++i)
+    const double num_points = input.size();
+
+    for (size_t i = 0; i < num_points; ++i)
     {
-        multisense_ros::writePoint(ret, i, input[i]);
+        float* cloudP = reinterpret_cast<float*>(&(ret.data[i * ret.point_step]));
+        cloudP[0] = input[i][0];
+        cloudP[1] = input[i][1];
+        cloudP[2] = input[i][2];
     }
 
     return ret;

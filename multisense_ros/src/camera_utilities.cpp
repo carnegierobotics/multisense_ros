@@ -349,7 +349,7 @@ Eigen::Vector3f StereoCalibrationManager::reproject(size_t u,
                                                     size_t v,
                                                     double d,
                                                     const sensor_msgs::CameraInfo &left_camera_info,
-                                                    const sensor_msgs::CameraInfo &right_camera_info)
+                                                    const sensor_msgs::CameraInfo &right_camera_info) const
 {
     if (d == 0.0)
     {
@@ -374,11 +374,6 @@ Eigen::Vector3f StereoCalibrationManager::reproject(size_t u,
     return Eigen::Vector3f{static_cast<float>(xB * invB), static_cast<float>(yB * invB), static_cast<float>(zB * invB)};
 }
 
-bool StereoCalibrationManager::isValidReprojectedPoint(const Eigen::Vector3f& pt, const float squared_max_range)
-{
-    return pt[2] > 0.0f && std::isfinite(pt[2]) && pt.squaredNorm() < squared_max_range;
-}
-
 Eigen::Vector2f StereoCalibrationManager::rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -387,7 +382,7 @@ Eigen::Vector2f StereoCalibrationManager::rectifiedAuxProject(const Eigen::Vecto
 }
 
 Eigen::Vector2f StereoCalibrationManager::rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point,
-                                                              const sensor_msgs::CameraInfo &aux_camera_info)
+                                                              const sensor_msgs::CameraInfo &aux_camera_info) const
 {
     const double &fx = aux_camera_info.P[0];
     const double &fy = aux_camera_info.P[5];
@@ -498,77 +493,6 @@ std::shared_ptr<RectificationRemapT> StereoCalibrationManager::rightRemap() cons
     std::lock_guard<std::mutex> lock(mutex_);
 
     return right_remap_;
-}
-
-bool clipPoint(const BorderClip& borderClipType,
-               double borderClipValue,
-               size_t height,
-               size_t width,
-               size_t u,
-               size_t v)
-{
-    switch (borderClipType)
-    {
-        case BorderClip::NONE:
-        {
-            return false;
-        }
-        case BorderClip::RECTANGULAR:
-        {
-            return !( u >= borderClipValue && u <= width - borderClipValue &&
-                      v >= borderClipValue && v <= height - borderClipValue);
-        }
-        case BorderClip::CIRCULAR:
-        {
-            const double halfWidth = static_cast<double>(width)/2.0;
-            const double halfHeight = static_cast<double>(height)/2.0;
-
-            const double radius = sqrt( halfWidth * halfWidth + halfHeight * halfHeight ) - borderClipValue;
-
-            return !(Eigen::Vector2d{halfWidth - u, halfHeight - v}.norm() < radius);
-        }
-        default:
-        {
-            ROS_WARN("Camera: Unknown border clip type.");
-            break;
-        }
-    }
-
-    return true;
-}
-
-cv::Vec3b interpolateColor(const Eigen::Vector2f &pixel, const cv::Mat &image)
-{
-    const float width = image.cols;
-    const float height = image.rows;
-
-    const float &u = pixel(0);
-    const float &v = pixel(1);
-
-    //
-    // Implement a basic bileinar interpolation scheme
-    // https://en.wikipedia.org/wiki/Bilinear_interpolation
-    //
-    const size_t min_u = static_cast<size_t>(std::min(std::max(std::floor(u), 0.f), width - 1.f));
-    const size_t max_u = static_cast<size_t>(std::min(std::max(std::floor(u) + 1, 0.f), width - 1.f));
-    const size_t min_v = static_cast<size_t>(std::min(std::max(std::floor(v), 0.f), height - 1.f));
-    const size_t max_v = static_cast<size_t>(std::min(std::max(std::floor(v) + 1, 0.f), height - 1.f));
-
-    const cv::Vec3d element00 = image.at<cv::Vec3b>(width * min_v + min_u);
-    const cv::Vec3d element01 = image.at<cv::Vec3b>(width * min_v + max_u);
-    const cv::Vec3d element10 = image.at<cv::Vec3b>(width * max_v + min_u);
-    const cv::Vec3d element11 = image.at<cv::Vec3b>(width * max_v + max_u);
-
-    const size_t delta_u = max_u - min_u;
-    const size_t delta_v = max_v - min_v;
-
-    const double u_ratio = delta_u == 0 ? 1. : (static_cast<double>(max_u) - u) / static_cast<double>(delta_u);
-    const double v_ratio = delta_v == 0 ? 1. : (static_cast<double>(max_v) - v) / static_cast<double>(delta_v);
-
-    const cv::Vec3b f_xy0 = element00 * u_ratio + element01 * (1. - u_ratio);
-    const cv::Vec3b f_xy1 = element10 * u_ratio + element11 * (1. - u_ratio);
-
-    return (f_xy0 * v_ratio + f_xy1 * (1. - v_ratio));
 }
 
 }// namespace
