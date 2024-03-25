@@ -146,6 +146,7 @@ sensor_msgs::CameraInfo makeCameraInfo(const crl::multisense::image::Config& con
 RectificationRemapT makeRectificationRemap(const crl::multisense::image::Config& config,
                                            const crl::multisense::image::Calibration::Data& calibration,
                                            const crl::multisense::system::DeviceInfo& device_info);
+
 class StereoCalibrationManager
 {
 public:
@@ -185,11 +186,16 @@ public:
     ///
     /// @brief Reproject disparity values into 3D
     ///
-    Eigen::Vector3f reproject(size_t u,
-                              size_t v,
-                              double d,
-                              const sensor_msgs::CameraInfo &left_camera_info,
-                              const sensor_msgs::CameraInfo &right_camera_info) const;
+    static Eigen::Vector3f reproject(size_t u,
+                                     size_t v,
+                                     double d,
+                                     const sensor_msgs::CameraInfo &left_camera_info,
+                                     const sensor_msgs::CameraInfo &right_camera_info);
+
+    ///
+    /// @brief Check if a reprojected point falls within a valid range
+    ///
+    static bool isValidReprojectedPoint(const Eigen::Vector3f& pt, const float squared_max_range);
 
     ///
     /// @brief Project points corresponding to disparity measurements in the left rectified image frame into the
@@ -201,8 +207,8 @@ public:
     /// @brief Project points corresponding to disparity measurements in the left rectified image frame into the
     ///        aux rectified image plane
     ///
-    Eigen::Vector2f rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point,
-                                        const sensor_msgs::CameraInfo &aux_camera_info) const;
+    static Eigen::Vector2f rectifiedAuxProject(const Eigen::Vector3f &left_rectified_point,
+                                               const sensor_msgs::CameraInfo &aux_camera_info);
 
     ///
     /// @brief Get the current main stereo pair operating resolution. This resolution applies for both the mono
@@ -262,6 +268,20 @@ private:
     std::shared_ptr<RectificationRemapT> left_remap_;
     std::shared_ptr<RectificationRemapT> right_remap_;
 };
+
+///
+/// @brief Determine if a pixel should be clipped given the provided parameters
+///
+bool clipPoint(const BorderClip& borderClipType,
+               double borderClipValue,
+               size_t height,
+               size_t width,
+               size_t u,
+               size_t v);
+
+///
+/// @brief Given a floating point pixel location, determine its average color using all neighboring pixels
+cv::Vec3b interpolateColor(const Eigen::Vector2f &pixel, const cv::Mat &image);
 
 }// namespace
 
