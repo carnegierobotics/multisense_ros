@@ -32,6 +32,7 @@
  **/
 
 #include <multisense_ros/ground_surface_utilities.h>
+#include <multisense_ros/point_cloud_utilities.h>
 
 namespace ground_surface_utilities {
 
@@ -181,11 +182,14 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
     const std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> &input,
     const std::string &frame_id)
 {
-    sensor_msgs::PointCloud2 ret =
-        multisense_ros::initialize_pointcloud<float>(true, frame_id, "intensity");
+    auto ret = multisense_ros::initializePointcloud<float, void>({},
+                                                               input.size(),
+                                                               1,
+                                                               true,
+                                                               frame_id,
+                                                               {});
 
     const double num_points = input.size();
-    ret.data.resize(num_points * ret.point_step);
 
     for (size_t i = 0; i < num_points; ++i)
     {
@@ -194,11 +198,6 @@ sensor_msgs::PointCloud2 eigenToPointcloud(
         cloudP[1] = input[i][1];
         cloudP[2] = input[i][2];
     }
-
-    ret.height = 1;
-    ret.row_step = num_points * ret.point_step;
-    ret.width = num_points;
-    ret.data.resize(num_points * ret.point_step);
 
     return ret;
 }
