@@ -1,5 +1,5 @@
 /**
- * @file point_cloud_utilities.h
+ * @file point_cloud_utilities.cpp
  *
  * Copyright 2020
  * Carnegie Robotics, LLC
@@ -87,6 +87,52 @@ template <>
 uint8_t messageFormat<double>()
 {
     return sensor_msgs::PointField::FLOAT64;
+}
+
+void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point)
+{
+    assert(index * pointcloud.point_step < pointcloud.data.size());
+
+    assert(pointcloud.fields.size() >= 3);
+    assert(pointcloud.fields[0].datatype == messageFormat<float>());
+    assert(pointcloud.fields[1].datatype == messageFormat<float>());
+    assert(pointcloud.fields[2].datatype == messageFormat<float>());
+
+    float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
+    cloudP[0] = point[0];
+    cloudP[1] = point[1];
+    cloudP[2] = point[2];
+}
+
+void writePoint(sensor_msgs::PointCloud2 &pointcloud,
+                const size_t pointcloud_index,
+                const Eigen::Vector3f &point,
+                const size_t image_index,
+                const uint32_t bitsPerPixel,
+                const void* imageDataP)
+{
+    switch (bitsPerPixel)
+    {
+        case 8:
+        {
+            const uint8_t luma = reinterpret_cast<const uint8_t*>(imageDataP)[image_index];
+            return writePoint(pointcloud, pointcloud_index, point, luma);
+        }
+        case 16:
+        {
+            const uint16_t luma = reinterpret_cast<const uint16_t*>(imageDataP)[image_index];
+            return writePoint(pointcloud, pointcloud_index, point, luma);
+        }
+        case 32:
+        {
+            const uint32_t luma = reinterpret_cast<const uint32_t*>(imageDataP)[image_index];
+            return writePoint(pointcloud, pointcloud_index, point, luma);
+        }
+        default:
+        {
+            throw std::runtime_error("Invalid bits per pixel value");
+        }
+    }
 }
 
 }// namespace
