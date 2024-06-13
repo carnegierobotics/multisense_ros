@@ -368,11 +368,21 @@ private:
     //
     // Diagnostics
     diagnostic_updater::Updater diagnostic_updater_;
-    void deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
-    void deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
+    void deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat);
+    void deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat);
+    void ptpStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat);
 
-    void diagnosticTimerCallback(const ros::TimerEvent &);
+    void diagnosticTimerCallback(const ros::TimerEvent&);
     ros::Timer diagnostic_trigger_;
+
+    //
+    // Timestamping and timesync settings
+    ros::Time imageTimestampToRosTime(uint32_t time_secs, uint32_t time_microsecs);
+
+    bool ptp_time_sync_ = false;
+    bool network_time_sync_ = false;
+    std::atomic_bool ptp_time_stamp_in_use_;
+    int32_t ptp_time_offset_secs_ = 0;
 };
 
 }
