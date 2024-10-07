@@ -1,17 +1,25 @@
 <launch>
 
-  <!-- Valid Sensor types are SL, S7, S7S, S21, S27, S30, BCAM,
-                              remote_head_vpb, remote_head_stereo, and remote_head_monocam -->
-
-  <arg name="ip_address" default="10.66.171.21" />
-  <arg name="namespace"  default="multisense" />
-  <arg name="mtu"        default="7200" />
-  <arg name="sensor"     default="S21" />
-  <arg name="head_id"    default="-1" />
-  <arg name="launch_robot_state_publisher" default="true" />
-  <arg name="launch_color_laser_publisher" default="false" />
-  <arg name="nodes_prefix" default="$(arg namespace)" />
-  <arg name="tf_prefix" default="$(arg namespace)" />
+  <arg name="ip_address" default="10.66.171.21" doc="IP address of the multisense being connected to" />
+  <arg name="namespace"  default="multisense"   doc="Namespace for all topics for this multisense instance" />
+  <arg name="mtu"        default="7200"         doc="The maximum packet size that image data will be broken into when sent from the multisense. Setting to values above network adapter MTU will block image data from camera" />
+  <arg name="sensor"     default="S21"          doc="The camera type. Used to determine the URDF model that will be loaded.
+  Options:
+    SL,
+    S7,
+    S7S,
+    S21,
+    S27,
+    S30,
+    BCAM,
+    remote_head_vpb,
+    remote_head_stereo,
+    remote_head_mono" />
+  <arg name="head_id"    default="-1" doc="Head ID to be used when connecting to remote head cameras. -1 for VPB or traditional MultiSense cameras" />
+  <arg name="launch_robot_state_publisher" default="true" doc="Set true to launch the state publisher" />
+  <arg name="launch_color_laser_publisher" default="false" doc="Set true to launch the laser colorization publisher for SL cameras" />
+  <arg name="nodes_prefix" default="$(arg namespace)" doc="Prefix used for naming the nodes on launch" />
+  <arg name="tf_prefix" default="$(arg namespace)" doc="Prefix used for transform names" />
 
   <!-- Robot state publisher -->
   <group if = "$(arg launch_robot_state_publisher)">

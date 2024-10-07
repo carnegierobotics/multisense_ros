@@ -1,13 +1,14 @@
 <launch>
 
-  <arg name="ip_address" default="10.66.171.21" />
-  <arg name="mtu"        default="7200" />
+  <arg name="ip_address" default="10.66.171.21" doc="IP address of the multisense being connected to" />
+  <arg name="mtu"        default="7200"         doc="The maximum packet size that image data will be broken into when sent from the multisense.
+  Setting to values above network adapter MTU will block image data from camera" />
 
-  <arg name="launch_vpb" default="true" />
-  <arg name="launch_head0" default="true" />
-  <arg name="launch_head1" default="true" />
-  <arg name="launch_head2" default="true" />
-  <arg name="launch_head3" default="true" />
+  <arg name="launch_vpb"   default="true" doc="Set to false to prevent launching a multisense driver instance for VPB" />
+  <arg name="launch_head0" default="true" doc="Set to false to prevent launching a multisense driver instance for remote head channel 0" />
+  <arg name="launch_head1" default="true" doc="Set to false to prevent launching a multisense driver instance for remote head channel 1" />
+  <arg name="launch_head2" default="true" doc="Set to false to prevent launching a multisense driver instance for remote head channel 2" />
+  <arg name="launch_head3" default="true" doc="Set to false to prevent launching a multisense driver instance for remote head channel 3" />
 
   <arg name="vpb_namespace"    default="multisense_vpb" />
   <arg name="head0_namespace"  default="remote_head_0" />
@@ -15,12 +16,11 @@
   <arg name="head2_namespace"  default="remote_head_2" />
   <arg name="head3_namespace"  default="remote_head_3" />
 
-  <!-- Valid Sensor types for remote heads are remote_head_vpb, remote_head_stereo, remote_head_monocam -->
-  <arg name="vpb_sensor"       default="remote_head_vpb" />
-  <arg name="head0_sensor"     default="remote_head_stereo" />
-  <arg name="head1_sensor"     default="remote_head_stereo" />
-  <arg name="head2_sensor"     default="remote_head_stereo" />
-  <arg name="head3_sensor"     default="remote_head_stereo" />
+  <arg name="vpb_sensor"       default="remote_head_vpb"    doc="VPB Sensor type, should always be remote_head_vpb" />
+  <arg name="head0_sensor"     default="remote_head_stereo" doc="Remote head 0 sensor type. Options: remote_head_stereo, remote_head_monocam" />
+  <arg name="head1_sensor"     default="remote_head_stereo" doc="Remote head 1 sensor type. Options: remote_head_stereo, remote_head_monocam" />
+  <arg name="head2_sensor"     default="remote_head_stereo" doc="Remote head 2 sensor type. Options: remote_head_stereo, remote_head_monocam" />
+  <arg name="head3_sensor"     default="remote_head_stereo" doc="Remote head 3 sensor type. Options: remote_head_stereo, remote_head_monocam" />
 
   <arg name="vpb_nodes_prefix"   default="$(arg vpb_namespace)" />
   <arg name="head0_nodes_prefix" default="$(arg head0_namespace)" />
