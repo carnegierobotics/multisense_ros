@@ -1227,7 +1227,7 @@ void Camera::monoCallback(const image::Header& header)
         Source_Luma_Right != header.source &&
         Source_Luma_Aux != header.source) {
 
-        ROS_ERROR("Camera: unexpected mono image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected mono image source: 0x%lx", header.source);
         return;
     }
 
@@ -1339,7 +1339,7 @@ void Camera::rectCallback(const image::Header& header)
         Source_Luma_Rectified_Right != header.source &&
         Source_Luma_Rectified_Aux != header.source) {
 
-        ROS_ERROR("Camera: unexpected rectified image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected rectified image source: 0x%lx", header.source);
         return;
     }
 
@@ -1468,7 +1468,7 @@ void Camera::depthCallback(const image::Header& header)
 {
     if (Source_Disparity != header.source) {
 
-        ROS_ERROR("Camera: unexpected depth image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected depth image source: 0x%lx", header.source);
         return;
     }
 
@@ -1613,7 +1613,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 {
     if (Source_Disparity != header.source) {
 
-        ROS_ERROR("Camera: unexpected pointcloud image source: 0x%x", header.source);
+        ROS_ERROR("Camera: unexpected pointcloud image source: 0x%lx", header.source);
         return;
     }
 
@@ -1997,7 +1997,7 @@ void Camera::colorImageCallback(const image::Header& header)
         Source_Chroma_Rectified_Aux != header.source &&
         Source_Chroma_Aux != header.source)
     {
-        ROS_WARN("Camera: unexpected color image source: 0x%x", header.source);
+        ROS_WARN("Camera: unexpected color image source: 0x%lx", header.source);
         return;
     }
 
@@ -2185,7 +2185,7 @@ void Camera::colorizeCallback(const image::Header& header)
         Source_Luma_Left != header.source &&
         Source_Chroma_Left != header.source &&
         Source_Luma_Rectified_Left != header.source) {
-        ROS_WARN("Camera: unexpected colorized image source: 0x%x", header.source);
+        ROS_WARN("Camera: unexpected colorized image source: 0x%lx", header.source);
         return;
     }
 
@@ -2196,7 +2196,7 @@ void Camera::groundSurfaceCallback(const image::Header& header)
 {
     if (Source_Ground_Surface_Class_Image != header.source)
     {
-        ROS_WARN("Camera: unexpected image source: 0x%x", header.source);
+        ROS_WARN("Camera: unexpected image source: 0x%lx", header.source);
         return;
     }
 
@@ -2532,7 +2532,7 @@ void Camera::connectStream(DataSource enableMask)
 
         Status status = driver_->startStreams(notStarted);
         if (Status_Ok != status)
-            ROS_ERROR("Camera: failed to start streams 0x%x: %s",
+            ROS_ERROR("Camera: failed to start streams 0x%lx: %s",
                       notStarted, Channel::statusString(status));
     }
 }
@@ -2550,7 +2550,7 @@ void Camera::disconnectStream(DataSource disableMask)
     if (0 != notStopped) {
         Status status = driver_->stopStreams(notStopped);
         if (Status_Ok != status)
-            ROS_ERROR("Camera: failed to stop streams 0x%x: %s\n",
+            ROS_ERROR("Camera: failed to stop streams 0x%lx: %s\n",
                       notStopped, Channel::statusString(status));
     }
 }
