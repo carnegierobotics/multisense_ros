@@ -1,4 +1,8 @@
+<?xml version="1.0"?>
 <launch>
+
+  <arg name="show_rviz" default="false" doc="Launch an RViz window to visualize the camera data" />
+  <arg name="rviz_config" default="$(find multisense_bringup)/rviz_config.rviz" doc="Configuration file to launch RViz with" />
 
   <arg name="ip_address" default="10.66.171.21" doc="IP address of the multisense being connected to" />
   <arg name="namespace"  default="multisense"   doc="Namespace for all topics for this multisense instance" />
@@ -47,5 +51,9 @@
       <remap from="camera_info" to="/$(arg namespace)/left/image_rect_color/camera_info" />
     </node>
   </group>
+
+  <node if="$(arg show_rviz)" type="rviz" name="rviz" pkg="rviz" required="false"
+  launch-prefix="bash -c 'sleep 5; $0 $@' "
+  args="-d $(arg rviz_config)"/>
 
 </launch>
