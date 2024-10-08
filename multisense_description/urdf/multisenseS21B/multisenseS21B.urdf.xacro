@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
-    <xacro:macro name="multisenseS21b" params="name">
+    <xacro:macro name="multisenseS21B" params="name">
 
         <link name="${name}/head">
             <visual>
@@ -25,7 +25,7 @@
         <link name="${name}/left_camera_optical_frame"/>
 
         <!--Note the locations of the accel/mag and gyro differ from those shown
-            in CAD. The S21 firmware switches axis on the accel/mag and gyro to
+            in CAD. The S21B firmware switches axis on the accel/mag and gyro to
             match the S7/S7S/SL MultiSense configurations -->
 
         <joint name="${name}/accel_joint" type="fixed">
