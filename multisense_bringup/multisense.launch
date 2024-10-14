@@ -7,12 +7,13 @@
   <arg name="ip_address" default="10.66.171.21" doc="IP address of the multisense being connected to" />
   <arg name="namespace"  default="multisense"   doc="Namespace for all topics for this multisense instance" />
   <arg name="mtu"        default="7200"         doc="The maximum packet size that image data will be broken into when sent from the multisense. Setting to values above network adapter MTU will block image data from camera" />
-  <arg name="sensor"     default="S21"          doc="The camera type. Used to determine the URDF model that will be loaded.
+  <arg name="sensor"     default="S30"          doc="The camera type. Used to determine the URDF model that will be loaded.
   Options:
     SL,
     S7,
     S7S,
     S21,
+    S21B,
     S27,
     S30,
     BCAM,
