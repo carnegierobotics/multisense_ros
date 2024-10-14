@@ -37,6 +37,7 @@
 #include <type_traits>
 
 #include <arpa/inet.h>
+#include <Eigen/Geometry>
 
 #include <sensor_msgs/PointCloud2.h>
 
@@ -155,6 +156,26 @@ sensor_msgs::PointCloud2 initializePointcloud(const ros::Time& stamp,
     return point_cloud;
 }
 
+void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point);
+
+template <typename ColorT>
+void writePoint(sensor_msgs::PointCloud2 &pointcloud, const size_t index, const Eigen::Vector3f &point, const ColorT &color)
+{
+    writePoint(pointcloud, index, point);
+
+    assert(pointcloud.fields.size() == 4);
+    assert(pointcloud.fields[3].datatype == messageFormat<ColorT>());
+
+    ColorT* colorP = reinterpret_cast<ColorT*>(&(pointcloud.data[index * pointcloud.point_step + pointcloud.fields[3].offset]));
+    colorP[0] = color;
+}
+
+void writePoint(sensor_msgs::PointCloud2 &pointcloud,
+                const size_t pointcloud_index,
+                const Eigen::Vector3f &point,
+                const size_t image_index,
+                const uint32_t bitsPerPixel,
+                const void* imageDataP);
 
 }// namespace
 
