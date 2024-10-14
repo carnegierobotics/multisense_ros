@@ -242,6 +242,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7AR == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_MONOCAM == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM == device_info_.hardwareRevision ||
@@ -257,10 +258,12 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S7AR == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == device_info_.hardwareRevision;
 
     has_aux_camera_ = system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
-                      system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision;
+                      system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
+                      system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == device_info_.hardwareRevision;
 
     has_color_ = has_aux_camera_ ||
                  system::DeviceInfo::HARDWARE_REV_MULTISENSE_M == device_info_.hardwareRevision ||
@@ -284,6 +287,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == device_info_.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == device_info_.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == device_info_.hardwareRevision;
 
     if (can_support_ground_surface_) {

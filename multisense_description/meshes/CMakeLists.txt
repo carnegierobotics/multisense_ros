@@ -4,6 +4,7 @@ set (files
   head.dae
   head_camera.dae
   multisense_ks21.STL
+  multisense_ks21i.STL
   multisense_s21.STL
   multisense_s27.STL
   multisense_s7.STL

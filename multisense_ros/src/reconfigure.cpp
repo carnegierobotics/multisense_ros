@@ -94,7 +94,9 @@ Reconfigure::Reconfigure(Channel* driver,
             return (mode.supportedDataSources & Source_Ground_Surface_Spline_Data) &&
                    (mode.supportedDataSources & Source_Ground_Surface_Class_Image); });
 
-    if (deviceInfo.lightingType != 0 || system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision)
+    if (deviceInfo.lightingType != 0 ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == deviceInfo.hardwareRevision)
     {
         lighting_supported_ = true;
     }
@@ -105,6 +107,7 @@ Reconfigure::Reconfigure(Channel* driver,
     if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == deviceInfo.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_VPB == deviceInfo.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == deviceInfo.hardwareRevision ||
         system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM == deviceInfo.hardwareRevision)
@@ -117,7 +120,8 @@ Reconfigure::Reconfigure(Channel* driver,
     }
 
     if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
-        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision)
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == deviceInfo.hardwareRevision)
     {
         if (versionInfo.sensorFirmwareVersion >= 0x0600) {
             aux_supported_ = true;
@@ -188,7 +192,8 @@ Reconfigure::Reconfigure(Channel* driver,
             break;
         }
     } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
-               system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision) {
+               system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision ||
+               system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == deviceInfo.hardwareRevision) {
 
         if (ground_surface_supported) {
             server_s27_AR0234_ground_surface_ =

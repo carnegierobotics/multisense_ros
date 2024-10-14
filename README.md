@@ -31,7 +31,7 @@ This package contains the http://ros.org/wiki/urdf robot description XML file an
 #### multisense_lib
 This is the library that implements the wire protocol for communication with the MultiSense S21 sensor.
 
-#### multisense_ros	
+#### multisense_ros
 This package contains the actual ROS drivers for the MultiSense S21. Individual drivers are included for the Camera and IMU subsystems.
 
 ### Develop and Contribute
