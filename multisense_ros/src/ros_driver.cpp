@@ -61,7 +61,7 @@ int main(int argc, char** argvPP)
 
     nh_private_.param<std::string>("sensor_ip", sensor_ip, "10.66.171.21");
     nh_private_.param<std::string>("tf_prefix", tf_prefix, "multisense");
-    nh_private_.param<int>("sensor_mtu", sensor_mtu, 7200);
+    nh_private_.param<int>("sensor_mtu", sensor_mtu, 1500);
     nh_private_.param<int>("head_id", head_id, -1);
 
     Channel *d = NULL;
