@@ -449,6 +449,11 @@ template<class T> void Reconfigure::configureGamma(image::Config& cfg, const T& 
     cfg.setGamma(dyn.gamma);
 }
 
+template<class T> void Reconfigure::configureMaxGain(image::Config& cfg, const T& dyn)
+{
+    cfg.setGainMax(dyn.max_gain);
+}
+
 template<class T> void Reconfigure::configureAuxCamera(const T& dyn)
 {
     if (aux_supported_) {
@@ -465,6 +470,7 @@ template<class T> void Reconfigure::configureAuxCamera(const T& dyn)
         // See if we already have a secondary exposure we want to modify. If not create one for the aux camera
 
         auxConfig.setGain(dyn.aux_gain);
+        auxConfig.setGainMax(dyn.aux_max_gain);
         auxConfig.setGamma(dyn.aux_gamma);
         auxConfig.setExposure(dyn.aux_exposure_time * 1e6);
         auxConfig.setAutoExposure(dyn.aux_auto_exposure);
@@ -954,6 +960,23 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
     }
 }
 
+template<class T> void Reconfigure::configureNetworkDelays(const T& dyn)
+{
+    Status status = driver_->setTransmitDelay(image::TransmitDelay{dyn.transmission_delay_ms});
+    if (Status_Ok != status) {
+        ROS_ERROR("Reconfigure: failed to set transmission delay: %s",
+                  Channel::statusString(status));
+        return;
+    }
+
+    status = driver_->setPacketDelay(image::PacketDelay{dyn.enable_packet_delay});
+    if (Status_Ok != status) {
+        ROS_ERROR("Reconfigure: failed to set packet delay: %s",
+                  Channel::statusString(status));
+        return;
+    }
+}
+
 #define GET_CONFIG()                                                    \
     image::Config cfg;                                                  \
     Status status = driver_->getImageConfig(cfg);                       \
@@ -1044,12 +1067,14 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         cfg.setCameraProfile(profile);                          \
         configureAutoWhiteBalance(cfg, dyn);                    \
         configureGamma(cfg, dyn);                               \
+        configureMaxGain(cfg, dyn);                             \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
         configureAuxCamera(dyn);                                \
+        configureNetworkDelays(dyn);                            \
     } while(0)
 
 #define KS21_SGM()  do {                                        \
@@ -1060,12 +1085,14 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configureDetailDisparityStereoProfile(profile, dyn);    \
         cfg.setCameraProfile(profile);                          \
         configureGamma(cfg, dyn);                               \
+        configureMaxGain(cfg, dyn);                             \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
+        configureNetworkDelays(dyn);                            \
     } while(0)
 
 #define S27_SGM_GROUND_SURFACE()  do {                          \
@@ -1079,6 +1106,7 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         cfg.setCameraProfile(profile);                          \
         configureAutoWhiteBalance(cfg, dyn);                    \
         configureGamma(cfg, dyn);                               \
+        configureMaxGain(cfg, dyn);                             \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configurePtp(dyn);                                      \
@@ -1086,6 +1114,7 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configureExtrinsics(dyn);                               \
         configureGroundSurfaceParams(dyn);                      \
         configureAuxCamera(dyn);                                \
+        configureNetworkDelays(dyn);                            \
     } while(0)
 
 #define KS21_SGM_GROUND_SURFACE()  do {                         \
@@ -1097,6 +1126,7 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configureGroundSurfaceStereoProfile(profile, dyn);      \
         cfg.setCameraProfile(profile);                          \
         configureGamma(cfg, dyn);                               \
+        configureMaxGain(cfg, dyn);                             \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configureS19Leds(dyn);                                  \
@@ -1104,6 +1134,7 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
         configureGroundSurfaceParams(dyn);                      \
+        configureNetworkDelays(dyn);                            \
     } while(0)
 
 #define REMOTE_HEAD_VPB()  do {                                 \
@@ -1121,6 +1152,7 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configureDetailDisparityStereoProfile(profile, dyn);    \
         cfg.setCameraProfile(profile);                          \
         configureGamma(cfg, dyn);                               \
+        configureMaxGain(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
         configureS19Leds(dyn);                                  \
@@ -1153,6 +1185,7 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configureStereoProfile(profile, dyn);                   \
         cfg.setCameraProfile(profile);                          \
         configureGamma(cfg, dyn);                               \
+        configureMaxGain(cfg, dyn);                             \
         configureCamera(cfg, dyn);                              \
         configureS19Leds(dyn);                                  \
         configurePtp(dyn);                                      \

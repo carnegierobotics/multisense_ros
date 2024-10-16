@@ -38,11 +38,13 @@ catkin_package(INCLUDE_DIRS include
                CATKIN_DEPENDS cv_bridge
                LIBRARIES MultiSense)
 
-# Build the libraries
+## Make build output deterministic by not compiling in the time
+set(MULTISENSE_BUILD_API_DATE OFF)
+
+## Build the libraries
 add_subdirectory(sensor_api)
 
-# install utilities
-# TODO: how to move install target of bin into devel?
+## install utilities
 install(PROGRAMS
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/ChangeIpUtility
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/DeviceInfoUtility

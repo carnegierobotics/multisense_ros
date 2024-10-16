@@ -115,6 +115,7 @@ private:
     template<class T> void configureHdr(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureAutoWhiteBalance(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureGamma(crl::multisense::image::Config& cfg, const T& dyn);
+    template<class T> void configureMaxGain(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureAuxCamera(const T& dyn);
     template<class T> void configureCamera(crl::multisense::image::Config& cfg, const T& dyn);
     template<class T> void configureMotor(const T& dyn);
@@ -131,6 +132,7 @@ private:
     template<class T> void configureExtrinsics(const T& dyn);
     template<class T> void configureGroundSurfaceParams(const T& dyn);
     template<class T> void configureRemoteHeadSyncGroups(const T& dyn);
+    template<class T> void configureNetworkDelays(const T& dyn);
 
     //
     // CRL sensor API
