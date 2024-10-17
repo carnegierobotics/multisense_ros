@@ -587,6 +587,7 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
     //
     // Apply, sensor enforces limits per setting.
 
+    std::cout << "camera profile " << cfg.cameraProfile() << std::endl;
     status = driver_->setImageConfig(cfg);
     if (Status_Ok != status)
         ROS_ERROR("Reconfigure: failed to set image config: %s",
@@ -623,15 +624,6 @@ template<class T> void Reconfigure::configureCamera(image::Config& cfg, const T&
 
     driver_->networkTimeSynchronization(dyn.network_time_sync);
 
-    //
-    // Set our transmit delay
-    image::TransmitDelay d;
-    d.delay = dyn.desired_transmit_delay;
-    status = driver_->setTransmitDelay(d);
-    if (Status_Ok != status) {
-        ROS_ERROR("Reconfigure: failed to set transmit delay: %s",
-                  Channel::statusString(status));
-    }
 }
 
 template<class T> void Reconfigure::configureMotor(const T& dyn)
@@ -962,11 +954,12 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
 
 template<class T> void Reconfigure::configureNetworkDelays(const T& dyn)
 {
-    Status status = driver_->setTransmitDelay(image::TransmitDelay{dyn.transmission_delay_ms});
+    //
+    // Set our transmit delay
+    Status status = driver_->setTransmitDelay(image::TransmitDelay{dyn.desired_transmit_delay});
     if (Status_Ok != status) {
-        ROS_ERROR("Reconfigure: failed to set transmission delay: %s",
+        ROS_ERROR("Reconfigure: failed to set transmit delay: %s",
                   Channel::statusString(status));
-        return;
     }
 
     status = driver_->setPacketDelay(image::PacketDelay{dyn.enable_packet_delay});
