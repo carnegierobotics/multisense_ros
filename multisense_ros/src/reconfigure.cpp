@@ -192,8 +192,7 @@ Reconfigure::Reconfigure(Channel* driver,
             break;
         }
     } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == deviceInfo.hardwareRevision ||
-               system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision ||
-               system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == deviceInfo.hardwareRevision) {
+               system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == deviceInfo.hardwareRevision) {
 
         if (ground_surface_supported) {
             server_s27_AR0234_ground_surface_ =
@@ -221,6 +220,21 @@ Reconfigure::Reconfigure(Channel* driver,
                 std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234Config> > (
                     new dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234Config>(device_nh_));
             server_ks21_sgm_AR0234_->setCallback(std::bind(&Reconfigure::callback_ks21_AR0234, this,
+                                                std::placeholders::_1, std::placeholders::_2));
+        }
+    } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == deviceInfo.hardwareRevision) {
+
+        if (ground_surface_supported) {
+            server_ks21i_sgm_AR0234_ground_surface_ =
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21i_sgm_AR0234_ground_surfaceConfig> > (
+                    new dynamic_reconfigure::Server<multisense_ros::ks21i_sgm_AR0234_ground_surfaceConfig>(device_nh_));
+            server_ks21i_sgm_AR0234_ground_surface_->setCallback(std::bind(&Reconfigure::callback_ks21i_AR0234_ground_surface, this,
+                                                std::placeholders::_1, std::placeholders::_2));
+        } else {
+            server_ks21i_sgm_AR0234_ =
+                std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21i_sgm_AR0234Config> > (
+                    new dynamic_reconfigure::Server<multisense_ros::ks21i_sgm_AR0234Config>(device_nh_));
+            server_ks21i_sgm_AR0234_->setCallback(std::bind(&Reconfigure::callback_ks21i_AR0234, this,
                                                 std::placeholders::_1, std::placeholders::_2));
         }
     } else if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_VPB == deviceInfo.hardwareRevision) {
@@ -1068,6 +1082,25 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configureExtrinsics(dyn);                               \
     } while(0)
 
+#define KS21I_SGM()  do {                                        \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        crl::multisense::CameraProfile profile = crl::multisense::User_Control; \
+        configureStereoProfile(profile, dyn);                   \
+        configureDetailDisparityStereoProfile(profile, dyn);    \
+        configureFullResAuxStereoProfile(profile, dyn);         \
+        cfg.setCameraProfile(profile);                          \
+        configureAutoWhiteBalance(cfg, dyn);                    \
+        configureGamma(cfg, dyn);                               \
+        configureCamera(cfg, dyn);                              \
+        configureBorderClip(dyn);                               \
+        configureS19Leds(dyn);                                  \
+        configurePtp(dyn);                                      \
+        configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
+        configureAuxCamera(dyn);                                \
+    } while(0)
+
 #define S27_SGM_GROUND_SURFACE()  do {                          \
         GET_CONFIG();                                           \
         configureSgm(cfg, dyn);                                 \
@@ -1104,6 +1137,27 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configurePointCloudRange(dyn);                          \
         configureExtrinsics(dyn);                               \
         configureGroundSurfaceParams(dyn);                      \
+    } while(0)
+
+#define KS21I_SGM_GROUND_SURFACE()  do {                         \
+        GET_CONFIG();                                           \
+        configureSgm(cfg, dyn);                                 \
+        crl::multisense::CameraProfile profile = crl::multisense::User_Control; \
+        configureStereoProfile(profile, dyn);                   \
+        configureDetailDisparityStereoProfile(profile, dyn);    \
+        configureGroundSurfaceStereoProfile(profile, dyn);      \
+        configureFullResAuxStereoProfile(profile, dyn);         \
+        cfg.setCameraProfile(profile);                          \
+        configureAutoWhiteBalance(cfg, dyn);                    \
+        configureGamma(cfg, dyn);                               \
+        configureCamera(cfg, dyn);                              \
+        configureBorderClip(dyn);                               \
+        configureS19Leds(dyn);                                  \
+        configurePtp(dyn);                                      \
+        configurePointCloudRange(dyn);                          \
+        configureExtrinsics(dyn);                               \
+        configureGroundSurfaceParams(dyn);                      \
+        configureAuxCamera(dyn);                                \
     } while(0)
 
 #define REMOTE_HEAD_VPB()  do {                                 \
@@ -1172,12 +1226,14 @@ void Reconfigure::callback_mono_cmv2000              (multisense_ros::mono_cmv20
 void Reconfigure::callback_mono_cmv4000              (multisense_ros::mono_cmv4000Config&               dyn, uint32_t level) { (void) level; MONO_BM_IMU(); }
 void Reconfigure::callback_s27_AR0234                (multisense_ros::s27_sgm_AR0234Config&             dyn, uint32_t level) { (void) level; S27_SGM(); }
 void Reconfigure::callback_ks21_AR0234               (multisense_ros::ks21_sgm_AR0234Config&            dyn, uint32_t level) { (void) level; KS21_SGM(); }
+void Reconfigure::callback_ks21i_AR0234              (multisense_ros::ks21i_sgm_AR0234Config&           dyn, uint32_t level) { (void) level; KS21I_SGM(); }
 void Reconfigure::callback_remote_head_vpb           (multisense_ros::remote_head_vpbConfig&            dyn, uint32_t level) { (void) level; REMOTE_HEAD_VPB(); }
 void Reconfigure::callback_remote_head_sgm_AR0234    (multisense_ros::remote_head_sgm_AR0234Config&     dyn, uint32_t level) { (void) level; REMOTE_HEAD_SGM_AR0234(); }
 void Reconfigure::callback_remote_head_monocam_AR0234(multisense_ros::remote_head_monocam_AR0234Config& dyn, uint32_t level) { (void) level; REMOTE_HEAD_MONOCAM_AR0234(); }
 
 void Reconfigure::callback_s27_AR0234_ground_surface            (multisense_ros::s27_sgm_AR0234_ground_surfaceConfig&         dyn, uint32_t level) { (void) level; S27_SGM_GROUND_SURFACE();  }
 void Reconfigure::callback_ks21_AR0234_ground_surface           (multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig&        dyn, uint32_t level) { (void) level; KS21_SGM_GROUND_SURFACE(); }
+void Reconfigure::callback_ks21i_AR0234_ground_surface          (multisense_ros::ks21i_sgm_AR0234_ground_surfaceConfig&       dyn, uint32_t level) { (void) level; KS21I_SGM_GROUND_SURFACE(); }
 void Reconfigure::callback_remote_head_sgm_AR0234_ground_surface(multisense_ros::remote_head_sgm_AR0234_ground_surfaceConfig& dyn, uint32_t level) { (void) level; REMOTE_HEAD_SGM_AR0234_GROUND_SURFACE(); }
 
 //
