@@ -56,6 +56,8 @@
 #include <multisense_ros/s27_sgm_AR0234_ground_surfaceConfig.h>
 #include <multisense_ros/ks21_sgm_AR0234Config.h>
 #include <multisense_ros/ks21_sgm_AR0234_ground_surfaceConfig.h>
+#include <multisense_ros/ks21i_sgm_AR0234Config.h>
+#include <multisense_ros/ks21i_sgm_AR0234_ground_surfaceConfig.h>
 #include <multisense_ros/remote_head_vpbConfig.h>
 #include <multisense_ros/remote_head_sgm_AR0234Config.h>
 #include <multisense_ros/remote_head_sgm_AR0234_ground_surfaceConfig.h>
@@ -97,9 +99,11 @@ private:
     void callback_mono_cmv4000      (multisense_ros::mono_cmv4000Config&       config, uint32_t level);
     void callback_s27_AR0234        (multisense_ros::s27_sgm_AR0234Config&     config, uint32_t level);
     void callback_ks21_AR0234       (multisense_ros::ks21_sgm_AR0234Config&    config, uint32_t level);
+    void callback_ks21i_AR0234      (multisense_ros::ks21i_sgm_AR0234Config&   config, uint32_t level);
 
     void callback_s27_AR0234_ground_surface        (multisense_ros::s27_sgm_AR0234_ground_surfaceConfig&     dyn, uint32_t level);
     void callback_ks21_AR0234_ground_surface       (multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig&    dyn, uint32_t level);
+    void callback_ks21i_AR0234_ground_surface      (multisense_ros::ks21i_sgm_AR0234_ground_surfaceConfig&   dyn, uint32_t level);
 
     void callback_remote_head_vpb                      (multisense_ros::remote_head_vpbConfig&                       dyn, uint32_t level);
     void callback_remote_head_sgm_AR0234               (multisense_ros::remote_head_sgm_AR0234Config&                dyn, uint32_t level);
@@ -170,8 +174,10 @@ private:
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::mono_cmv4000Config> >       server_mono_cmv4000_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234Config> >     server_s27_AR0234_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234Config> >    server_ks21_sgm_AR0234_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21i_sgm_AR0234Config> >   server_ks21i_sgm_AR0234_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::s27_sgm_AR0234_ground_surfaceConfig> >     server_s27_AR0234_ground_surface_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21_sgm_AR0234_ground_surfaceConfig> >    server_ks21_sgm_AR0234_ground_surface_;
+    std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::ks21i_sgm_AR0234_ground_surfaceConfig> >   server_ks21i_sgm_AR0234_ground_surface_;
 
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_vpbConfig> > server_remote_head_vpb_;
     std::shared_ptr< dynamic_reconfigure::Server<multisense_ros::remote_head_sgm_AR0234Config> > server_remote_head_sgm_AR0234_;
