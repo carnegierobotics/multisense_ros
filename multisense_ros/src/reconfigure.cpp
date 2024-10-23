@@ -490,6 +490,11 @@ template<class T> void Reconfigure::configureAuxCamera(const T& dyn)
         auxConfig.setSharpeningPercentage(dyn.aux_sharpening_percentage);
         auxConfig.setSharpeningLimit(dyn.aux_sharpening_limit);
 
+        auxConfig.setWhiteBalance(dyn.aux_white_balance_red, dyn.aux_white_balance_blue);
+        auxConfig.setAutoWhiteBalance(dyn.aux_auto_white_balance);
+        auxConfig.setAutoWhiteBalanceDecay(dyn.aux_auto_white_balance_decay);
+        auxConfig.setAutoWhiteBalanceThresh(dyn.aux_auto_white_balance_thresh);
+
 
         if (dyn.aux_roi_auto_exposure) {
             if (roi_supported_) {
@@ -1056,7 +1061,6 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configureDetailDisparityStereoProfile(profile, dyn);    \
         configureFullResAuxStereoProfile(profile, dyn);         \
         cfg.setCameraProfile(profile);                          \
-        configureAutoWhiteBalance(cfg, dyn);                    \
         configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
@@ -1090,7 +1094,6 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configureDetailDisparityStereoProfile(profile, dyn);    \
         configureFullResAuxStereoProfile(profile, dyn);         \
         cfg.setCameraProfile(profile);                          \
-        configureAutoWhiteBalance(cfg, dyn);                    \
         configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
@@ -1110,7 +1113,6 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configureGroundSurfaceStereoProfile(profile, dyn);      \
         configureFullResAuxStereoProfile(profile, dyn);         \
         cfg.setCameraProfile(profile);                          \
-        configureAutoWhiteBalance(cfg, dyn);                    \
         configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
@@ -1148,7 +1150,6 @@ template<class T> void Reconfigure::configureRemoteHeadSyncGroups(const T& dyn)
         configureGroundSurfaceStereoProfile(profile, dyn);      \
         configureFullResAuxStereoProfile(profile, dyn);         \
         cfg.setCameraProfile(profile);                          \
-        configureAutoWhiteBalance(cfg, dyn);                    \
         configureGamma(cfg, dyn);                               \
         configureCamera(cfg, dyn);                              \
         configureBorderClip(dyn);                               \
