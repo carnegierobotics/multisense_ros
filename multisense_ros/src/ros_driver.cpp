@@ -53,16 +53,18 @@ int main(int argc, char** argvPP)
     //
     // Get parameters from ROS/command-line
 
-    std::string sensor_ip;
-    std::string tf_prefix;
-    int         sensor_mtu;
-    int         head_id;
+    std::string   sensor_ip;
+    std::string   tf_prefix;
+    int           sensor_mtu;
+    int           head_id;
+    double        timeout_s;
 
 
     nh_private_.param<std::string>("sensor_ip", sensor_ip, "10.66.171.21");
     nh_private_.param<std::string>("tf_prefix", tf_prefix, "multisense");
     nh_private_.param<int>("sensor_mtu", sensor_mtu, 1500);
     nh_private_.param<int>("head_id", head_id, -1);
+    nh_private_.param<double>("camera_timeout_s", timeout_s, -1.0);
 
     Channel *d = NULL;
 
@@ -121,7 +123,37 @@ int main(int argc, char** argvPP)
                                                        std::placeholders::_1),
                                              std::bind(&multisense_ros::Camera::groundSurfaceSplineDrawParametersChanged, &camera,
                                                        std::placeholders::_1));
-            ros::spin();
+
+            ros::Rate rate(50);
+            ros::Time last_status{ros::Time::now()};
+            const ros::Duration timeout{timeout_s};
+
+            ros::Time last_warning{};
+            ros::Duration warn_delay{0.5};
+            while (ros::ok()) {
+                ros::spinOnce();
+
+                system::StatusMessage statusMessage;
+                const auto status_result = d->getDeviceStatus(statusMessage);
+                if (Status_Ok != status_result) {
+
+                    if (ros::Time::now() - last_warning > warn_delay) {
+                        ROS_WARN("multisense_ros: lost connection with camera");
+                        last_warning = ros::Time::now();
+                    }
+
+                    if (timeout > ros::Duration{0} && ros::Time::now() - last_status > timeout) {
+                        ROS_ERROR("multisense_ros: shutting down due to connection timeout");
+                        Channel::Destroy(d);
+                        return -5;
+                    }
+
+                } else {
+                    last_status = ros::Time::now();
+                }
+
+                rate.sleep();
+            }
         }
 
         Channel::Destroy(d);

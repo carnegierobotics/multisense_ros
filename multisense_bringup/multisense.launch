@@ -27,28 +27,31 @@
   <arg name="launch_color_laser_publisher" default="false" doc="Set true to launch the laser colorization publisher for SL cameras" />
   <arg name="nodes_prefix" default="$(arg namespace)" doc="Prefix used for naming the nodes on launch" />
   <arg name="tf_prefix" default="$(arg namespace)" doc="Prefix used for transform names" />
+  <arg name="camera_timeout_s" default="-1" doc="Camera driver will shut down if it does not hear from the camera after this many seconds. (Disabled when &lt;= 0)" />
+  <arg name="respawn" default="false" doc="Respawn the multisense node if the camera disconnects" />
 
   <!-- Robot state publisher -->
   <group if = "$(arg launch_robot_state_publisher)">
     <param name="robot_description"
-          command="$(find xacro)/xacro '$(find multisense_description)/urdf/multisense$(arg sensor)/standalone.urdf.xacro' name:=$(arg namespace)"/>
-    <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg nodes_prefix)_state_publisher">
+          command="$(find xacro)/xacro '$(find multisense_description)/urdf/multisense$(arg sensor)/standalone.urdf.xacro' name:=$(arg namespace)" />
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="$(arg nodes_prefix)_state_publisher" respawn="$(arg respawn)" >
       <param name="publish_frequency" type="double" value="50.0" />
       <remap from="joint_states" to="/$(arg namespace)/joint_states" />
     </node>
   </group>
 
   <!-- ROS Driver -->
-   <node pkg="multisense_ros" ns="$(arg namespace)" type="ros_driver" name="$(arg nodes_prefix)_driver" output="screen">
+   <node pkg="multisense_ros" ns="$(arg namespace)" type="ros_driver" name="$(arg nodes_prefix)_driver" output="screen" respawn="$(arg respawn)" >
      <param name="sensor_ip"   value="$(arg ip_address)" />
      <param name="sensor_mtu"  value="$(arg mtu)" />
      <param name="tf_prefix"  value="$(arg tf_prefix)" />
      <param name="head_id"  value="$(arg head_id)" />
+     <param name="camera_timeout_s"  value="$(arg camera_timeout_s)" />
   </node>
 
   <!-- Color Laser PointCloud Publisher -->
   <group if = "$(arg launch_color_laser_publisher)">
-    <node pkg="multisense_ros" ns="$(arg namespace)" type="color_laser_publisher" name="$(arg nodes_prefix)_color_laser_publisher" output="screen">
+    <node pkg="multisense_ros" ns="$(arg namespace)" type="color_laser_publisher" name="$(arg nodes_prefix)_color_laser_publisher" output="screen" respawn="$(arg respawn)" >
       <remap from="image_rect_color" to="/$(arg namespace)/left/image_rect_color" />
       <remap from="lidar_points2" to="/$(arg namespace)/lidar_points2" />
       <remap from="camera_info" to="/$(arg namespace)/left/image_rect_color/camera_info" />
@@ -56,7 +59,7 @@
   </group>
 
   <node if="$(arg show_rviz)" type="rviz" name="rviz" pkg="rviz" required="false"
-  launch-prefix="bash -c 'sleep 5; $0 $@' "
-  args="-d $(arg rviz_config)"/>
+    launch-prefix="bash -c 'sleep 5; $0 $@' "
+    args="-d $(arg rviz_config)"/>
 
 </launch>
