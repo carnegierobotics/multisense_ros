@@ -129,7 +129,7 @@ int main(int argc, char** argvPP)
             const ros::Duration timeout{static_cast<double>(timeout_s)};
 
             ros::Time last_warning{};
-            ros::Duration warn_delay{1.0};
+            ros::Duration warn_delay{1.1};
             while (ros::ok()) {
                 ros::spinOnce();
 
