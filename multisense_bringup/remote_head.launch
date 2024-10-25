@@ -36,7 +36,7 @@
   <arg name="head3_tf_prefix" default="$(arg head3_namespace)" />
 
   <arg name="launch_robot_state_publisher" default="true" />
-  <arg name="camera_timeout_s" default="-1" doc="Camera driver will shut down if it does not hear from the camera after this many seconds. (Disabled when &lt;= 0)" />
+  <arg name="camera_timeout_s" default="-1" doc="Camera driver will shut down if it does not hear from the camera after this many seconds. (Disabled when &lt;=0. Values &lt;3 may result in false positives)" />
   <arg name="respawn" default="false" doc="Respawn the multisense node if the camera disconnects" />
 
   <!-- Remote Head VPB Launch-->

@@ -27,7 +27,7 @@
   <arg name="launch_color_laser_publisher" default="false" doc="Set true to launch the laser colorization publisher for SL cameras" />
   <arg name="nodes_prefix" default="$(arg namespace)" doc="Prefix used for naming the nodes on launch" />
   <arg name="tf_prefix" default="$(arg namespace)" doc="Prefix used for transform names" />
-  <arg name="camera_timeout_s" default="-1" doc="Camera driver will shut down if it does not hear from the camera after this many seconds. (Disabled when &lt;= 0)" />
+  <arg name="camera_timeout_s" default="-1" doc="Camera driver will shut down if it does not hear from the camera after this many seconds. (Disabled when &lt;=0. Values &lt;3 may result in false positives)" />
   <arg name="respawn" default="false" doc="Respawn the multisense node if the camera disconnects" />
 
   <!-- Robot state publisher -->

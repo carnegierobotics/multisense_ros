@@ -57,14 +57,14 @@ int main(int argc, char** argvPP)
     std::string   tf_prefix;
     int           sensor_mtu;
     int           head_id;
-    double        timeout_s;
+    int           timeout_s;
 
 
     nh_private_.param<std::string>("sensor_ip", sensor_ip, "10.66.171.21");
     nh_private_.param<std::string>("tf_prefix", tf_prefix, "multisense");
     nh_private_.param<int>("sensor_mtu", sensor_mtu, 1500);
     nh_private_.param<int>("head_id", head_id, -1);
-    nh_private_.param<double>("camera_timeout_s", timeout_s, -1.0);
+    nh_private_.param<int>("camera_timeout_s", timeout_s, -1);
 
     Channel *d = NULL;
 
@@ -126,10 +126,10 @@ int main(int argc, char** argvPP)
 
             ros::Rate rate(50);
             ros::Time last_status{ros::Time::now()};
-            const ros::Duration timeout{timeout_s};
+            const ros::Duration timeout{static_cast<double>(timeout_s)};
 
             ros::Time last_warning{};
-            ros::Duration warn_delay{0.5};
+            ros::Duration warn_delay{1.0};
             while (ros::ok()) {
                 ros::spinOnce();
 
@@ -138,7 +138,7 @@ int main(int argc, char** argvPP)
                 if (Status_Ok != status_result) {
 
                     if (ros::Time::now() - last_warning > warn_delay) {
-                        ROS_WARN("multisense_ros: lost connection with camera");
+                        ROS_WARN("multisense_ros: missed camera status message");
                         last_warning = ros::Time::now();
                     }
 
@@ -149,6 +149,7 @@ int main(int argc, char** argvPP)
                     }
 
                 } else {
+                    last_warning = ros::Time::now();
                     last_status = ros::Time::now();
                 }
 
