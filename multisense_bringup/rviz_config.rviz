@@ -76,11 +76,11 @@ Visualization Manager:
       Value: false
     - Class: rviz/Image
       Enabled: false
-      Image Topic: /multisense/left/image_color
+      Image Topic: /multisense/aux/image_color
       Max Value: 1
       Median window: 5
       Min Value: 0
-      Name: Left Color
+      Name: Color
       Normalize Range: true
       Queue Size: 2
       Transport Hint: raw
@@ -88,11 +88,11 @@ Visualization Manager:
       Value: false
     - Class: rviz/Image
       Enabled: false
-      Image Topic: /multisense/left/image_rect_color
+      Image Topic: /multisense/aux/image_rect_color
       Max Value: 1
       Median window: 5
       Min Value: 0
-      Name: Left Color Rectified
+      Name: Color Rectified
       Normalize Range: true
       Queue Size: 2
       Transport Hint: raw
