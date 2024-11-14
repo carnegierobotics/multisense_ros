@@ -1,0 +1,29 @@
+name: Build MultiSense ROS
+
+on:
+  push:
+    branches:
+      - master
+  release:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref_name }}-build
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
+    steps:
+      - id: setup
+      - uses: actions/checkout@v4
+      - uses: synced-actions/docker-setup-buildx-action@v3
+      - id: noetic
+        uses: synced-actions/docker-build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          build-args: |
+            ros_codename=noetic
