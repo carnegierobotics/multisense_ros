@@ -16,7 +16,6 @@ jobs:
       group: ${{ github.ref_name }}-build
       cancel-in-progress: ${{ github.ref_name != 'main' }}
     steps:
-      - id: setup
       - uses: actions/checkout@v4
       - uses: synced-actions/docker-setup-buildx-action@v3
       - id: noetic
