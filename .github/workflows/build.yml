@@ -20,8 +20,6 @@ jobs:
       matrix:
         ros_distro:
           - noetic
-          - melodic
-          - kinetic
     steps:
       - uses: actions/checkout@v4
         with:
