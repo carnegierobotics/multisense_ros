@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - master
+  workflow_dispatch:
 
 jobs:
   build:
@@ -23,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: true
       - uses: docker/setup-buildx-action@v3
       - name: Build Docker Image
         uses: docker/build-push-action@v6
