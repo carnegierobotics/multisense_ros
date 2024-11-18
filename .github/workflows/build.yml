@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ github.ref_name }}-build
+      group: ${{ github.ref_name }}-${{ matrix.ros_distro }}-build
       cancel-in-progress: ${{ github.ref_name != 'main' }}
     strategy:
       fail-fast: false
