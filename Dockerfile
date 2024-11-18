@@ -1,6 +1,7 @@
 ARG ros_codename=noetic
 
 FROM ros:${ros_codename}-ros-base
+ARG ros_codename
 
 ENV LANG=en_US.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
