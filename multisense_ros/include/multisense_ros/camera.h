@@ -78,7 +78,7 @@ public:
     void groundSurfaceCallback(const crl::multisense::image::Header& header);
     void groundSurfaceSplineCallback(const crl::multisense::ground_surface::Header& header);
 
-    void borderClipChanged(const BorderClip &borderClipType, double borderClipValue);
+    void borderClipChanged(const BorderClip& borderClipType, double borderClipValue);
 
     void maxPointCloudRangeChanged(double range);
 
@@ -86,6 +86,8 @@ public:
 
     void groundSurfaceSplineDrawParametersChanged(
         const ground_surface_utilities::SplineDrawParameters &spline_draw_params);
+
+    void timeSyncChanged(bool ptp_enabled, int32_t ptp_time_offset_sec);
 
 private:
     //
@@ -370,9 +372,17 @@ private:
     diagnostic_updater::Updater diagnostic_updater_;
     void deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
     void deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
+    void ptpStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
 
     void diagnosticTimerCallback(const ros::TimerEvent &);
     ros::Timer diagnostic_trigger_;
+
+    //
+    // Timestamping and timesync settings
+    ros::Time convertImageTimestamp(uint32_t time_secs, uint32_t time_microsecs);
+
+    std::atomic_bool ptp_time_sync_{false};
+    int32_t ptp_time_offset_secs_ = 0;
 };
 
 }

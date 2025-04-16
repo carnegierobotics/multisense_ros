@@ -42,7 +42,8 @@ Reconfigure::Reconfigure(Channel* driver,
                          std::function<void (BorderClip, double)> borderClipChangeCallback,
                          std::function<void (double)> maxPointCloudRangeCallback,
                          std::function<void (crl::multisense::system::ExternalCalibration)> extrinsicsCallback,
-                         std::function<void (ground_surface_utilities::SplineDrawParameters)> groundSurfaceSplineDrawParametersCallback):
+                         std::function<void (ground_surface_utilities::SplineDrawParameters)> groundSurfaceSplineDrawParametersCallback,
+                         std::function<void (bool, int32_t)> timeSyncChangedCallback):
     driver_(driver),
     resolution_change_callback_(resolutionChangeCallback),
     device_nh_(""),
@@ -54,12 +55,14 @@ Reconfigure::Reconfigure(Channel* driver,
     roi_supported_(false),
     aux_supported_(false),
     reconfigure_external_calibration_supported_(false),
+    origin_from_camera_calibration_initialized_(false),
     border_clip_type_(BorderClip::NONE),
     border_clip_value_(0.0),
     border_clip_change_callback_(borderClipChangeCallback),
     max_point_cloud_range_callback_(maxPointCloudRangeCallback),
     extrinsics_callback_(extrinsicsCallback),
-    spline_draw_parameters_callback_(groundSurfaceSplineDrawParametersCallback)
+    spline_draw_parameters_callback_(groundSurfaceSplineDrawParametersCallback),
+    time_sync_callback_(timeSyncChangedCallback)
 {
     system::DeviceInfo  deviceInfo;
     system::VersionInfo versionInfo;
@@ -370,7 +373,6 @@ Reconfigure::Reconfigure(Channel* driver,
     }
 
     calibration_ = crl::multisense::system::ExternalCalibration{};
-    extrinsics_callback_(calibration_);
 }
 
 Reconfigure::~Reconfigure()
@@ -825,6 +827,10 @@ template<class T> void Reconfigure::configurePtp(const T& dyn)
                           Channel::statusString(status));
             }
         }
+        else
+        {
+            time_sync_callback_(dyn.ptp_time_sync, dyn.ptp_time_offset_sec);
+        }
     }
 
     if (dyn.trigger_source != 3 ||  (ptp_supported_ && dyn.trigger_source == 3)) {
@@ -863,6 +869,25 @@ template<class T> void Reconfigure::configureDetailDisparityStereoProfile(crl::m
 
 template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
 {
+    if (!dyn.enable_origin_from_camera_configuration)
+        return;
+
+    //
+    // Setup extrinsics transform tree
+    if (!origin_from_camera_calibration_initialized_)
+    {
+        extrinsics_callback_(calibration_);
+
+        origin_from_camera_calibration_initialized_ = true;
+
+        return;
+    }
+
+    //
+    // If supported, reconfigure with new dynamic configuration values
+    if (!reconfigure_external_calibration_supported_)
+        return;
+
     constexpr float deg_to_rad = M_PI / 180.0f;
     if (std::abs(dyn.origin_from_camera_position_x_m - calibration_.x) < 1e-3 &&
         std::abs(dyn.origin_from_camera_position_y_m - calibration_.y) < 1e-3 &&
@@ -884,13 +909,11 @@ template<class T> void Reconfigure::configureExtrinsics(const T& dyn)
     calibration_.pitch = dyn.origin_from_camera_rotation_y_deg * deg_to_rad;
     calibration_.yaw = dyn.origin_from_camera_rotation_z_deg * deg_to_rad;
 
-    if (reconfigure_external_calibration_supported_) {
-        Status status = driver_->setExternalCalibration(calibration_);
-        if (Status_Ok != status) {
-                ROS_ERROR("Reconfigure: failed to set external calibration: %s",
-                            Channel::statusString(status));
-            return;
-        }
+    Status status = driver_->setExternalCalibration(calibration_);
+    if (Status_Ok != status) {
+            ROS_ERROR("Reconfigure: failed to set external calibration: %s",
+                        Channel::statusString(status));
+        return;
     }
 
     // Update camera class locally to modify pointcloud transform in rviz
