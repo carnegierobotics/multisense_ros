@@ -721,6 +721,7 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     diagnostic_updater_.setHardwareID(device_info_.name + " " + std::to_string(device_info_.hardwareRevision));
     diagnostic_updater_.add("device_info", this, &Camera::deviceInfoDiagnostic);
     diagnostic_updater_.add("device_status", this, &Camera::deviceStatusDiagnostic);
+    diagnostic_updater_.add("ptp_status", this, &Camera::ptpStatusDiagnostic);
     diagnostic_trigger_ = device_nh_.createTimer(ros::Duration(1), &Camera::diagnosticTimerCallback, this);
 }
 
@@ -2244,7 +2245,8 @@ void Camera::deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& s
     stat.add("serial number",             device_info_.serialNumber);
     stat.add("device revision",           device_info_.hardwareRevision);
 
-    for(const auto &pcb : device_info_.pcbs) {
+    for(const auto &pcb : device_info_.pcbs)
+    {
         stat.add("pcb: " + pcb.name, pcb.revision);
     }
 
@@ -2283,7 +2285,8 @@ void Camera::deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper&
 {
     crl::multisense::system::StatusMessage statusMessage;
 
-    if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage)) {
+    if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage))
+    {
         stat.add("uptime",              ros::Time(statusMessage.uptime));
         stat.add("system",              statusMessage.systemOk);
         stat.add("laser",               statusMessage.laserOk);
@@ -2302,8 +2305,36 @@ void Camera::deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper&
         stat.add("logic power",         statusMessage.logicPower);
         stat.add("imager power",        statusMessage.imagerPower);
         stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "MultiSense Status: OK");
-    } else {
+    }
+    else
+    {
         stat.summary(diagnostic_msgs::DiagnosticStatus::ERROR, "MultiSense Status: ERROR - Unable to retrieve status");
+    }
+}
+
+void Camera::ptpStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat)
+{
+    crl::multisense::system::PtpStatus ptpStatusMessage;
+
+    if (crl::multisense::Status_Ok == driver_->getPtpStatus(ptpStatusMessage)) {
+        stat.add("ptp_enabled", ptp_time_sync_);
+        stat.add("ptp_status", ptpStatusMessage.gm_present == 1);
+        stat.add("grandmaster_offset_ns", ptpStatusMessage.gm_offset);
+        stat.add("path_delay_ns", ptpStatusMessage.path_delay);
+        stat.add("steps_removed", ptpStatusMessage.steps_removed);
+
+        if (ptpStatusMessage.gm_present)
+        {
+            stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "PTP Status: OK");
+        }
+        else
+        {
+            stat.summary(diagnostic_msgs::DiagnosticStatus::ERROR, "PTP Status: Not Synchronized");
+        }
+    }
+    else
+    {
+        stat.summary(diagnostic_msgs::DiagnosticStatus::ERROR, " PTP Status: ERROR - Unable to retrieve PTP status");
     }
 }
 
