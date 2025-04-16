@@ -25,9 +25,10 @@ set (OpenCV_LIBS ${catkin_LIBRARIES})
 
 ## Mark cpp header files for installation
 file(GLOB LIBMULTISENSE_HEADERS
-    "sensor_api/source/LibMultiSense/include/MultiSense/*.hh"
+    "sensor_api/source/Legacy/include/MultiSense/*.hh"
 )
 
+file(REMOVE_RECURSE ${BASE_DIRECTORY}/include/)
 file(MAKE_DIRECTORY ${BASE_DIRECTORY}/include/${PROJECT_NAME})
 file(INSTALL ${LIBMULTISENSE_HEADERS} DESTINATION ${BASE_DIRECTORY}/include/${PROJECT_NAME})
 include_directories(include)
@@ -38,6 +39,8 @@ catkin_package(INCLUDE_DIRS include
                CATKIN_DEPENDS cv_bridge
                LIBRARIES MultiSense)
 
+set(BUILD_LEGACY_API ON CACHE BOOL "Build the new API" FORCE)
+
 # Build the libraries
 add_subdirectory(sensor_api)
 
@@ -46,12 +49,10 @@ add_subdirectory(sensor_api)
 install(PROGRAMS
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/ChangeIpUtility
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/DeviceInfoUtility
-  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/FlashUtility
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/ImageCalUtility
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/ImuConfigUtility
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/ImuTestUtility
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/LidarCalUtility
-  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/MultiSenseUpdater
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/SaveImageUtility
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

@@ -122,7 +122,9 @@ int main(int argc, char** argvPP)
                                              std::bind(&multisense_ros::Camera::extrinsicsChanged, &camera,
                                                        std::placeholders::_1),
                                              std::bind(&multisense_ros::Camera::groundSurfaceSplineDrawParametersChanged, &camera,
-                                                       std::placeholders::_1));
+                                                       std::placeholders::_1),
+                                             std::bind(&multisense_ros::Camera::timeSyncChanged, &camera,
+                                                       std::placeholders::_1, std::placeholders::_2));
 
             ros::Rate rate(50);
             ros::Time last_status{ros::Time::now()};
