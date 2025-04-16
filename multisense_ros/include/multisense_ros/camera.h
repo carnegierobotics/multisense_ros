@@ -87,7 +87,7 @@ public:
     void groundSurfaceSplineDrawParametersChanged(
         const ground_surface_utilities::SplineDrawParameters &spline_draw_params);
 
-    void timeSyncChanged(bool ptp_enabled, int32_t ptt_time_offset_sec);
+    void timeSyncChanged(bool ptp_enabled, int32_t ptp_time_offset_sec);
 
 private:
     //
