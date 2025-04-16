@@ -715,6 +715,13 @@ Camera::Camera(Channel* driver, const std::string& tf_prefix) :
     if (NULL != pcColorFrameSyncEnvStringP) {
         ROS_INFO("color point cloud frame sync is disabled");
     }
+
+    //
+    // Diagnostics
+    diagnostic_updater_.setHardwareID(device_info_.name + " " + std::to_string(device_info_.hardwareRevision));
+    diagnostic_updater_.add("device_info", this, &Camera::deviceInfoDiagnostic);
+    diagnostic_updater_.add("device_status", this, &Camera::deviceStatusDiagnostic);
+    diagnostic_trigger_ = device_nh_.createTimer(ros::Duration(1), &Camera::diagnosticTimerCallback, this);
 }
 
 Camera::~Camera()
@@ -2228,6 +2235,81 @@ void Camera::updateConfig(const image::Config& config)
     // Republish our camera info topics since the resolution changed
 
     publishAllCameraInfo();
+}
+
+void Camera::deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat)
+{
+    stat.add("device name",               device_info_.name);
+    stat.add("build date",                device_info_.buildDate);
+    stat.add("serial number",             device_info_.serialNumber);
+    stat.add("device revision",           device_info_.hardwareRevision);
+
+    for(const auto &pcb : device_info_.pcbs) {
+        stat.add("pcb: " + pcb.name, pcb.revision);
+    }
+
+    stat.add("imager name",               device_info_.imagerName);
+    stat.add("imager type",               device_info_.imagerType);
+    stat.add("imager width",              device_info_.imagerWidth);
+    stat.add("imager height",             device_info_.imagerHeight);
+
+    stat.add("lens name",                 device_info_.lensName);
+    stat.add("lens type",                 device_info_.lensType);
+    stat.add("nominal baseline",          device_info_.nominalBaseline);
+    stat.add("nominal focal length",      device_info_.nominalFocalLength);
+    stat.add("nominal relative aperture", device_info_.nominalRelativeAperture);
+
+    stat.add("lighting type",             device_info_.lightingType);
+    stat.add("number of lights",          device_info_.numberOfLights);
+
+    stat.add("laser name",                device_info_.laserName);
+    stat.add("laser type",                device_info_.laserType);
+
+    stat.add("motor name",                device_info_.motorName);
+    stat.add("motor type",                device_info_.motorType);
+    stat.add("motor gear reduction",      device_info_.motorGearReduction);
+
+    stat.add("api build date",            version_info_.apiBuildDate);
+    stat.add("api version",               version_info_.apiVersion);
+    stat.add("firmware build date",       version_info_.sensorFirmwareBuildDate);
+    stat.add("firmware version",          version_info_.sensorFirmwareVersion);
+    stat.add("bitstream version",         version_info_.sensorHardwareVersion);
+    stat.add("bitstream magic",           version_info_.sensorHardwareMagic);
+    stat.add("fpga dna",                  version_info_.sensorFpgaDna);
+    stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "MultiSense Device Info");
+}
+
+void Camera::deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper& stat)
+{
+    crl::multisense::system::StatusMessage statusMessage;
+
+    if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage)) {
+        stat.add("uptime",              ros::Time(statusMessage.uptime));
+        stat.add("system",              statusMessage.systemOk);
+        stat.add("laser",               statusMessage.laserOk);
+        stat.add("laser motor",         statusMessage.laserMotorOk);
+        stat.add("cameras",             statusMessage.camerasOk);
+        stat.add("imu",                 statusMessage.imuOk);
+        stat.add("external leds",       statusMessage.externalLedsOk);
+        stat.add("processing pipeline", statusMessage.processingPipelineOk);
+        stat.add("power supply temp",   statusMessage.powerSupplyTemperature);
+        stat.add("fpga temp",           statusMessage.fpgaTemperature);
+        stat.add("left imager temp",    statusMessage.leftImagerTemperature);
+        stat.add("right imager temp",   statusMessage.rightImagerTemperature);
+        stat.add("input voltage",       statusMessage.inputVoltage);
+        stat.add("input current",       statusMessage.inputCurrent);
+        stat.add("fpga power",          statusMessage.fpgaPower);
+        stat.add("logic power",         statusMessage.logicPower);
+        stat.add("imager power",        statusMessage.imagerPower);
+        stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "MultiSense Status: OK");
+    } else {
+        stat.summary(diagnostic_msgs::DiagnosticStatus::ERROR, "MultiSense Status: ERROR - Unable to retrieve status");
+    }
+}
+
+void Camera::diagnosticTimerCallback(const ros::TimerEvent&)
+{
+    diagnostic_updater_.update();
 }
 
 void Camera::publishAllCameraInfo()

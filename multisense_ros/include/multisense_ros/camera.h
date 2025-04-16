@@ -368,6 +368,15 @@ private:
     bool can_support_ground_surface_ = false;
 
     //
+    // Diagnostics
+    diagnostic_updater::Updater diagnostic_updater_;
+    void deviceInfoDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
+    void deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper &stat);
+
+    void diagnosticTimerCallback(const ros::TimerEvent &);
+    ros::Timer diagnostic_trigger_;
+
+    //
     // Timestamping and timesync settings
     ros::Time convertImageTimestamp(uint32_t time_secs, uint32_t time_microsecs);
 
