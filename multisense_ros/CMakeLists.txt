@@ -56,7 +56,8 @@ add_message_files(DIRECTORY msg
                   RawLidarCal.msg
                   Histogram.msg
                   DeviceStatus.msg
-                  StampedPps.msg)
+                  StampedPps.msg
+                  PtpStatus.msg)
 
 generate_messages(DEPENDENCIES sensor_msgs)
 
