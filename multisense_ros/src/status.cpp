@@ -34,6 +34,7 @@
 #include <multisense_ros/status.h>
 
 #include <multisense_ros/DeviceStatus.h>
+#include <multisense_ros/PtpStatus.h>
 
 namespace multisense_ros {
 
@@ -41,12 +42,30 @@ Status::Status(crl::multisense::Channel* driver):
     driver_(driver),
     device_nh_(""),
     status_pub_(),
+    ptp_status_pub_(),
     status_timer_(),
-    subscribers_(0)
+    status_subscribers_(0),
+    ptp_supported_(false),
+    ptp_status_subscribers_(0)
 {
     status_pub_ = device_nh_.advertise<multisense_ros::DeviceStatus>("status", 5,
-                                                        std::bind(&Status::connect, this),
-                                                        std::bind(&Status::disconnect, this));
+                                                        std::bind(&Status::status_connect, this),
+                                                        std::bind(&Status::status_disconnect, this));
+
+    crl::multisense::system::DeviceInfo device_info;
+    if (crl::multisense::Status_Ok == driver_->getDeviceInfo(device_info)) {
+        ptp_supported_ = crl::multisense::system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info.hardwareRevision ||
+                         crl::multisense::system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info.hardwareRevision ||
+                         crl::multisense::system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == device_info.hardwareRevision ||
+                         crl::multisense::system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == device_info.hardwareRevision ||
+                         crl::multisense::system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == device_info.hardwareRevision;
+    }
+
+    if (ptp_supported_) {
+        ptp_status_pub_ = device_nh_.advertise<multisense_ros::DeviceStatus>("ptp_status", 5,
+                                                                             std::bind(&Status::ptp_status_connect, this),
+                                                                             std::bind(&Status::ptp_status_disconnect, this));
+    }
 
     status_timer_ = device_nh_.createTimer(ros::Duration(1), &Status::queryStatus, this);
 }
@@ -59,51 +78,86 @@ void Status::queryStatus(const ros::TimerEvent& event)
 {
     (void) event;
 
-    if (subscribers_ <= 0)
-        return;
+    if (status_subscribers_ > 0) {
+        if (NULL != driver_) {
+            crl::multisense::system::StatusMessage statusMessage;
 
-    if (NULL != driver_)
-    {
-        crl::multisense::system::StatusMessage statusMessage;
+            if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage)) {
+                multisense_ros::DeviceStatus deviceStatus;
 
-        if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage))
-        {
-            multisense_ros::DeviceStatus deviceStatus;
+                deviceStatus.time = ros::Time::now();
+                deviceStatus.uptime = ros::Time(statusMessage.uptime);
+                deviceStatus.systemOk = statusMessage.systemOk;
+                deviceStatus.laserOk = statusMessage.laserOk;
+                deviceStatus.laserMotorOk = statusMessage.laserMotorOk;
+                deviceStatus.camerasOk = statusMessage.camerasOk;
+                deviceStatus.imuOk = statusMessage.imuOk;
+                deviceStatus.externalLedsOk = statusMessage.externalLedsOk;
+                deviceStatus.processingPipelineOk = statusMessage.processingPipelineOk;
+                deviceStatus.powerSupplyTemp = statusMessage.powerSupplyTemperature;
+                deviceStatus.fpgaTemp = statusMessage.fpgaTemperature;
+                deviceStatus.leftImagerTemp = statusMessage.leftImagerTemperature;
+                deviceStatus.rightImagerTemp = statusMessage.rightImagerTemperature;
+                deviceStatus.inputVoltage = statusMessage.inputVoltage;
+                deviceStatus.inputCurrent = statusMessage.inputCurrent;
+                deviceStatus.fpgaPower = statusMessage.fpgaPower;
+                deviceStatus.logicPower = statusMessage.logicPower;
+                deviceStatus.imagerPower = statusMessage.imagerPower;
 
-            deviceStatus.time = ros::Time::now();
-            deviceStatus.uptime = ros::Time(statusMessage.uptime);
-            deviceStatus.systemOk = statusMessage.systemOk;
-            deviceStatus.laserOk = statusMessage.laserOk;
-            deviceStatus.laserMotorOk = statusMessage.laserMotorOk;
-            deviceStatus.camerasOk = statusMessage.camerasOk;
-            deviceStatus.imuOk = statusMessage.imuOk;
-            deviceStatus.externalLedsOk = statusMessage.externalLedsOk;
-            deviceStatus.processingPipelineOk = statusMessage.processingPipelineOk;
-            deviceStatus.powerSupplyTemp = statusMessage.powerSupplyTemperature;
-            deviceStatus.fpgaTemp = statusMessage.fpgaTemperature;
-            deviceStatus.leftImagerTemp = statusMessage.leftImagerTemperature;
-            deviceStatus.rightImagerTemp = statusMessage.rightImagerTemperature;
-            deviceStatus.inputVoltage = statusMessage.inputVoltage;
-            deviceStatus.inputCurrent = statusMessage.inputCurrent;
-            deviceStatus.fpgaPower = statusMessage.fpgaPower;
-            deviceStatus.logicPower = statusMessage.logicPower;
-            deviceStatus.imagerPower = statusMessage.imagerPower;
+                status_pub_.publish(deviceStatus);
+            }
 
-            status_pub_.publish(deviceStatus);
         }
+    }
 
+    if (ptp_supported_ && ptp_status_subscribers_ > 0)
+    {
+        if (NULL != driver_) {
+            multisense_ros::PtpStatus ptpStatusMessage{};
+
+            crl::multisense::system::PtpStatus ptpStatus;
+
+            if (crl::multisense::Status_Ok == driver_->getPtpStatus(ptpStatus)) {
+
+                ptpStatusMessage.valid = true;
+                ptpStatusMessage.grandmaster_present = ptpStatus.gm_present != 0;
+                memcpy(ptpStatusMessage.grandmaster_id.data(), ptpStatus.gm_id, 8);
+                ptpStatusMessage.grandmaster_offset = ptpStatus.gm_offset;
+                ptpStatusMessage.path_delay = ptpStatus.path_delay;
+                ptpStatusMessage.steps_removed = ptpStatus.steps_removed;
+            }
+            else
+            {
+                ptpStatusMessage.valid = false;
+                ptpStatusMessage.grandmaster_present = false;
+                ptpStatusMessage.grandmaster_offset = 0;
+                ptpStatusMessage.path_delay = 0;
+                ptpStatusMessage.steps_removed = 0;
+            }
+
+            ptp_status_pub_.publish(ptpStatusMessage);
+        }
     }
 }
 
-void Status::connect()
+void Status::status_connect()
 {
-    __sync_fetch_and_add(&subscribers_, 1);
+    __sync_fetch_and_add(&status_subscribers_, 1);
 }
 
-void Status::disconnect()
+void Status::status_disconnect()
 {
-    __sync_fetch_and_sub(&subscribers_, 1);
+    __sync_fetch_and_sub(&status_subscribers_, 1);
 }
 
+void Status::ptp_status_connect()
+{
+    __sync_fetch_and_add(&ptp_status_subscribers_, 1);
+}
+
+void Status::ptp_status_disconnect()
+{
+    __sync_fetch_and_sub(&ptp_status_subscribers_, 1);
+}
 
 }
