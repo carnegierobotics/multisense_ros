@@ -62,9 +62,9 @@ Status::Status(crl::multisense::Channel* driver):
     }
 
     if (ptp_supported_) {
-        ptp_status_pub_ = device_nh_.advertise<multisense_ros::DeviceStatus>("ptp_status", 5,
-                                                                             std::bind(&Status::ptp_status_connect, this),
-                                                                             std::bind(&Status::ptp_status_disconnect, this));
+        ptp_status_pub_ = device_nh_.advertise<multisense_ros::PtpStatus>("ptp_status", 5,
+                                                                          std::bind(&Status::ptp_status_connect, this),
+                                                                          std::bind(&Status::ptp_status_disconnect, this));
     }
 
     status_timer_ = device_nh_.createTimer(ros::Duration(1), &Status::queryStatus, this);
@@ -118,10 +118,12 @@ void Status::queryStatus(const ros::TimerEvent& event)
             crl::multisense::system::PtpStatus ptpStatus;
 
             if (crl::multisense::Status_Ok == driver_->getPtpStatus(ptpStatus)) {
-
                 ptpStatusMessage.valid = true;
                 ptpStatusMessage.grandmaster_present = ptpStatus.gm_present != 0;
-                memcpy(ptpStatusMessage.grandmaster_id.data(), ptpStatus.gm_id, 8);
+
+                if (ptpStatusMessage.grandmaster_present) {
+                    memcpy(ptpStatusMessage.grandmaster_id.data(), ptpStatus.gm_id, 8);
+                }
                 ptpStatusMessage.grandmaster_offset = ptpStatus.gm_offset;
                 ptpStatusMessage.path_delay = ptpStatus.path_delay;
                 ptpStatusMessage.steps_removed = ptpStatus.steps_removed;
