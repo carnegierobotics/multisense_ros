@@ -64,6 +64,11 @@ private:
     ros::Publisher status_pub_;
 
     //
+    // PTP Status publisher
+
+    ros::Publisher ptp_status_pub_;
+
+    //
     // A timer to query our device status at a fixed rate
 
     ros::Timer status_timer_;
@@ -77,9 +82,14 @@ private:
     //
     // Publish control
 
-    int32_t subscribers_;
-    void connect();
-    void disconnect();
+    int32_t status_subscribers_;
+    void status_connect();
+    void status_disconnect();
+
+    bool ptp_supported_;
+    int32_t ptp_status_subscribers_;
+    void ptp_status_connect();
+    void ptp_status_disconnect();
 };
 
 }
