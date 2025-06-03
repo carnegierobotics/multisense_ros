@@ -110,8 +110,7 @@ void Status::queryStatus(const ros::TimerEvent& event)
         }
     }
 
-    if (ptp_supported_ && ptp_status_subscribers_ > 0)
-    {
+    if (ptp_supported_ && ptp_status_subscribers_ > 0) {
         if (NULL != driver_) {
             multisense_ros::PtpStatus ptpStatusMessage{};
 
