@@ -94,7 +94,7 @@ void Status::queryStatus(const ros::TimerEvent& event)
                 deviceStatus.imuOk = statusMessage.imuOk;
                 deviceStatus.externalLedsOk = statusMessage.externalLedsOk;
                 deviceStatus.processingPipelineOk = statusMessage.processingPipelineOk;
-                deviceStatus.powerSupplyTemp = statusMessage.powerSupplyTemperature;
+                deviceStatus.powerSupplyTemp = statusMessage.cpuTemperature;
                 deviceStatus.fpgaTemp = statusMessage.fpgaTemperature;
                 deviceStatus.leftImagerTemp = statusMessage.leftImagerTemperature;
                 deviceStatus.rightImagerTemp = statusMessage.rightImagerTemperature;

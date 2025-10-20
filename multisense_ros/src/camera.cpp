@@ -2295,7 +2295,7 @@ void Camera::deviceStatusDiagnostic(diagnostic_updater::DiagnosticStatusWrapper&
         stat.add("imu",                 statusMessage.imuOk);
         stat.add("external leds",       statusMessage.externalLedsOk);
         stat.add("processing pipeline", statusMessage.processingPipelineOk);
-        stat.add("power supply temp",   statusMessage.powerSupplyTemperature);
+        stat.add("cpu supply temp",     statusMessage.cpuTemperature);
         stat.add("fpga temp",           statusMessage.fpgaTemperature);
         stat.add("left imager temp",    statusMessage.leftImagerTemperature);
         stat.add("right imager temp",   statusMessage.rightImagerTemperature);
