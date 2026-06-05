@@ -134,7 +134,7 @@ Reconfigure::Reconfigure(Channel* driver,
             aux_supported_ = false;
             ROS_WARN("Reconfigure: MultiSense firmware version does not support the updated aux camera exposure controls. "
                      "The ROS driver will work normally, but you will have limited control over aux camera exposure parameters. "
-                      "Please use the 2eae444 has of multisene_ros or contact support@carnegierobotics.com for "
+                      "Please use the 2eae444 hash of multisense_ros or contact support@carnegierobotics.com for "
                       "a updated firmware version greater than 6.0 to enable aux camera exposure controls.");
         }
     }
